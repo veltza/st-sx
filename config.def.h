@@ -35,6 +35,9 @@ char *stty_args = "stty raw pass8 nl -echo -iexten -cstopb 38400";
 /* identification sequence returned in DA and DECID */
 char *vtiden = "\033[?12;4c";
 
+/* remove black bars from sixel images */
+int const sixelremovebars = 1;
+
 /* Kerning / character bounding-box multipliers */
 static float cwscale = 1.0;
 static float chscale = 1.0;
