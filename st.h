@@ -27,23 +27,26 @@
 #define TRUECOLOR(r,g,b)	(1 << 24 | (r) << 16 | (g) << 8 | (b))
 #define IS_TRUECOL(x)		(1 << 24 & (x))
 #define HISTSIZE      2000
+#define RESIZEBUFFER  (HISTSIZE / 2)
 
 enum glyph_attribute {
 	ATTR_NULL       = 0,
-	ATTR_BOLD       = 1 << 0,
-	ATTR_FAINT      = 1 << 1,
-	ATTR_ITALIC     = 1 << 2,
-	ATTR_UNDERLINE  = 1 << 3,
-	ATTR_BLINK      = 1 << 4,
-	ATTR_REVERSE    = 1 << 5,
-	ATTR_INVISIBLE  = 1 << 6,
-	ATTR_STRUCK     = 1 << 7,
-	ATTR_WRAP       = 1 << 8,
-	ATTR_WIDE       = 1 << 9,
-	ATTR_WDUMMY     = 1 << 10,
-	ATTR_BOXDRAW    = 1 << 11,
-	ATTR_LIGA       = 1 << 12,
-	ATTR_SIXEL      = 1 << 13,
+	ATTR_SET        = 1 << 0,
+	ATTR_BOLD       = 1 << 1,
+	ATTR_FAINT      = 1 << 2,
+	ATTR_ITALIC     = 1 << 3,
+	ATTR_UNDERLINE  = 1 << 4,
+	ATTR_BLINK      = 1 << 5,
+	ATTR_REVERSE    = 1 << 6,
+	ATTR_INVISIBLE  = 1 << 7,
+	ATTR_STRUCK     = 1 << 8,
+	ATTR_WRAP       = 1 << 9,
+	ATTR_WIDE       = 1 << 10,
+	ATTR_WDUMMY     = 1 << 11,
+	ATTR_SELECTED   = 1 << 12,
+	ATTR_BOXDRAW    = 1 << 13,
+	ATTR_LIGA       = 1 << 14,
+	ATTR_SIXEL      = 1 << 15,
 	ATTR_BOLD_FAINT = ATTR_BOLD | ATTR_FAINT,
 };
 
@@ -120,11 +123,11 @@ typedef struct {
 	int row;      /* nb row */
 	int col;      /* nb col */
 	Line *line;   /* screen */
-	Line *alt;    /* alternate screen */
 	Line hist[HISTSIZE]; /* history buffer */
-	int histi;    /* history index */
-	int histn;    /* number of history entries */
-	int scr;      /* scroll back */
+	int histi;           /* history index */
+	int histf;           /* nb history available */
+	int scr;             /* scroll back */
+	int wrapcwidth[2];   /* used in updating WRAPNEXT when resizing */
 	int *dirty;   /* dirtyness of lines */
 	TCursor c;    /* cursor */
 	int ocx;      /* old cursor col */

@@ -1,5 +1,3 @@
-#define TLINEURL(y) TLINE(y)
-
 int url_x1, url_y1, url_x2, url_y2 = -1;
 int url_draw, url_click, url_maxcol;
 
@@ -22,9 +20,9 @@ findeowl(int row)
 	int col = term.col - 1;
 
 	do {
-		if (TLINEURL(row)[col].mode & ATTR_WRAP)
+		if (TLINE(row)[col].mode & ATTR_WRAP)
 			return col;
-	} while (TLINEURL(row)[col].u == ' ' && --col >= 0);
+	} while (TLINE(row)[col].u == ' ' && --col >= 0);
 	return -1;
 }
 
@@ -44,7 +42,7 @@ detecturl(int col, int row, int draw)
 	int row_start = row;
 	int col_start = col;
 	int i = sizeof(url)/2+1, j = sizeof(url)/2;
-	int minrow = term.scr - term.histn, maxrow = term.scr + term.row - 1;
+	int minrow = term.scr - term.histf, maxrow = term.scr + term.row - 1;
 	/* Fixme: MODE_ALTSCREEN is not defined here, I had to use the magic number 1<<2 */
 	if ((term.mode & (1 << 2)) != 0)
 		minrow = 0, maxrow = term.row - 1;
@@ -54,19 +52,19 @@ detecturl(int col, int row, int draw)
 	if (draw)
 		clearurl();
 
-	if (!isvalidurlchar(TLINEURL(row)[col].u))
+	if (!isvalidurlchar(TLINE(row)[col].u))
 		return NULL;
 
 	/* find the first character of url */
 	do {
 		x1 = col_start, y1 = row_start;
 		url_maxcol = MAX(url_maxcol, x1);
-		url[--i] = TLINEURL(row_start)[col_start].u;
+		url[--i] = TLINE(row_start)[col_start].u;
 		if (--col_start < 0) {
 			if (--row_start < minrow || (col_start = findeowl(row_start)) < 0)
 				break;
 		}
-	} while (i > 0 && isvalidurlchar(TLINEURL(row_start)[col_start].u));
+	} while (i > 0 && isvalidurlchar(TLINE(row_start)[col_start].u));
 
 	/* early detection */
 	if (url[i] != 'h')
@@ -76,14 +74,14 @@ detecturl(int col, int row, int draw)
 	do {
 		x2 = col, y2 = row;
 		url_maxcol = MAX(url_maxcol, x2);
-		url[j++] = TLINEURL(row)[col].u;
-		wrapped = TLINEURL(row)[col].mode & ATTR_WRAP;
+		url[j++] = TLINE(row)[col].u;
+		wrapped = TLINE(row)[col].mode & ATTR_WRAP;
 		if (++col >= term.col || wrapped) {
 			col = 0;
 			if (++row > maxrow || !wrapped)
 				break;
 		}
-	} while (j < sizeof(url)-1 && isvalidurlchar(TLINEURL(row)[col].u));
+	} while (j < sizeof(url)-1 && isvalidurlchar(TLINE(row)[col].u));
 
 	url[j] = 0;
 
