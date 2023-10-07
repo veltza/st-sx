@@ -15,14 +15,14 @@ isvalidurlchar(Rune u)
 
 /* find the end of the wrapped line */
 static int
-findeowl(int row)
+findeowl(Line line)
 {
 	int col = term.col - 1;
 
 	do {
-		if (TLINE(row)[col].mode & ATTR_WRAP)
+		if (line[col].mode & ATTR_WRAP)
 			return col;
-	} while (TLINE(row)[col].u == ' ' && --col >= 0);
+	} while (line[col].u == ' ' && --col >= 0);
 	return -1;
 }
 
@@ -38,13 +38,13 @@ char *
 detecturl(int col, int row, int draw)
 {
 	static char url[2048];
+	Line line;
 	int x1, y1, x2, y2, wrapped;
-	int row_start = row;
-	int col_start = col;
-	int i = sizeof(url)/2+1, j = sizeof(url)/2;
+	int i = sizeof(url)/2+1, j = sizeof(url)/2-1;
+	int row_start = row, col_start = col;
 	int minrow = term.scr - term.histf, maxrow = term.scr + term.row - 1;
-	/* Fixme: MODE_ALTSCREEN is not defined here, I had to use the magic number 1<<2 */
-	if ((term.mode & (1 << 2)) != 0)
+
+	if (tisaltscr())
 		minrow = 0, maxrow = term.row - 1;
 	url_maxcol = 0;
 
@@ -56,34 +56,46 @@ detecturl(int col, int row, int draw)
 		return NULL;
 
 	/* find the first character of url */
+	line = TLINE(row_start);
 	do {
 		x1 = col_start, y1 = row_start;
 		url_maxcol = MAX(url_maxcol, x1);
-		url[--i] = TLINE(row_start)[col_start].u;
+		url[--i] = line[col_start].u;
 		if (--col_start < 0) {
-			if (--row_start < minrow || (col_start = findeowl(row_start)) < 0)
+			if (--row_start < minrow || (col_start = findeowl(TLINE(row_start))) < 0)
 				break;
+			line = TLINE(row_start);
 		}
-	} while (i > 0 && isvalidurlchar(TLINE(row_start)[col_start].u));
+	} while (i > 0 && isvalidurlchar(line[col_start].u));
 
 	/* early detection */
 	if (url[i] != 'h')
 		return NULL;
 
 	/* find the last character of url */
+	line = TLINE(row);
 	do {
 		x2 = col, y2 = row;
 		url_maxcol = MAX(url_maxcol, x2);
-		url[j++] = TLINE(row)[col].u;
-		wrapped = TLINE(row)[col].mode & ATTR_WRAP;
+		url[++j] = line[col].u;
+		wrapped = line[col].mode & ATTR_WRAP;
 		if (++col >= term.col || wrapped) {
 			col = 0;
 			if (++row > maxrow || !wrapped)
 				break;
+			line = TLINE(row);
 		}
-	} while (j < sizeof(url)-1 && isvalidurlchar(TLINE(row)[col].u));
+	} while (j < sizeof(url)-2 && isvalidurlchar(line[col].u));
 
-	url[j] = 0;
+	/* Ignore some trailing characters to improve detection. */
+	/* Alacritty and many other terminals also do this. */
+	if (url[j] == ',' || url[j] == '.' || url[j] == ';' || url[j] == ':' ||
+	    url[j] == '?' || url[j] == '!') {
+		x2 = MAX(x2-1, 0);
+		j--;
+	}
+
+	url[++j] = 0;
 
 	if (strncmp("https://", &url[i], 8) && strncmp("http://", &url[i], 7))
 		return NULL;
