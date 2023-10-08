@@ -2,7 +2,7 @@
 
 This is my fork of [st terminal](https://st.suckless.org/) with several useful patches that are patched using [st-flexipatch](https://github.com/bakkeby/st-flexipatch) and [flexipatch-finalizer](https://github.com/bakkeby/flexipatch-finalizer). I've also made some fixes here and there to improve some patches.
 
-## Patches:
+## Patches
 
 - Alpha
 - Alpha focus highlight
@@ -34,3 +34,8 @@ Read README file.
 
 - Sixels and text reflow don't work well together. The images may overlap the text.
 - Sixels don't work in tmux. Use [WezTerm](https://github.com/wez/wezterm).
+
+## Thanks
+
+- [suckless.org](https://suckless.org/) and [st](https://st.suckless.org/) contributors
+- Bakkeby's [st-flexipatch](https://github.com/bakkeby/st-flexipatch)
