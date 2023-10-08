@@ -112,6 +112,12 @@ typedef struct {
 typedef Glyph *Line;
 
 typedef struct {
+	int ox;
+	int numspecs;
+	Glyph base;
+} GlyphFontSeq;
+
+typedef struct {
 	Glyph attr; /* current char attributes */
 	int x;
 	int y;
@@ -169,6 +175,7 @@ typedef struct {
 	Window win;
 	Drawable buf;
 	GlyphFontSpec *specbuf; /* font spec buffer used for rendering */
+	GlyphFontSeq *specseq;
 	Atom xembed, wmdeletewin, netwmname, netwmiconname, netwmpid;
 	Atom netwmicon;
 	struct {
