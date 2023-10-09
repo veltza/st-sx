@@ -2630,6 +2630,7 @@ eschandle(uchar ascii)
 		xfreetitlestack();
 		resettitle();
 		xloadcols();
+		xsetmode(0, MODE_HIDE);
 		if (!IS_SET(MODE_ALTSCREEN)) {
 			term.scr = 0;
 			term.histi = 0;
