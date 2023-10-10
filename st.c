@@ -538,9 +538,9 @@ selected(int x, int y)
 void
 selsnap(int *x, int *y, int direction)
 {
-	int newx, newy, xt, yt;
+	int newx, newy;
 	int rtop = 0, rbot = term.row - 1;
-	int delim, prevdelim;
+	int delim, prevdelim, maxlen;
 	const Glyph *gp, *prevgp;
 
 	if (!IS_SET(MODE_ALTSCREEN))
@@ -552,38 +552,37 @@ selsnap(int *x, int *y, int direction)
 		 * Snap around if the word wraps around at the end or
 		 * beginning of a line.
 		 */
+		maxlen = (TLINE(*y)[term.col-2].mode & ATTR_WRAP) ? term.col-1 : term.col;
+		LIMIT(*x, 0, maxlen - 1);
 		prevgp = &TLINE(*y)[*x];
 		prevdelim = ISDELIM(prevgp->u);
 		for (;;) {
 			newx = *x + direction;
 			newy = *y;
-			if (!BETWEEN(newx, 0, term.col - 1)) {
+			if (!BETWEEN(newx, 0, maxlen - 1)) {
 				newy += direction;
-				newx = (newx + term.col) % term.col;
 				if (!BETWEEN(newy, rtop, rbot))
 					break;
 
-				if (direction > 0)
-					yt = *y, xt = *x;
-				else
-					yt = newy, xt = newx;
-				if (!(TLINE(yt)[xt].mode & ATTR_WRAP))
+				if (!tiswrapped(TLINE(direction > 0 ? *y : newy)))
 					break;
-			}
 
-			if (newx >= tlinelen(TLINE(newy)))
-				break;
+				maxlen = (TLINE(newy)[term.col-2].mode & ATTR_WRAP) ? term.col-1 : term.col;
+				newx = direction > 0 ? 0 : maxlen - 1;
+			}
 
 			gp = &TLINE(newy)[newx];
 			delim = ISDELIM(gp->u);
-			if (!(gp->mode & ATTR_WDUMMY) && (delim != prevdelim ||
-			    (delim && !(gp->u == ' ' && prevgp->u == ' '))))
+			if (!(gp->mode & ATTR_WDUMMY) && (delim != prevdelim
+					|| (delim && gp->u != prevgp->u)))
 				break;
 
 			*x = newx;
 			*y = newy;
-			prevgp = gp;
-			prevdelim = delim;
+			if (!(gp->mode & ATTR_WDUMMY)) {
+				prevgp = gp;
+				prevdelim = delim;
+			}
 		}
 		break;
 	case SNAP_LINE:
@@ -1367,8 +1366,10 @@ tsetchar(Rune u, const Glyph *attr, int x, int y)
 			term.line[y][x+1].mode &= ~ATTR_WDUMMY;
 		}
 	} else if (term.line[y][x].mode & ATTR_WDUMMY) {
-		term.line[y][x-1].u = ' ';
-		term.line[y][x-1].mode &= ~ATTR_WIDE;
+		if (x > 0) {
+			term.line[y][x-1].u = ' ';
+			term.line[y][x-1].mode &= ~ATTR_WIDE;
+		}
 	}
 
 	term.dirty[y] = 1;
@@ -2791,7 +2792,7 @@ check_control_code:
 
 	gp = &term.line[term.c.y][term.c.x];
 	if (IS_SET(MODE_WRAP) && (term.c.state & CURSOR_WRAPNEXT)) {
-		gp->mode |= ATTR_WRAP;
+		term.line[term.c.y][term.col-1].mode |= ATTR_WRAP;
 		tnewline(1);
 		gp = &term.line[term.c.y][term.c.x];
 	}
@@ -2802,10 +2803,12 @@ check_control_code:
 	}
 
 	if (term.c.x+width > term.col) {
-		if (IS_SET(MODE_WRAP))
+		if (IS_SET(MODE_WRAP)) {
+			term.line[term.c.y][term.col-2].mode |= ATTR_WRAP;
 			tnewline(1);
-		else
+		} else {
 			tmoveto(term.col - width, term.c.y);
+		}
 		gp = &term.line[term.c.y][term.c.x];
 	}
 
@@ -2820,7 +2823,7 @@ check_control_code:
 				gp[2].mode &= ~ATTR_WDUMMY;
 			}
 			gp[1].u = '\0';
-			gp[1].mode = ATTR_WDUMMY;
+			gp[1].mode = ATTR_WDUMMY | ATTR_SET;
 		}
 	}
 	if (term.c.x+width < term.col) {
@@ -2923,8 +2926,14 @@ treflow(int col, int row)
 			ox = 0, oy++, nx = 0;
 		} else/* if (col - nx < len - ox) */ {
 			memcpy(&buf[ny][nx], &line[ox], (col-nx) * sizeof(Glyph));
+			if (buf[ny][col - 1].mode & ATTR_WIDE) {
+				buf[ny][col - 2].mode |= ATTR_WRAP;
+				tclearglyph(&buf[ny][col - 1], 0);
+				ox--;
+			} else {
+				buf[ny][col - 1].mode |= ATTR_WRAP;
+			}
 			ox += col - nx;
-			buf[ny][col - 1].mode |= ATTR_WRAP;
 			nx = 0;
 		}
 	} while (oy <= oce);
@@ -3021,11 +3030,10 @@ tresize(int col, int row)
 {
 	int *bp;
 
-	/* col and row are always MAX(_, 1)
-	if (col < 1 || row < 1) {
+	if (col < 2 || row < 1) {
 		fprintf(stderr, "tresize: error resizing to %dx%d\n", col, row);
 		return;
-	} */
+	}
 
 	term.dirty = xrealloc(term.dirty, row * sizeof(*term.dirty));
 	term.tabs = xrealloc(term.tabs, col * sizeof(*term.tabs));
