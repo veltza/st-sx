@@ -1,7 +1,8 @@
+extern char *argv0;
+
 void
 newterm(const Arg* a)
 {
-	int res;
 	switch (fork()) {
 	case -1:
 		die("fork failed: %s\n", strerror(errno));
@@ -9,22 +10,26 @@ newterm(const Arg* a)
 	case 0:
 		switch (fork()) {
 		case -1:
-			die("fork failed: %s\n", strerror(errno));
+			fprintf(stderr, "fork failed: %s\n", strerror(errno));
+			_exit(1);
 			break;
 		case 0:
-			res = chdir(getcwd_by_pid(pid));
-			execlp("st", "./st", NULL);
+			chdir_by_pid(pid);
+			execl("/proc/self/exe", argv0, NULL);
+			_exit(1);
 			break;
 		default:
-			exit(0);
+			_exit(0);
 		}
 	default:
 		wait(NULL);
 	}
 }
 
-static char *getcwd_by_pid(pid_t pid) {
+static int
+chdir_by_pid(pid_t pid)
+{
 	char buf[32];
-	snprintf(buf, sizeof buf, "/proc/%d/cwd", pid);
-	return realpath(buf, NULL);
+	snprintf(buf, sizeof buf, "/proc/%ld/cwd", (long)pid);
+	return chdir(buf);
 }
