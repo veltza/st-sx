@@ -4,7 +4,6 @@ This is my fork of [st terminal](https://st.suckless.org/) with several useful p
 
 ## Patches
 
-- Alpha
 - Alpha focus highlight
 - Anysize simple
 - Bold is not bright
