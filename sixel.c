@@ -214,7 +214,7 @@ sixel_parser_set_default_color(sixel_state_t *st)
 }
 
 int
-sixel_parser_finalize(sixel_state_t *st, unsigned char *pixels)
+sixel_parser_finalize(sixel_state_t *st, unsigned char **pixels)
 {
 	int status = (-1);
 	int sx;
@@ -255,7 +255,13 @@ sixel_parser_finalize(sixel_state_t *st, unsigned char *pixels)
 		h = image->height;
 	}
 
-	dst = pixels;
+	*pixels = malloc(w * h * 4);
+	if (*pixels == NULL) {
+		status = (-1);
+		goto end;
+	}
+
+	dst = *pixels;
 	for (y = 0; y < h; y++) {
 		src = st->image.data + image->width * y;
 		for (x = 0; x < w; ++x) {

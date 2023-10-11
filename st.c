@@ -2227,15 +2227,14 @@ strhandle(void)
 			term.mode &= ~MODE_SIXEL;
 			new_image = malloc(sizeof(ImageList));
 			memset(new_image, 0, sizeof(ImageList));
-			new_image->x = term.c.x;
-			new_image->y = term.c.y + term.scr;
-			new_image->pixels = malloc(sixel_st.image.width * sixel_st.image.height * 4);
-			if (sixel_parser_finalize(&sixel_st, new_image->pixels) != 0) {
+			if (sixel_parser_finalize(&sixel_st, &new_image->pixels) != 0) {
 				perror("sixel_parser_finalize() failed");
 				sixel_parser_deinit(&sixel_st);
+				free(new_image);
 				return;
 			}
-			/* set width and height here because sixel_parser_finalize() above can change them */
+			new_image->x = term.c.x;
+			new_image->y = term.c.y + term.scr;
 			new_image->width = sixel_st.image.width;
 			new_image->height = sixel_st.image.height;
 			sixel_parser_deinit(&sixel_st);
@@ -2259,7 +2258,7 @@ strhandle(void)
 					line[x].u = ' ';
 				}
 				term.dirty[MIN(term.c.y + term.scr, term.row-1)] = 1;
-				if (!IS_SET(MODE_ALTSCREEN)|| (i < height-1))
+				if (!IS_SET(MODE_ALTSCREEN) || (i < height-1))
 					tnewline(0);
 			}
 		}
