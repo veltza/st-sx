@@ -2869,6 +2869,17 @@ twrite(const char *buf, int buflen, int show_ctrl)
 }
 
 void
+treflow_moveimages(int oldy, int newy)
+{
+	ImageList *im;
+
+	for (im = term.images; im; im = im->next) {
+		if (im->y == oldy)
+			im->reflow_y = newy;
+	}
+}
+
+void
 treflow(int col, int row)
 {
 	int i, j;
@@ -2877,6 +2888,10 @@ treflow(int col, int row)
 	int cy = -1; /* proxy for new y coordinate of cursor */
 	int nlines;
 	Line *buf, line;
+	ImageList *im;
+
+	for (im = term.images; im; im = im->next)
+		im->reflow_y = INT_MIN; /* unset reflow_y */
 
 	/* y coordinate of cursor line end */
 	for (oce = term.c.y; oce < term.row - 1 &&
@@ -2916,6 +2931,7 @@ treflow(int col, int row)
 			if (len == 0 || !(line[len - 1].mode & ATTR_WRAP)) {
 				for (j = nx; j < col; j++)
 					tclearglyph(&buf[ny][j], 0);
+				treflow_moveimages(oy+term.scr, ny);
 				nx = 0;
 			} else if (nx > 0) {
 				buf[ny][nx - 1].mode &= ~ATTR_WRAP;
@@ -2923,6 +2939,7 @@ treflow(int col, int row)
 			ox = 0, oy++;
 		} else if (col - nx == len - ox) {
 			memcpy(&buf[ny][nx], &line[ox], (col-nx) * sizeof(Glyph));
+			treflow_moveimages(oy+term.scr, ny);
 			ox = 0, oy++, nx = 0;
 		} else/* if (col - nx < len - ox) */ {
 			memcpy(&buf[ny][nx], &line[ox], (col-nx) * sizeof(Glyph));
@@ -2933,6 +2950,7 @@ treflow(int col, int row)
 			} else {
 				buf[ny][col - 1].mode |= ATTR_WRAP;
 			}
+			treflow_moveimages(oy+term.scr, ny);
 			ox += col - nx;
 			nx = 0;
 		}
@@ -2988,6 +3006,14 @@ treflow(int col, int row)
 		term.hist[j] = xrealloc(term.hist[j], col * sizeof(Glyph));
 	}
 	free(buf);
+
+	/* move images to the final position */
+	for (im = term.images; im; im = im->next) {
+		if (im->reflow_y == INT_MIN)
+			im->should_delete = 1;
+		else
+			im->y = im->reflow_y - term.histf + term.scr;
+	}
 }
 
 void
@@ -3019,6 +3045,7 @@ rscrolldown(int n)
 	if ((i = term.scr - n) >= 0) {
 		term.scr = i;
 	} else {
+		scroll_images(n);
 		term.scr = 0;
 		if (sel.ob.x != -1 && !sel.alt)
 			selmove(-i);
@@ -3030,10 +3057,11 @@ tresize(int col, int row)
 {
 	int *bp;
 
+	/* col and row are always MAX(_, n)
 	if (col < 2 || row < 1) {
 		fprintf(stderr, "tresize: error resizing to %dx%d\n", col, row);
 		return;
-	}
+	} */
 
 	term.dirty = xrealloc(term.dirty, row * sizeof(*term.dirty));
 	term.tabs = xrealloc(term.tabs, col * sizeof(*term.tabs));

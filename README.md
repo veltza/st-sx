@@ -31,7 +31,7 @@ Read README file.
 
 ## Known issues
 
-- Sixels and text reflow don't work well together. The images may overlap the text.
+- Sixels may overlap text when text is reflowed.
 - Sixels don't work in tmux. Use [WezTerm](https://github.com/wez/wezterm).
 
 ## Thanks
