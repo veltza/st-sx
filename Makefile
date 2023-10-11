@@ -50,11 +50,14 @@ install: st
 	tic -sx st.info
 	mkdir -p $(DESTDIR)$(PREFIX)/share/applications # desktop-entry patch
 	test -f ${DESTDIR}${PREFIX}/share/applications/st.desktop || cp -n st.desktop $(DESTDIR)$(PREFIX)/share/applications # desktop-entry patch
+	mkdir -p $(DESTDIR)$(ICONPREFIX)
+	test -f $(ICONNAME) && test ! -f $(DESTDIR)$(ICONPREFIX)/$(ICONNAME) && cp -f $(ICONNAME) $(DESTDIR)$(ICONPREFIX) || :
 	@echo Please see the README file regarding the terminfo entry of st.
 
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/st
 	rm -f $(DESTDIR)$(MANPREFIX)/man1/st.1
 	rm -f $(DESTDIR)$(PREFIX)/share/applications/st.desktop # desktop-entry patch
+	rm -f $(DESTDIR)$(ICONPREFIX)/$(ICONNAME)
 
 .PHONY: all options clean dist install uninstall

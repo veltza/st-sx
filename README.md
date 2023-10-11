@@ -9,7 +9,7 @@ This is my fork of [st terminal](https://st.suckless.org/) with several useful p
 - Bold is not bright
 - Boxdraw
 - Clipboard
-- CSI 23 23
+- CSI 22 23
 - Dynamic cursor color
 - Font2
 - Hidecursor
