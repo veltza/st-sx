@@ -60,6 +60,8 @@ typedef struct _ImageList {
 	int x;
 	int y;
 	int reflow_y;
+	int cw;
+	int ch;
 	int should_delete;
 } ImageList;
 

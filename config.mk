@@ -31,7 +31,7 @@ INCS = -I$(X11INC) \
        `$(PKG_CONFIG) --cflags fontconfig` \
        `$(PKG_CONFIG) --cflags freetype2` \
        $(LIGATURES_INC)
-LIBS = -L$(X11LIB) -lm -lrt -lX11 -lutil -lXft -lgd ${XRENDER} ${XCURSOR}\
+LIBS = -L$(X11LIB) -lm -lrt -lX11 -lutil -lXft -lgd -lImlib2 ${XRENDER} ${XCURSOR}\
        `$(PKG_CONFIG) --libs fontconfig` \
        `$(PKG_CONFIG) --libs freetype2` \
        $(LIGATURES_LIBS)
