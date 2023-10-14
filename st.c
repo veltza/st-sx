@@ -3011,17 +3011,18 @@ treflow(int col, int row)
 		term.hist[j] = xrealloc(term.hist[j], col * sizeof(Glyph));
 	}
 
-	for (; buflen > 0; ny--, buflen--)
-		free(buf[ny % nlines]);
-	free(buf);
-
 	/* move images to the final position */
 	for (im = term.images; im; im = im->next) {
 		if (im->reflow_y == INT_MIN)
 			im->should_delete = 1;
 		else
-			im->y = im->reflow_y - term.histf + term.scr;
+			im->y = im->reflow_y - term.histf + term.scr - (ny + 1);
 	}
+
+	for (; buflen > 0; ny--, buflen--)
+		free(buf[ny % nlines]);
+	free(buf);
+
 }
 
 void
