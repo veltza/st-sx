@@ -2894,8 +2894,8 @@ treflow(int col, int row)
 	int oce, nce, bot, scr;
 	int ox = 0, oy = -term.histf, nx = 0, ny = -1, len;
 	int cy = -1; /* proxy for new y coordinate of cursor */
-	int nlines;
-	Line *buf, line;
+	int buflen, nlines;
+	Line *buf, bufline, line;
 	ImageList *im;
 
 	for (im = term.images; im; im = im->next)
@@ -2905,20 +2905,11 @@ treflow(int col, int row)
 	for (oce = term.c.y; oce < term.row - 1 &&
 	                     tiswrapped(term.line[oce]); oce++);
 
-	nlines = term.histf + oce + 1;
-	if (col < term.col) {
-		/* each line can take this many lines after reflow */
-		j = (term.col + col - 1) / col;
-		nlines = j * nlines;
-		if (nlines > HISTSIZE + RESIZEBUFFER + row) {
-			nlines = HISTSIZE + RESIZEBUFFER + row;
-			oy = -(nlines / j - oce - 1);
-		}
-	}
+	nlines = HISTSIZE + row;
 	buf = xmalloc(nlines * sizeof(Line));
 	do {
-		if (!nx)
-			buf[++ny] = xmalloc(col * sizeof(Glyph));
+		if (!nx && ++ny < nlines)
+			buf[ny] = xmalloc(col * sizeof(Glyph));
 		if (!ox) {
 			line = TLINEABS(oy);
 			len = tlinelen(line);
@@ -2933,30 +2924,31 @@ treflow(int col, int row)
 			}
 		}
 		/* get reflowed lines in buf */
+		bufline = buf[ny % nlines];
 		if (col - nx > len - ox) {
-			memcpy(&buf[ny][nx], &line[ox], (len-ox) * sizeof(Glyph));
+			memcpy(&bufline[nx], &line[ox], (len-ox) * sizeof(Glyph));
 			nx += len - ox;
 			if (len == 0 || !(line[len - 1].mode & ATTR_WRAP)) {
 				for (j = nx; j < col; j++)
-					tclearglyph(&buf[ny][j], 0);
+					tclearglyph(&bufline[j], 0);
 				treflow_moveimages(oy+term.scr, ny);
 				nx = 0;
 			} else if (nx > 0) {
-				buf[ny][nx - 1].mode &= ~ATTR_WRAP;
+				bufline[nx - 1].mode &= ~ATTR_WRAP;
 			}
 			ox = 0, oy++;
 		} else if (col - nx == len - ox) {
-			memcpy(&buf[ny][nx], &line[ox], (col-nx) * sizeof(Glyph));
+			memcpy(&bufline[nx], &line[ox], (col-nx) * sizeof(Glyph));
 			treflow_moveimages(oy+term.scr, ny);
 			ox = 0, oy++, nx = 0;
 		} else/* if (col - nx < len - ox) */ {
-			memcpy(&buf[ny][nx], &line[ox], (col-nx) * sizeof(Glyph));
-			if (buf[ny][col - 1].mode & ATTR_WIDE) {
-				buf[ny][col - 2].mode |= ATTR_WRAP;
-				tclearglyph(&buf[ny][col - 1], 0);
+			memcpy(&bufline[nx], &line[ox], (col-nx) * sizeof(Glyph));
+			if (bufline[col - 1].mode & ATTR_WIDE) {
+				bufline[col - 2].mode |= ATTR_WRAP;
+				tclearglyph(&bufline[col - 1], 0);
 				ox--;
 			} else {
-				buf[ny][col - 1].mode |= ATTR_WRAP;
+				bufline[col - 1].mode |= ATTR_WRAP;
 			}
 			treflow_moveimages(oy+term.scr, ny);
 			ox += col - nx;
@@ -2965,7 +2957,7 @@ treflow(int col, int row)
 	} while (oy <= oce);
 	if (nx)
 		for (j = nx; j < col; j++)
-			tclearglyph(&buf[ny][j], 0);
+			tclearglyph(&bufline[j], 0);
 
 	/* free extra lines */
 	for (i = row; i < term.row; i++)
@@ -2973,6 +2965,7 @@ treflow(int col, int row)
 	/* resize to new height */
 	term.line = xrealloc(term.line, row * sizeof(Line));
 
+	buflen = MIN(ny + 1, nlines);
 	bot = MIN(ny, row - 1);
 	scr = MAX(row - term.row, 0);
 	/* update y coordinate of cursor line end */
@@ -2983,28 +2976,32 @@ treflow(int col, int row)
 		j = nce, nce = MIN(nce + -term.c.y, bot);
 		term.c.y += nce - j;
 		while (term.c.y < 0) {
-			free(buf[ny--]);
+			free(buf[ny-- % nlines]);
+			buflen--;
 			term.c.y++;
 		}
 	}
 	/* allocate new rows */
 	for (i = row - 1; i > nce; i--) {
-		term.line[i] = xmalloc(col * sizeof(Glyph));
+		if (i >= term.row)
+			term.line[i] = xmalloc(col * sizeof(Glyph));
+		else
+			term.line[i] = xrealloc(term.line[i], col * sizeof(Glyph));
 		for (j = 0; j < col; j++)
 			tclearglyph(&term.line[i][j], 0);
 	}
 	/* fill visible area */
-	for (/*i = nce */; i >= term.row; i--, ny--)
-		term.line[i] = buf[ny];
-	for (/*i = term.row - 1 */; i >= 0; i--, ny--) {
+	for (/*i = nce */; i >= term.row; i--, ny--, buflen--)
+		term.line[i] = buf[ny % nlines];
+	for (/*i = term.row - 1 */; i >= 0; i--, ny--, buflen--) {
 		free(term.line[i]);
-		term.line[i] = buf[ny];
+		term.line[i] = buf[ny % nlines];
 	}
 	/* fill lines in history buffer and update term.histf */
-	for (/*i = -1 */; ny >= 0 && i >= -HISTSIZE; i--, ny--) {
+	for (/*i = -1 */; buflen > 0 && i >= -HISTSIZE; i--, ny--, buflen--) {
 		j = (term.histi + i + 1 + HISTSIZE) % HISTSIZE;
 		free(term.hist[j]);
-		term.hist[j] = buf[ny];
+		term.hist[j] = buf[ny % nlines];
 	}
 	term.histf = -i - 1;
 	term.scr = MIN(term.scr, term.histf);
@@ -3013,6 +3010,9 @@ treflow(int col, int row)
 		j = (term.histi + i + 1 + HISTSIZE) % HISTSIZE;
 		term.hist[j] = xrealloc(term.hist[j], col * sizeof(Glyph));
 	}
+
+	for (; buflen > 0; ny--, buflen--)
+		free(buf[ny % nlines]);
 	free(buf);
 
 	/* move images to the final position */
