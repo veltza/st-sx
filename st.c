@@ -1067,6 +1067,7 @@ treset(void)
 	term.top = 0;
 	term.bot = term.row - 1;
 	term.histf = 0;
+	term.histi = 0;
 	term.scr = 0;
 	term.mode = MODE_WRAP|MODE_UTF8;
 	memset(term.trantbl, CS_USA, sizeof(term.trantbl));
@@ -1077,10 +1078,10 @@ treset(void)
 		for (y = 0; y < term.row; y++)
 			for (x = 0; x < term.col; x++)
 				tclearglyph(&term.line[y][x], 0);
+		tdeleteimages();
 		tswapscreen();
 	}
 	tfulldirt();
-	tdeleteimages();
 }
 
 void
@@ -1149,8 +1150,8 @@ tloadaltscreen(int clear, int savecursor)
 		tcursor(CURSOR_SAVE);
 	if (def) {
 		col = term.col, row = term.row;
+		kscrolldown(&((Arg){ .i = term.scr }));
 		tswapscreen();
-		term.scr = 0;
 		tresizealt(col, row);
 	}
 	if (clear) {
@@ -2640,11 +2641,6 @@ eschandle(uchar ascii)
 		resettitle();
 		xloadcols();
 		xsetmode(0, MODE_HIDE);
-		if (!IS_SET(MODE_ALTSCREEN)) {
-			term.scr = 0;
-			term.histi = 0;
-			term.histf = 0;
-		}
 		break;
 	case '=': /* DECPAM -- Application keypad */
 		xsetmode(1, MODE_APPKEYPAD);
@@ -3054,7 +3050,7 @@ rscrolldown(int n)
 	if ((i = term.scr - n) >= 0) {
 		term.scr = i;
 	} else {
-		scroll_images(n);
+		scroll_images(n - term.scr);
 		term.scr = 0;
 		if (sel.ob.x != -1 && !sel.alt)
 			selmove(-i);
@@ -3149,6 +3145,7 @@ tresizealt(int col, int row)
 	if (i > 0) {
 		/* ensure that both src and dst are not NULL */
 		memmove(term.line, term.line + i, row * sizeof(Line));
+		scroll_images(-i);
 		term.c.y = row - 1;
 	}
 	for (i += row; i < term.row; i++)
