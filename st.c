@@ -1937,8 +1937,13 @@ csihandle(void)
 		break;
 	case 'l': /* RM -- Reset Mode */
 		tsetmode(csiescseq.priv, 0, csiescseq.arg, csiescseq.narg);
-		if (IS_SET(MODE_ALTSCREEN))
-			tdeleteimages();
+		if (IS_SET(MODE_ALTSCREEN)) {
+			/* delete only old images */
+			for (im = term.images; im; im = im->next) {
+				if (im->should_delete == 0)
+					im->should_delete = 1;
+			}
+		}
 		break;
 	case 'M': /* DL -- Delete <n> lines */
 		DEFAULT(csiescseq.arg[0], 1);
@@ -2240,6 +2245,7 @@ strhandle(void)
 			new_image->ch = win.ch;
 			new_image->width = sixel_st.image.width;
 			new_image->height = sixel_st.image.height;
+			new_image->should_delete = -1;
 			sixel_parser_deinit(&sixel_st);
 			if (term.images) {
 				ImageList *im = term.images;

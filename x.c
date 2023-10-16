@@ -1871,10 +1871,13 @@ xfinishdraw(void)
 		/* get the next image here, because delete_image() will delete the current image */
 		next = im->next;
 
-		if (im->should_delete) {
+		if (im->should_delete > 0) {
 			delete_image(im);
 			continue;
 		}
+
+		/* set to zero to allow RM sequence to delete this automatically */
+		im->should_delete = 0;
 
 		/* scale the image size */
 		width = im->width * win.cw / im->cw;
