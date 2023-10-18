@@ -1937,13 +1937,6 @@ csihandle(void)
 		break;
 	case 'l': /* RM -- Reset Mode */
 		tsetmode(csiescseq.priv, 0, csiescseq.arg, csiescseq.narg);
-		if (IS_SET(MODE_ALTSCREEN)) {
-			/* delete only old images */
-			for (im = term.images; im; im = im->next) {
-				if (im->should_delete == 0)
-					im->should_delete = 1;
-			}
-		}
 		break;
 	case 'M': /* DL -- Delete <n> lines */
 		DEFAULT(csiescseq.arg[0], 1);
@@ -2116,8 +2109,8 @@ strhandle(void)
 {
 	char *p = NULL, *dec;
 	int j, narg, par;
-	ImageList *new_image;
-	int i, x, x2, height;
+	ImageList *im, *new_image;
+	int i, x, x2, y2;
 	Line line;
 
 	term.esc &= ~(ESC_STR_END|ESC_STR);
@@ -2241,19 +2234,20 @@ strhandle(void)
 			}
 			new_image->x = term.c.x;
 			new_image->y = term.c.y + term.scr;
-			new_image->cw = win.cw;
-			new_image->ch = win.ch;
 			new_image->width = sixel_st.image.width;
 			new_image->height = sixel_st.image.height;
-			new_image->should_delete = -1;
+			new_image->cols = (new_image->width + win.cw-1) / win.cw;
+			new_image->rows = (new_image->height + win.ch-1) / win.ch;
+			new_image->cw = win.cw;
+			new_image->ch = win.ch;
 			sixel_parser_deinit(&sixel_st);
 			if (term.images) {
-				ImageList *im = term.images;
-				int right = new_image->x * win.cw + new_image->width;
-				int bottom = new_image->y * win.ch + new_image->height;
+				im = term.images;
+				x2 = new_image->x + new_image->cols;
+				y2 = new_image->y + new_image->rows;
 				do {
-					if (im->x >= new_image->x && im->x * win.cw + im->width <= right &&
-					    im->y >= new_image->y && im->y * win.ch + im->height <= bottom) {
+					if (im->x >= new_image->x && im->x + im->cols <= x2 &&
+					    im->y >= new_image->y && im->y + im->rows <= y2) {
 						im->should_delete = 1;
 					}
 				} while (im->next && (im = im->next));
@@ -2262,18 +2256,14 @@ strhandle(void)
 			} else {
 				term.images = new_image;
 			}
-			int x2 = MIN(term.col, term.c.x + (sixel_st.image.width + win.cw-1)/win.cw);
-			int height = (sixel_st.image.height + win.ch-1)/win.ch;
-			for (i = 0; i < height; ++i) {
+			x2 = MIN(term.c.x + new_image->cols, term.col);
+			for (i = 0; i < new_image->rows; i++) {
 				line = TLINE(term.c.y + term.scr);
 				for (x = term.c.x; x < x2; x++) {
-					line[x].fg = defaultfg;
-					line[x].bg = defaultbg;
-					line[x].mode = ATTR_SIXEL;
-					line[x].u = ' ';
+					line[x].mode |= ATTR_SIXEL;
 				}
 				term.dirty[MIN(term.c.y + term.scr, term.row-1)] = 1;
-				if (!IS_SET(MODE_ALTSCREEN) || (i < height-1))
+				if (!IS_SET(MODE_ALTSCREEN) || (i < new_image->rows-1))
 					tnewline(0);
 			}
 		}

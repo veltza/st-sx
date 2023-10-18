@@ -1866,18 +1866,16 @@ xfinishdraw(void)
 	XGCValues gcvalues;
 	GC gc;
 	int srcy, dstx, dsty, width, height;
+	int x, y, x2, y2;
 
 	for (im = term.images; im; im = next) {
 		/* get the next image here, because delete_image() will delete the current image */
 		next = im->next;
 
-		if (im->should_delete > 0) {
+		if (im->should_delete) {
 			delete_image(im);
 			continue;
 		}
-
-		/* set to zero to allow RM sequence to delete this automatically */
-		im->should_delete = 0;
 
 		/* scale the image size */
 		width = im->width * win.cw / im->cw;
@@ -1937,18 +1935,37 @@ xfinishdraw(void)
 		}
 
 		/* clip the image */
-		dstx = borderpx + im->x * win.cw;
-		dsty = (im->y < 0) ? borderpx : borderpx + im->y * win.ch;
+		dstx = im->x;
+		dsty = (im->y < 0) ? 0 : im->y;
 		srcy = (im->y < 0) ? -im->y * win.ch : 0;
 		height = (im->y < 0) ? height - srcy : height;
 		height = MIN(height, (term.row - (im->y > 0 ? im->y : 0)) * win.ch);
 		width = MIN(width, (term.col - im->x) * win.cw);
 
+		/* delete the image if the text cells below it have been changed */
+		if (tisaltscr()) {
+			x2 = dstx + (width + win.cw-1)/win.cw;
+			y2 = dsty + (height + win.ch-1)/win.ch;
+			for (y = dsty; y < y2 && !im->should_delete; y++) {
+				for (x = dstx; x < x2; x++) {
+					if (!(term.line[y][x].mode & ATTR_SIXEL)) {
+						im->should_delete = 1;
+						break;
+					}
+				}
+			}
+			if (im->should_delete) {
+				delete_image(im);
+				continue;
+			}
+		}
+
 		/* draw the image */
 		memset(&gcvalues, 0, sizeof(gcvalues));
 		gcvalues.graphics_exposures = False;
 		gc = XCreateGC(xw.dpy, xw.win, GCGraphicsExposures, &gcvalues);
-		XCopyArea(xw.dpy, (Drawable)im->pixmap, xw.buf, gc, 0, srcy, width, height, dstx, dsty);
+		XCopyArea(xw.dpy, (Drawable)im->pixmap, xw.buf, gc, 0, srcy,
+		    width, height, borderpx + dstx * win.cw, borderpx + dsty * win.ch);
 		XFreeGC(xw.dpy, gc);
 	}
 
