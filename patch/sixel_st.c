@@ -27,7 +27,7 @@ scroll_images(int n) {
 
 		/* check if the current sixel has exceeded the maximum
 		 * draw distance, and should therefore be deleted */
-		if (im->y + (im->height + win.ch-1)/win.ch - 1 < top) {
+		if (im->y + im->rows <= top) {
 			fprintf(stderr, "im@0x%08x exceeded maximum distance\n");
 			im->should_delete = 1;
 		}

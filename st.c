@@ -2260,7 +2260,8 @@ strhandle(void)
 			for (i = 0; i < new_image->rows; i++) {
 				line = TLINE(term.c.y + term.scr);
 				for (x = term.c.x; x < x2; x++) {
-					line[x].mode |= ATTR_SIXEL;
+					line[x].u = ' ';
+					line[x].mode = ATTR_SIXEL;
 				}
 				term.dirty[MIN(term.c.y + term.scr, term.row-1)] = 1;
 				if (!IS_SET(MODE_ALTSCREEN) || (i < new_image->rows-1))
