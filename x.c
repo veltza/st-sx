@@ -2020,9 +2020,7 @@ xsetmode(int set, unsigned int flags)
 {
 	int mode = win.mode;
 	MODBIT(win.mode, set, flags);
-	if ((flags & MODE_MOUSE)
-		&& xw.pointerisvisible
-	) {
+	if ((flags & MODE_MOUSE) && xw.pointerisvisible) {
 		if (win.mode & MODE_MOUSE)
 			XUndefineCursor(xw.dpy, xw.win);
 		else
@@ -2148,7 +2146,7 @@ kpress(XEvent *ev)
 	Status status;
 	Shortcut *bp;
 
-	if (xw.pointerisvisible) {
+	if (xw.pointerisvisible && hidecursor) {
 		int x = e->x - borderpx;
 		int y = e->y - borderpx;
 		LIMIT(x, 0, win.tw - 1);
