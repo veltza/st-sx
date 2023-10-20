@@ -14,19 +14,20 @@ X11LIB = /usr/X11R6/lib
 
 PKG_CONFIG = pkg-config
 
-# Uncomment this for the alpha patch / ALPHA_PATCH
+# alpha
 XRENDER = -lXrender
 
-# Uncomment the lines below for the ligatures patch / LIGATURES_PATCH
+# ligatures
+# (you can comment out the four lines below if ligatures are disabled in config.h)
 LIGATURES_C = hb.c
 LIGATURES_H = hb.h
 LIGATURES_INC = `$(PKG_CONFIG) --cflags harfbuzz`
 LIGATURES_LIBS = `$(PKG_CONFIG) --libs harfbuzz`
 
-# Uncomment this for the SIXEL patch / SIXEL_PATCH
+# sixel
 SIXEL_C = sixel.c sixel_hls.c
 
-# includes and libs, uncomment harfbuzz for the ligatures patch
+# includes and libs
 INCS = -I$(X11INC) \
        `$(PKG_CONFIG) --cflags fontconfig` \
        `$(PKG_CONFIG) --cflags freetype2` \

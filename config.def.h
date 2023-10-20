@@ -83,6 +83,9 @@ static unsigned int cursorthickness = 2;
 /* Hide the X cursor whenever a key is pressed. 0: off, 1: on */
 int hidecursor = 1;
 
+/* Ligatures. 0: off, 1: on */
+#define LIGATURES 1
+
 /*
  * 1: render most of the lines/blocks characters without using the font for
  *    perfect alignment between cells (U2500 - U259F except dashes/diagonals).
