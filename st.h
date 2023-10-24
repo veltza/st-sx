@@ -29,24 +29,32 @@
 #define IS_TRUECOL(x)		(1 << 24 & (x))
 #define HISTSIZE      2000
 
+#define UNDERCURL_COLOR_PALETTE  (1<<24)
+#define UNDERCURL_COLOR_RGB      (2<<24)
+#define UNDERCURL_COLOR_NBITS    2
+#define UNDERCURL_COLOR_MASK     ((1 << (24+UNDERCURL_COLOR_NBITS)) - 1)
+#define UNDERCURL_TYPE_DOUBLE    2
+#define UNDERCURL_TYPE_CURLY     3
+
 enum glyph_attribute {
-	ATTR_NULL       = 0,
-	ATTR_SET        = 1 << 0,
-	ATTR_BOLD       = 1 << 1,
-	ATTR_FAINT      = 1 << 2,
-	ATTR_ITALIC     = 1 << 3,
-	ATTR_UNDERLINE  = 1 << 4,
-	ATTR_BLINK      = 1 << 5,
-	ATTR_REVERSE    = 1 << 6,
-	ATTR_INVISIBLE  = 1 << 7,
-	ATTR_STRUCK     = 1 << 8,
-	ATTR_WRAP       = 1 << 9,
-	ATTR_WIDE       = 1 << 10,
-	ATTR_WDUMMY     = 1 << 11,
-	ATTR_SELECTED   = 1 << 12,
-	ATTR_BOXDRAW    = 1 << 13,
-	ATTR_LIGA       = 1 << 14,
-	ATTR_SIXEL      = 1 << 15,
+	ATTR_NULL           = 0,
+	ATTR_SET            = 1 << 0,
+	ATTR_BOLD           = 1 << 1,
+	ATTR_FAINT          = 1 << 2,
+	ATTR_ITALIC         = 1 << 3,
+	ATTR_UNDERLINE      = 1 << 4,
+	ATTR_BLINK          = 1 << 5,
+	ATTR_REVERSE        = 1 << 6,
+	ATTR_INVISIBLE      = 1 << 7,
+	ATTR_STRUCK         = 1 << 8,
+	ATTR_WRAP           = 1 << 9,
+	ATTR_WIDE           = 1 << 10,
+	ATTR_WDUMMY         = 1 << 11,
+	ATTR_SELECTED       = 1 << 12,
+	ATTR_BOXDRAW        = 1 << 13,
+	ATTR_LIGA           = 1 << 14,
+	ATTR_DIRTYUNDERLINE = 1 << 15,
+	ATTR_SIXEL          = 1 << 31,
 	ATTR_BOLD_FAINT = ATTR_BOLD | ATTR_FAINT,
 };
 
@@ -109,9 +117,10 @@ typedef XftGlyphFontSpec GlyphFontSpec;
 #define Glyph Glyph_
 typedef struct {
 	Rune u;           /* character code */
-	ushort mode;      /* attribute flags */
+	uint32_t mode;    /* attribute flags */
 	uint32_t fg;      /* foreground  */
 	uint32_t bg;      /* background  */
+	uint32_t ustyle;  /* underline style and color */
 } Glyph;
 
 typedef Glyph *Line;
@@ -333,3 +342,4 @@ extern XWindow xw;
 extern XSelection xsel;
 extern TermWindow win;
 extern Term term;
+extern int undercurl_style;

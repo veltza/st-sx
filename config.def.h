@@ -527,4 +527,35 @@ static char ascii_printable[] =
 	"@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_"
 	"`abcdefghijklmnopqrstuvwxyz{|}~";
 
-
+/**
+ * Undercurl style. Set UNDERCURL_STYLE to one of the available styles.
+ *
+ * Curly: Dunno how to draw it *shrug*
+ *  _   _   _   _
+ * ( ) ( ) ( ) ( )
+ *	 (_) (_) (_) (_)
+ *
+ * Spiky:
+ * /\  /\   /\	/\
+ *   \/  \/	  \/
+ *
+ * Capped:
+ *	_     _     _
+ * / \   / \   / \
+ *    \_/   \_/
+ */
+// Available styles
+#define UNDERCURL_NONE 0
+#define UNDERCURL_CURLY 1
+#define UNDERCURL_SPIKY 2
+#define UNDERCURL_CAPPED 3
+// Active style
+int undercurl_style = UNDERCURL_SPIKY;
+// Adds 1 pixel of thickness for every undercurl_thickness_threshold pixels of font size
+int undercurl_thickness_threshold  = 28;
+// Extra thickness for spiky and capped waves: 0 = off, 1 = on
+int undercurl_extra_thickness  = 0;
+// Y-offset of undercurl
+int undercurl_yoffset = 0;
+// Scaling factor for undercurl height
+float undercurl_height_scale = 1.0;

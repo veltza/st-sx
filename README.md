@@ -20,6 +20,7 @@ This is my fork of [st terminal](https://st.suckless.org/) with several useful p
 - Scrollback-reflow (*)
 - Sixel
 - Swapmouse
+- Undercurl
 - Wide glyphs
 - Workingdir
 

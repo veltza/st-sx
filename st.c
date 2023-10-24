@@ -34,6 +34,7 @@
 #define UTF_SIZ       4
 #define ESC_BUF_SIZ   (128*UTF_SIZ)
 #define ESC_ARG_SIZ   16
+#define CAR_PER_ARG   4
 #define STR_BUF_SIZ   ESC_BUF_SIZ
 #define STR_ARG_SIZ   ESC_ARG_SIZ
 
@@ -120,6 +121,7 @@ typedef struct {
 	int arg[ESC_ARG_SIZ];
 	int narg;              /* nb of args */
 	char mode[2];
+	int carg[ESC_ARG_SIZ][CAR_PER_ARG]; /* colon args */
 } CSIEscape;
 
 /* STR Escape sequence structs */
@@ -140,6 +142,7 @@ static void ttywriteraw(const char *, size_t);
 
 static void csidump(void);
 static void csihandle(void);
+static void readcolonargs(char **, int, int[][CAR_PER_ARG]);
 static void csiparse(void);
 static void csireset(void);
 static void osc4_color_response(int num);
@@ -1286,6 +1289,23 @@ tnewline(int first_col)
 	tmoveto(first_col ? 0 : term.c.x, y);
 }
 
+void
+readcolonargs(char **p, int cursor, int params[][CAR_PER_ARG])
+{
+	int i;
+	char *np;
+
+	params[cursor][0] = -1;
+	params[cursor][1] = -1;
+	params[cursor][2] = -1;
+
+	for (np = NULL, i = 0; **p == ':' && i < CAR_PER_ARG; i++, *p = np) {
+		do {
+			(*p)++;
+		} while (**p == ':');
+		params[cursor][i] = strtol(*p, &np, 10);
+	}
+}
 
 void
 csiparse(void)
@@ -1309,6 +1329,7 @@ csiparse(void)
 			v = -1;
 		csiescseq.arg[csiescseq.narg++] = v;
 		p = np;
+		readcolonargs(&p, csiescseq.narg-1, csiescseq.carg);
 		if (*p != ';' || csiescseq.narg == ESC_ARG_SIZ)
 			break;
 		p++;
@@ -1527,7 +1548,7 @@ tdefcolor(const int *attr, int *npar, int l)
 void
 tsetattr(const int *attr, int l)
 {
-	int i;
+	int i, utype;
 	int32_t idx;
 
 	for (i = 0; i < l; i++) {
@@ -1544,6 +1565,7 @@ tsetattr(const int *attr, int l)
 				ATTR_STRUCK     );
 			term.c.attr.fg = defaultfg;
 			term.c.attr.bg = defaultbg;
+			term.c.attr.ustyle = 0;
 			break;
 		case 1:
 			term.c.attr.mode |= ATTR_BOLD;
@@ -1555,7 +1577,19 @@ tsetattr(const int *attr, int l)
 			term.c.attr.mode |= ATTR_ITALIC;
 			break;
 		case 4:
-			term.c.attr.mode |= ATTR_UNDERLINE;
+			utype = (csiescseq.carg[i][0] >= 0) ? MIN(csiescseq.carg[i][0], 3) : 1;
+			if (!undercurl_style)
+				utype = (utype >= 3) ? 0 : utype;
+
+			term.c.attr.ustyle = (term.c.attr.ustyle & UNDERCURL_COLOR_MASK) |
+				(utype << (24+UNDERCURL_COLOR_NBITS));
+
+			if (utype)
+				term.c.attr.mode |= ATTR_UNDERLINE;
+			else
+				term.c.attr.mode &= ~ATTR_UNDERLINE;
+
+			term.c.attr.mode ^= ATTR_DIRTYUNDERLINE;
 			break;
 		case 5: /* slow blink */
 			/* FALLTHROUGH */
@@ -1605,6 +1639,24 @@ tsetattr(const int *attr, int l)
 			break;
 		case 49:
 			term.c.attr.bg = defaultbg;
+			break;
+		case 58:
+			if (csiescseq.carg[i][2] < 0) {
+				term.c.attr.ustyle = (term.c.attr.ustyle & ~UNDERCURL_COLOR_MASK) |
+					UNDERCURL_COLOR_PALETTE |
+					MAX(csiescseq.carg[i][1], 0);
+			} else {
+				term.c.attr.ustyle = (term.c.attr.ustyle & ~UNDERCURL_COLOR_MASK) |
+					UNDERCURL_COLOR_RGB |
+					((csiescseq.carg[i][1] & 255) << 16) |
+					((csiescseq.carg[i][2] & 255) << 8) |
+					 (csiescseq.carg[i][3] & 255);
+			}
+			term.c.attr.mode ^= ATTR_DIRTYUNDERLINE;
+			break;
+		case 59:
+			term.c.attr.ustyle = (term.c.attr.ustyle & ~UNDERCURL_COLOR_MASK);
+			term.c.attr.mode ^= ATTR_DIRTYUNDERLINE;
 			break;
 		default:
 			if (BETWEEN(attr[i], 30, 37)) {
