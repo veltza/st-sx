@@ -45,6 +45,9 @@
 #define ISCONTROL(c)    (ISCONTROLC0(c) || ISCONTROLC1(c))
 #define ISDELIM(u)      (u && wcschr(worddelimiters, u))
 
+#define OSC_TERM_ST   "\033\\"
+#define OSC_TERM_BEL  "\007"
+
 enum term_mode {
 	MODE_WRAP        = 1 << 0,
 	MODE_INSERT      = 1 << 1,
@@ -145,11 +148,11 @@ static void csihandle(void);
 static void readcolonargs(char **, int, int[][CAR_PER_ARG]);
 static void csiparse(void);
 static void csireset(void);
-static void osc4_color_response(int num);
-static void osc_color_response(int index, int num);
+static void osc4_color_response(int, char *);
+static void osc_color_response(int, int, char *);
 static int eschandle(uchar);
 static void strdump(void);
-static void strhandle(void);
+static void strhandle(char *);
 static void strparse(void);
 static void strreset(void);
 
@@ -2121,7 +2124,7 @@ csireset(void)
 }
 
 void
-osc4_color_response(int num)
+osc4_color_response(int num, char *oscterm)
 {
 	int n;
 	char buf[32];
@@ -2132,14 +2135,14 @@ osc4_color_response(int num)
 		return;
 	}
 
-	n = snprintf(buf, sizeof buf, "\033]4;%d;rgb:%02x%02x/%02x%02x/%02x%02x\007",
-			num, r, r, g, g, b, b);
+	n = snprintf(buf, sizeof buf, "\033]4;%d;rgb:%02x%02x/%02x%02x/%02x%02x%s",
+			num, r, r, g, g, b, b, oscterm);
 
 	ttywrite(buf, n, 1);
 }
 
 void
-osc_color_response(int index, int num)
+osc_color_response(int index, int num, char *oscterm)
 {
 	int n;
 	char buf[32];
@@ -2150,14 +2153,14 @@ osc_color_response(int index, int num)
 		return;
 	}
 
-	n = snprintf(buf, sizeof buf, "\033]%d;rgb:%02x%02x/%02x%02x/%02x%02x\007",
-			num, r, r, g, g, b, b);
+	n = snprintf(buf, sizeof buf, "\033]%d;rgb:%02x%02x/%02x%02x/%02x%02x%s",
+			num, r, r, g, g, b, b, oscterm);
 
 	ttywrite(buf, n, 1);
 }
 
 void
-strhandle(void)
+strhandle(char *oscterm)
 {
 	char *p = NULL, *dec;
 	int j, narg, par;
@@ -2206,7 +2209,7 @@ strhandle(void)
 			p = strescseq.args[1];
 
 			if (!strcmp(p, "?"))
-				osc_color_response(defaultfg, 10);
+				osc_color_response(defaultfg, 10, oscterm);
 			else if (xsetcolorname(defaultfg, p))
 				fprintf(stderr, "erresc: invalid foreground color: %s\n", p);
 			else
@@ -2219,7 +2222,7 @@ strhandle(void)
 			p = strescseq.args[1];
 
 			if (!strcmp(p, "?"))
-				osc_color_response(defaultbg, 11);
+				osc_color_response(defaultbg, 11, oscterm);
 			else if (xsetcolorname(defaultbg, p))
 				fprintf(stderr, "erresc: invalid background color: %s\n", p);
 			else
@@ -2232,7 +2235,7 @@ strhandle(void)
 			p = strescseq.args[1];
 
 			if (!strcmp(p, "?"))
-				osc_color_response(defaultcs, 12);
+				osc_color_response(defaultcs, 12, oscterm);
 			else if (xsetcolorname(defaultcs, p))
 				fprintf(stderr, "erresc: invalid cursor color: %s\n", p);
 			else
@@ -2254,7 +2257,7 @@ strhandle(void)
 				j = (narg > 1) ? atoi(strescseq.args[1]) : -1;
 
 			if (p && !strcmp(p, "?"))
-				osc4_color_response(j);
+				osc4_color_response(j, oscterm);
 			else if (xsetcolorname(j, p)) {
 				if (par == 104 && narg <= 1) {
 					xloadcols();
@@ -2550,7 +2553,7 @@ tcontrolcode(uchar ascii)
 	case '\a':   /* BEL */
 		if (term.esc & ESC_STR_END) {
 			/* backwards compatibility to xterm */
-			strhandle();
+			strhandle(OSC_TERM_BEL);
 		} else {
 			xbell();
 		}
@@ -2705,7 +2708,7 @@ eschandle(uchar ascii)
 		break;
 	case '\\': /* ST -- String Terminator */
 		if (term.esc & ESC_STR_END)
-			strhandle();
+			strhandle(OSC_TERM_ST);
 		break;
 	default:
 		fprintf(stderr, "erresc: unknown sequence ESC 0x%02X '%c'\n",
