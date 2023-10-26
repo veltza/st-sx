@@ -1,6 +1,6 @@
 # st - simple terminal
 
-This is my fork of [st terminal](https://st.suckless.org/) with several useful patches that are patched using [st-flexipatch](https://github.com/bakkeby/st-flexipatch) and [flexipatch-finalizer](https://github.com/bakkeby/flexipatch-finalizer). I've also made some fixes here and there to improve some patches.
+This is my fork of [st terminal](https://st.suckless.org/) with several useful patches like ligatures, sixels and text reflow. I've also made some fixes here and there to improve some patches.
 
 ## Patches
 
@@ -17,14 +17,12 @@ This is my fork of [st terminal](https://st.suckless.org/) with several useful p
 - Netwmicon
 - Newterm
 - Openurlonclick
-- Scrollback-reflow (*)
+- Scrollback-reflow
 - Sixel
 - Swapmouse
 - Undercurl
 - Wide glyphs
 - Workingdir
-
-(*) The [scrollback-reflow](https://st.suckless.org/patches/scrollback/) patch is not available on the main branch of st-flexipatch, so it has been patched manually.
 
 ## Installation
 
