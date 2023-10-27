@@ -31,7 +31,7 @@ Read README file.
 ## Known issues
 
 - Sixels may overlap text when text is reflowed.
-- Sixels don't work in tmux. Use [WezTerm](https://github.com/wez/wezterm).
+- Sixels work inside tmux, but may sometimes disappear. The reason is that the sixel implementation in tmux is not robust yet.
 
 ## Thanks
 

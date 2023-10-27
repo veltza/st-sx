@@ -1189,7 +1189,7 @@ tscrolldown(int top, int n)
 	/* move images, if they are inside the scrolling region */
 	ImageList *im;
 	for (im = term.images; im; im = im->next) {
-		if (im->y * win.ch + im->height > top * win.ch && im->y <= term.bot) {
+		if (im->y + im->rows > top && im->y <= bot) {
 			im->y += n;
 			im->should_delete |= (im->y >= term.row);
 		}
@@ -1242,8 +1242,18 @@ tscrollup(int top, int bot, int n, int mode)
 		term.line[i+n] = temp;
 	}
 
-	if (alt || term.scr == 0 && savehist)
+	if (alt) {
+		/* move images, if they are inside the scrolling region */
+		ImageList *im;
+		for (im = term.images; im; im = im->next) {
+			if (im->y + im->rows > top && im->y <= bot) {
+				im->y -= n;
+				im->should_delete |= (im->y + im->rows <= 0);
+			}
+		}
+	} else if (term.scr == 0 && savehist) {
 		scroll_images(-1 * n);
+	}
 
 	if (sel.ob.x != -1 && sel.alt == alt) {
 		if (!savehist) {
@@ -1826,6 +1836,7 @@ csihandle(void)
 	char buf[40];
 	int n, x;
 	ImageList *im;
+	int pi, pa;
 
 	switch (csiescseq.mode[0]) {
 	default:
@@ -1976,7 +1987,30 @@ csihandle(void)
 			break;
 		}
 		break;
-	case 'S': /* SU -- Scroll <n> line up */
+	case 'S':
+		/* XTSMGRAPHICS */
+		if (csiescseq.priv) {
+			if (csiescseq.narg > 1) {
+				pi = csiescseq.arg[0];
+				pa = csiescseq.arg[1];
+				if (pi == 1 && (pa == 1 || pa == 2 || pa == 4)) {
+					/* number of sixel color registers */
+					n = snprintf(buf, sizeof buf, "\033[?1;0;%dS", DECSIXEL_PALETTE_MAX);
+					ttywrite(buf, n, 1);
+					break;
+				} else if (pi == 2 && (pa == 1 || pa == 2 || pa == 4)) {
+					/* sixel graphics geometry (in pixels) */
+					n = snprintf(buf, sizeof buf, "\033[?2;0;%d;%dS",
+					             term.col * win.cw, term.row * win.ch);
+					ttywrite(buf, n, 1);
+					break;
+				}
+				n = snprintf(buf, sizeof buf, "\033[?%d;3;0S", pi); /* failure */
+				ttywrite(buf, n, 1);
+			}
+			goto unknown;
+		}
+		/* SU -- Scroll <n> line up */
 		DEFAULT(csiescseq.arg[0], 1);
 		/* xterm, urxvt, alacritty save this in history */
 		tscrollup(term.top, term.bot, csiescseq.arg[0], SCROLL_SAVEHIST);
@@ -2048,8 +2082,23 @@ csihandle(void)
 	case 's': /* DECSC -- Save cursor position (ANSI.SYS) */
 		tcursor(CURSOR_SAVE);
 		break;
-	case 't': /* title stack operations */
+	case 't': /* XTWINOPS */
 		switch (csiescseq.arg[0]) {
+		case 14: /* text area size in pixels */
+			if (csiescseq.narg > 1)
+				goto unknown;
+			n = snprintf(buf, sizeof buf, "\033[4;%d;%dt",
+			             term.row * win.ch, term.col * win.cw);
+			ttywrite(buf, n, 1);
+			break;
+		case 16: /* character cell size in pixels */
+			n = snprintf(buf, sizeof buf, "\033[6;%d;%dt", win.ch, win.cw);
+			ttywrite(buf, n, 1);
+			break;
+		case 18: /* size of the text area in characters */
+			n = snprintf(buf, sizeof buf, "\033[8;%d;%dt", term.row, term.col);
+			ttywrite(buf, n, 1);
+			break;
 		case 22: /* pust current title on stack */
 			switch (csiescseq.arg[1]) {
 			case 0:
