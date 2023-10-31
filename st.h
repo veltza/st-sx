@@ -67,6 +67,7 @@ typedef struct _ImageList {
 	int x;
 	int y;
 	int reflow_y;
+	int yoff;
 	int cols;
 	int rows;
 	int cw;

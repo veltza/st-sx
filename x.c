@@ -2477,7 +2477,8 @@ xfinishdraw(void)
 	XGCValues gcvalues;
 	GC gc;
 	int srcy, dstx, dsty, width, height;
-	int x, y, x2, y2;
+	int i, x, y, x2, y2;
+	int bestoff, bestlen, lastoff;
 
 	for (im = term.images; im; im = next) {
 		/* get the next image here, because delete_image() will delete the current image */
@@ -2488,14 +2489,13 @@ xfinishdraw(void)
 			continue;
 		}
 
-		/* scale the image size */
-		width = im->width * win.cw / im->cw;
-		height = im->height * win.ch / im->ch;
-
 		/* do not draw or process the image, if it is not visible */
-		if (im->x >= term.col || im->y >= term.row || im->y * win.ch + height <= 0)
+		if (im->x >= term.col || im->y >= term.row || im->y + im->rows <= 0)
 			continue;
 
+		/* scale the image */
+		width = im->width * win.cw / im->cw;
+		height = im->height * win.ch / im->ch;
 		if (!im->pixmap) {
 			im->pixmap = (void *)XCreatePixmap(xw.dpy, xw.win, width, height, xw.depth);
 			if (win.cw == im->cw && win.ch == im->ch) {
@@ -2545,37 +2545,60 @@ xfinishdraw(void)
 			}
 		}
 
-		/* clip the image */
+		/* clip the image so it does not go over to borders */
 		dstx = im->x;
 		dsty = (im->y < 0) ? 0 : im->y;
-		srcy = (im->y < 0) ? -im->y * win.ch : 0;
-		height = (im->y < 0) ? height - srcy : height;
+		srcy = (im->y < 0) ? im->yoff - im->y: im->yoff;
+		height -= srcy * win.ch;
+		height = MIN(height, im->rows * win.ch);
 		height = MIN(height, (term.row - (im->y > 0 ? im->y : 0)) * win.ch);
 		width = MIN(width, (term.col - im->x) * win.cw);
 
-		/* delete the image if the text cells below it have been changed */
 		if (tisaltscr()) {
+			/* Clip the image permanently, if it goes out of the screen or the
+			 * text cells below it have been changed. We are trying to keep the
+			 * largest part of the image, which works fine because images are
+			 * often clipped only from the top or bottom.
+			 */
 			x2 = dstx + (width + win.cw-1)/win.cw;
 			y2 = dsty + (height + win.ch-1)/win.ch;
-			for (y = dsty; y < y2 && !im->should_delete; y++) {
+			bestlen = 0, lastoff = -1;
+			for (i = 0, y = dsty; y < y2; y++, i++) {
 				for (x = dstx; x < x2; x++) {
-					if (!(term.line[y][x].mode & ATTR_SIXEL)) {
-						im->should_delete = 1;
+					if (!(term.line[y][x].mode & ATTR_SIXEL))
 						break;
+				}
+				if (x == x2 && lastoff == -1) {
+					lastoff = i;
+				} else if (x != x2 && lastoff != -1) {
+					if (i - lastoff > bestlen) {
+						bestlen = i - lastoff;
+						bestoff = lastoff;
 					}
+					lastoff = -1;
 				}
 			}
-			if (im->should_delete) {
+			if (lastoff != -1 && i - lastoff > bestlen) {
+				bestlen = i - lastoff;
+				bestoff = lastoff;
+			}
+			if ((im->rows = bestlen) == 0) {
 				delete_image(im);
 				continue;
 			}
+			dsty += bestoff;
+			srcy += bestoff;
+			height -= bestoff * win.ch;
+			height = MIN(height, im->rows * win.ch);
+			im->y = dsty;
+			im->yoff = srcy;
 		}
 
 		/* draw the image */
 		memset(&gcvalues, 0, sizeof(gcvalues));
 		gcvalues.graphics_exposures = False;
 		gc = XCreateGC(xw.dpy, xw.win, GCGraphicsExposures, &gcvalues);
-		XCopyArea(xw.dpy, (Drawable)im->pixmap, xw.buf, gc, 0, srcy,
+		XCopyArea(xw.dpy, (Drawable)im->pixmap, xw.buf, gc, 0, srcy * win.ch,
 		    width, height, borderpx + dstx * win.cw, borderpx + dsty * win.ch);
 		XFreeGC(xw.dpy, gc);
 	}

@@ -1171,6 +1171,7 @@ tscrolldown(int top, int n)
 	restoremousecursor();
 
 	int i, bot = term.bot;
+	int scr = IS_SET(MODE_ALTSCREEN) ? 0 : term.scr;
 	Line temp;
 
 	if (n <= 0)
@@ -1189,9 +1190,9 @@ tscrolldown(int top, int n)
 	/* move images, if they are inside the scrolling region */
 	ImageList *im;
 	for (im = term.images; im; im = im->next) {
-		if (im->y + im->rows > top && im->y <= bot) {
+		if (im->y + im->rows - scr > top && im->y - scr <= bot) {
 			im->y += n;
-			im->should_delete |= (im->y >= term.row);
+			im->should_delete |= (im->y - scr > bot);
 		}
 	}
 
@@ -1207,6 +1208,7 @@ tscrollup(int top, int bot, int n, int mode)
 	int i, j, s;
 	int alt = IS_SET(MODE_ALTSCREEN);
 	int savehist = !alt && top == 0 && mode != SCROLL_NOSAVEHIST;
+	int scr = alt ? 0 : term.scr;
 	Line temp;
 
 	if (n <= 0)
@@ -1242,17 +1244,19 @@ tscrollup(int top, int bot, int n, int mode)
 		term.line[i+n] = temp;
 	}
 
-	if (alt) {
+	if (alt || !savehist) {
 		/* move images, if they are inside the scrolling region */
 		ImageList *im;
 		for (im = term.images; im; im = im->next) {
-			if (im->y + im->rows > top && im->y <= bot) {
+			if (im->y + im->rows - scr > top && im->y - scr <= bot) {
 				im->y -= n;
-				im->should_delete |= (im->y + im->rows <= 0);
+				im->should_delete |= (im->y + im->rows - scr <= top);
 			}
 		}
-	} else if (term.scr == 0 && savehist) {
+	} else if (term.scr == 0) {
 		scroll_images(-1 * n);
+	} else {
+		scroll_images(term.scr - scr - n);
 	}
 
 	if (sel.ob.x != -1 && sel.alt == alt) {
@@ -1835,8 +1839,8 @@ csihandle(void)
 {
 	char buf[40];
 	int n, x;
-	ImageList *im;
 	int pi, pa;
+	ImageList *im;
 
 	switch (csiescseq.mode[0]) {
 	default:
@@ -1952,7 +1956,10 @@ csihandle(void)
 			/* vte does this:
 			tscrollup(0, term.row-1, term.row, SCROLL_SAVEHIST); */
 			/* alacritty does this: */
-			for (n = term.row-1; n >= 0 && tlinelen(term.line[n]) == 0; n--);
+			for (n = term.row-1; n >= 0 && tlinelen(term.line[n]) == 0; n--)
+				;
+			for (im = term.images; im; im = im->next)
+				n = MAX(im->y - term.scr + im->rows - 1, n);
 			if (n >= 0)
 				tscrollup(0, term.row-1, n+1, SCROLL_SAVEHIST);
 			tscrollup(0, term.row-1, term.row-n-1, SCROLL_NOSAVEHIST);
@@ -1965,10 +1972,11 @@ csihandle(void)
 			term.histi = 0;
 			term.histf = 0;
 			for (im = term.images; im; im = im->next)
-				im->should_delete |= (im->y * win.ch + im->height <= 0);
+				im->should_delete |= (im->y + im->rows <= 0);
 			break;
 		case 6: /* sixels */
 			tdeleteimages();
+			tfulldirt();
 			break;
 		default:
 			goto unknown;
@@ -2305,6 +2313,7 @@ strhandle(char *oscterm)
 			}
 			new_image->x = term.c.x;
 			new_image->y = term.c.y + term.scr;
+			new_image->yoff = 0;
 			new_image->width = sixel_st.image.width;
 			new_image->height = sixel_st.image.height;
 			new_image->cols = (new_image->width + win.cw-1) / win.cw;
@@ -2329,7 +2338,7 @@ strhandle(char *oscterm)
 			}
 			x2 = MIN(term.c.x + new_image->cols, term.col);
 			for (i = 0; i < new_image->rows; i++) {
-				line = TLINE(term.c.y + term.scr);
+				line = term.line[term.c.y];
 				for (x = term.c.x; x < x2; x++) {
 					line[x].u = ' ';
 					line[x].mode = ATTR_SIXEL;
