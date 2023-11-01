@@ -29,6 +29,7 @@ Sixels inside a [tmux](https://github.com/tmux/tmux) session (apps: [lsix](https
 - Undercurl
 - Wide glyphs
 - Workingdir
+- Xresources
 
 ## Dependencies
 
@@ -57,6 +58,8 @@ sudo make install
 ```
 
 The executable name is `st`.
+
+You can also configure st-sx via Xresources. See xresources-example file.
 
 ## Known issues
 

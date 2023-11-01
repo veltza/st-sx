@@ -81,7 +81,7 @@ static unsigned int blinktimeout = 800;
 static unsigned int cursorthickness = 2;
 
 /* Hide the X cursor whenever a key is pressed. 0: off, 1: on */
-int hidecursor = 1;
+int hidecursor = 0;
 
 /* Ligatures. 0: off, 1: on */
 #define LIGATURES 1
@@ -92,11 +92,11 @@ int hidecursor = 1;
  *    Bold affects lines thickness if boxdraw_bold is not 0. Italic is ignored.
  * 0: disable (render all U25XX glyphs normally from the font).
  */
-const int boxdraw = 0;
-const int boxdraw_bold = 0;
+int boxdraw = 0;
+int boxdraw_bold = 0;
 
 /* braille (U28XX):  1: render as adjacent "pixels",  0: use font */
-const int boxdraw_braille = 0;
+int boxdraw_braille = 0;
 
 /*
  * bell volume. It must be a value between -100 and 100. Use 0 for disabling
@@ -559,3 +559,60 @@ int undercurl_extra_thickness  = 0;
 int undercurl_yoffset = 0;
 // Scaling factor for undercurl height
 float undercurl_height_scale = 1.0;
+
+/*
+ * Xresources preferences to load at startup
+ */
+ResourcePref resources[] = {
+		{ "font",                STRING,  &font },
+		{ "font_fallback1",      STRING,  &font2_xresources[0] },
+		{ "font_fallback2",      STRING,  &font2_xresources[1] },
+		{ "font_fallback3",      STRING,  &font2_xresources[2] },
+		{ "font_fallback4",      STRING,  &font2_xresources[3] },
+		{ "font_fallback5",      STRING,  &font2_xresources[4] },
+		{ "font_fallback6",      STRING,  &font2_xresources[5] },
+		{ "font_fallback7",      STRING,  &font2_xresources[6] },
+		{ "font_fallback8",      STRING,  &font2_xresources[7] },
+		{ "color0",              STRING,  &colorname[0] },
+		{ "color1",              STRING,  &colorname[1] },
+		{ "color2",              STRING,  &colorname[2] },
+		{ "color3",              STRING,  &colorname[3] },
+		{ "color4",              STRING,  &colorname[4] },
+		{ "color5",              STRING,  &colorname[5] },
+		{ "color6",              STRING,  &colorname[6] },
+		{ "color7",              STRING,  &colorname[7] },
+		{ "color8",              STRING,  &colorname[8] },
+		{ "color9",              STRING,  &colorname[9] },
+		{ "color10",             STRING,  &colorname[10] },
+		{ "color11",             STRING,  &colorname[11] },
+		{ "color12",             STRING,  &colorname[12] },
+		{ "color13",             STRING,  &colorname[13] },
+		{ "color14",             STRING,  &colorname[14] },
+		{ "color15",             STRING,  &colorname[15] },
+		{ "foreground",          STRING,  &colorname[258] },
+		{ "background",          STRING,  &colorname[259] },
+		{ "bgUnfocused",         STRING,  &colorname[260] },
+		{ "cursorColor",         STRING,  &colorname[256] },
+		{ "reverseCursor",       STRING,  &colorname[257] },
+		{ "alpha",               FLOAT,   &alpha },
+		{ "alphaUnfocused",      FLOAT,   &alphaUnfocused },
+		{ "termname",            STRING,  &termname },
+		{ "shell",               STRING,  &shell },
+		{ "minlatency",          INTEGER, &minlatency },
+		{ "maxlatency",          INTEGER, &maxlatency },
+		{ "blinktimeout",        INTEGER, &blinktimeout },
+		{ "bellvolume",          INTEGER, &bellvolume },
+		{ "tabspaces",           INTEGER, &tabspaces },
+		{ "borderpx",            INTEGER, &borderpx },
+		{ "cwscale",             FLOAT,   &cwscale },
+		{ "chscale",             FLOAT,   &chscale },
+		{ "boxdraw",             INTEGER, &boxdraw },
+		{ "boxdraw_bold",        INTEGER, &boxdraw_bold },
+		{ "boxdraw_braille",     INTEGER, &boxdraw_braille },
+		{ "hidecursor",          INTEGER, &hidecursor },
+		{ "undercurl_style",               INTEGER, &undercurl_style },
+		{ "undercurl_thickness_threshold", INTEGER, &undercurl_thickness_threshold },
+		{ "undercurl_extra_thickness",     INTEGER, &undercurl_extra_thickness },
+		{ "undercurl_yoffset",             INTEGER, &undercurl_yoffset },
+		{ "undercurl_height_scale",        FLOAT,   &undercurl_height_scale },
+};

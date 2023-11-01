@@ -34,6 +34,9 @@ enum undercurl_slope_type {
 #define XK_NO_MOD     0
 #define XK_SWITCH_MOD (1<<13|1<<14)
 
+/* max number of fallback fonts in .Xresources */
+#define FONT2_XRESOURCES_SIZE 8
+
 /* function definitions used in config.h */
 static void clipcopy(const Arg *);
 static void clippaste(const Arg *);
@@ -43,6 +46,8 @@ static void ttysend(const Arg *);
 static void zoom(const Arg *);
 static void zoomabs(const Arg *);
 static void zoomreset(const Arg *);
+
+char *font2_xresources[FONT2_XRESOURCES_SIZE];
 
 #include "patch/st_include.h"
 #include "patch/x_include.h"
@@ -110,6 +115,7 @@ static void selnotify(XEvent *);
 static void selclear_(XEvent *);
 static void selrequest(XEvent *);
 static void setsel(char *, Time);
+static void sigusr1_reload(int sig);
 static int mouseaction(XEvent *, uint);
 static void mousesel(XEvent *, int);
 static void mousereport(XEvent *);
@@ -652,6 +658,12 @@ setsel(char *str, Time t)
 	clipcopy(NULL);
 }
 
+void
+sigusr1_reload(int sig)
+{
+	reload_config(sig);
+	signal(SIGUSR1, sigusr1_reload);
+}
 
 void
 xsetsel(char *str)
@@ -873,8 +885,8 @@ xclearwin(void)
 void
 xhints(void)
 {
-	XClassHint class = {opt_name ? opt_name : termname,
-	                    opt_class ? opt_class : termname};
+	XClassHint class = {opt_name ? opt_name : "st",
+	                    opt_class ? opt_class : "St"};
 	XWMHints wm = {.flags = InputHint, .input = 1};
 	XSizeHints *sizeh;
 
@@ -1155,8 +1167,6 @@ xinit(int cols, int rows)
 	XWindowAttributes attr;
 	XVisualInfo vis;
 
-	if (!(xw.dpy = XOpenDisplay(NULL)))
-		die("can't open display\n");
 	xw.scr = XDefaultScreen(xw.dpy);
 
 	if (!(opt_embed && (parent = strtol(opt_embed, NULL, 0)))) {
@@ -3056,6 +3066,11 @@ run:
 
 	setlocale(LC_CTYPE, "");
 	XSetLocaleModifiers("");
+	signal(SIGUSR1, sigusr1_reload);
+	if (!(xw.dpy = XOpenDisplay(NULL)))
+		die("Can't open display\n");
+
+	config_init(xw.dpy);
 	cols = MAX(cols, 1);
 	rows = MAX(rows, 1);
 	defaultbg = MAX(LEN(colorname), 256);

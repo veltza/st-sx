@@ -27,16 +27,30 @@ xloadsparefonts(void)
 {
 	FcPattern *pattern;
 	double fontval;
-	int fc;
-	char **fp;
+	int fc, i;
+	char **fp, **fonts;
 
 	if (frclen != 0)
 		die("can't embed spare fonts. cache isn't empty");
 
-	/* Calculate count of spare fonts */
-	fc = sizeof(font2) / sizeof(*font2);
-	if (fc == 0)
-		return;
+	/* Calculate count of spare fonts in .Xresources and defrag the table */
+	for (fc = 0, i = 0; i < FONT2_XRESOURCES_SIZE; i++) {
+		if (font2_xresources[i]) {
+			font2_xresources[fc] = font2_xresources[i];
+			if (i > fc)
+				font2_xresources[i] = NULL;
+			fc++;
+		}
+	}
+	fonts = font2_xresources;
+
+	/* Calculate count of spare fonts in config.h, if .Xresources are not used */
+	if (fc == 0) {
+		fc = sizeof(font2) / sizeof(*font2);
+		if (fc == 0)
+			return;
+		fonts = font2;
+	}
 
 	/* Allocate memory for cache entries. */
 	if (frccap < 4 * fc) {
@@ -44,7 +58,7 @@ xloadsparefonts(void)
 		frc = xrealloc(frc, frccap * sizeof(Fontcache));
 	}
 
-	for (fp = font2; fp - font2 < fc; ++fp) {
+	for (fp = fonts; fp - fonts < fc; ++fp) {
 
 		if (**fp == '-')
 			pattern = XftXlfdParse(*fp, False, False);
