@@ -183,7 +183,7 @@ static char *usedfont = NULL;
 static double usedfontsize = 0;
 static double defaultfontsize = 0;
 
-static char *opt_alpha = NULL;
+char *opt_alpha = NULL;
 static char *opt_class = NULL;
 static char **opt_cmd  = NULL;
 static char *opt_embed = NULL;
@@ -194,7 +194,7 @@ static char *opt_name  = NULL;
 static char *opt_title = NULL;
 static char *opt_dir   = NULL;
 
-static int focused = 0;
+int focused = 0;
 
 static uint buttons; /* bit field of pressed buttons */
 static Cursor cursor;
