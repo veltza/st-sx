@@ -796,9 +796,10 @@ xloadcolor(int i, const char *name, Color *ncolor)
 void
 xloadalpha(void)
 {
-	xloadcolor(focused ? bg : bgUnfocused, NULL, &dc.col[defaultbg]);
-	float const usedAlpha = focused ? alpha : alphaUnfocused;
-	if (opt_alpha) alpha = strtof(opt_alpha, NULL);
+	float usedAlpha = (opt_alpha) ? strtof(opt_alpha, NULL)
+	                              : focused ? alpha : alphaUnfocused;
+
+	dc.col[defaultbg] = focused ? dc.col[bg] : dc.col[bgUnfocused];
 	dc.col[defaultbg].color.alpha = (unsigned short)(0xffff * usedAlpha);
 	dc.col[defaultbg].pixel &= 0x00FFFFFF;
 	dc.col[defaultbg].pixel |= (unsigned char)(0xff * usedAlpha) << 24;
@@ -851,16 +852,15 @@ xsetcolorname(int x, const char *name)
 	if (!xloadcolor(x, name, &ncolor))
 		return 1;
 
-	XftColorFree(xw.dpy, xw.vis, xw.cmap, &dc.col[x]);
-	dc.col[x] = ncolor;
-
-	/* set alpha value of bg color */
 	if (x == defaultbg) {
-		if (opt_alpha)
-			alpha = strtof(opt_alpha, NULL);
-		dc.col[defaultbg].color.alpha = (unsigned short)(0xffff * alpha);
-		dc.col[defaultbg].pixel &= 0x00FFFFFF;
-		dc.col[defaultbg].pixel |= (unsigned char)(0xff * alpha) << 24;
+		XftColorFree(xw.dpy, xw.vis, xw.cmap, &dc.col[bg]);
+		XftColorFree(xw.dpy, xw.vis, xw.cmap, &dc.col[bgUnfocused]);
+		dc.col[bg] = ncolor;
+		xloadcolor(x, name, &dc.col[bgUnfocused]);
+		xloadalpha();
+	} else {
+		XftColorFree(xw.dpy, xw.vis, xw.cmap, &dc.col[x]);
+		dc.col[x] = ncolor;
 	}
 	return 0;
 }
