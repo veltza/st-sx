@@ -8,7 +8,7 @@
 #include "sixel.h"
 #include "sixel_hls.h"
 
-#define SIXEL_RGB(r, g, b) ((r) + ((g) << 8) +  ((b) << 16) + (255 << 24))
+#define SIXEL_RGB(r, g, b) ((255 << 24) + ((r) << 16) + ((g) << 8) +  (b))
 #define SIXEL_PALVAL(n,a,m) (((n) * (a) + ((m) / 2)) / (m))
 #define SIXEL_XRGB(r,g,b) SIXEL_RGB(SIXEL_PALVAL(r, 255, 100), SIXEL_PALVAL(g, 255, 100), SIXEL_PALVAL(b, 255, 100))
 
@@ -173,7 +173,8 @@ end:
 static void
 sixel_image_deinit(sixel_image_t *image)
 {
-	free(image->data);
+	if (image->data)
+		free(image->data);
 	image->data = NULL;
 }
 
@@ -222,9 +223,12 @@ sixel_parser_finalize(sixel_state_t *st, unsigned char **pixels)
 	sixel_image_t *image = &st->image;
 	int x, y;
 	sixel_color_no_t *src;
-	unsigned char *dst;
+	sixel_color_t *dst;
 	int color;
 	int w, h;
+
+	if (!image->data)
+		goto end;
 
 	if (++st->max_x < st->attributed_ph)
 		st->max_x = st->attributed_ph;
@@ -261,16 +265,11 @@ sixel_parser_finalize(sixel_state_t *st, unsigned char **pixels)
 		goto end;
 	}
 
-	dst = *pixels;
+	dst = (sixel_color_t *)*pixels;
 	for (y = 0; y < h; y++) {
 		src = st->image.data + image->width * y;
-		for (x = 0; x < w; ++x) {
-			color = st->image.palette[*src++];
-			*dst++ = color >> 16 & 0xff;   /* b */
-			*dst++ = color >> 8 & 0xff;    /* g */
-			*dst++ = color >> 0 & 0xff;    /* r */
-			*dst++ = color >> 24 & 0xff;   /* a */
-		}
+		for (x = 0; x < w; ++x)
+			*dst++ = st->image.palette[*src++];
 	}
 
 	image->width = w;
@@ -287,7 +286,7 @@ int
 sixel_parser_parse(sixel_state_t *st, unsigned char *p, size_t len)
 {
 	int status = (-1);
-	int n;
+	int n = 0;
 	int i;
 	int x;
 	int y;
@@ -297,13 +296,15 @@ sixel_parser_parse(sixel_state_t *st, unsigned char *p, size_t len)
 	int sy;
 	int c;
 	int pos;
-	unsigned char *p0 = p;
+	int width;
+	unsigned char *pend = p + len;
 	sixel_image_t *image = &st->image;
+	sixel_color_no_t *data, color_index;
 
-	if (! image->data)
+	if (!image->data)
 		goto end;
 
-	while (p < p0 + len) {
+	while (p < pend) {
 		switch (st->state) {
 		case PS_ESC:
 			goto end;
@@ -376,43 +377,45 @@ sixel_parser_parse(sixel_state_t *st, unsigned char *p, size_t len)
 					if (st->repeat_count > 0 && st->pos_y - 5 < image->height) {
 						bits = *p - '?';
 						if (bits != 0) {
-							sixel_vertical_mask = 0x01;
+							data = image->data + image->width * st->pos_y + st->pos_x;
+							width = image->width;
+							color_index = st->color_index;
 							if (st->repeat_count <= 1) {
-								for (i = 0; i < 6; i++) {
-									if ((bits & sixel_vertical_mask) != 0) {
-										pos = image->width * (st->pos_y + i) + st->pos_x;
-										image->data[pos] = st->color_index;
-										if (st->max_x < st->pos_x)
-											st->max_x = st->pos_x;
-										if (st->max_y < (st->pos_y + i))
-											st->max_y = st->pos_y + i;
-									}
-									sixel_vertical_mask <<= 1;
-								}
+								if (bits & 0x01)
+									*data = color_index, n = 0;
+								data += width;
+								if (bits & 0x02)
+									*data = color_index, n = 1;
+								data += width;
+								if (bits & 0x04)
+									*data = color_index, n = 2;
+								data += width;
+								if (bits & 0x08)
+									*data = color_index, n = 3;
+								data += width;
+								if (bits & 0x10)
+									*data = color_index, n = 4;
+								data += width;
+								if (bits & 0x20)
+									*data = color_index, n = 5;
+								if (st->max_x < st->pos_x)
+									st->max_x = st->pos_x;
 							} else {
 								/* st->repeat_count > 1 */
-								for (i = 0; i < 6; i++) {
-									if ((bits & sixel_vertical_mask) != 0) {
-										c = sixel_vertical_mask << 1;
-										for (n = 1; (i + n) < 6; n++) {
-											if ((bits & c) == 0)
-												break;
-											c <<= 1;
-										}
-										for (y = st->pos_y + i; y < st->pos_y + i + n; ++y) {
-											for (x = st->pos_x; x < st->pos_x + st->repeat_count; ++x)
-												image->data[image->width * y + x] = st->color_index;
-										}
-										if (st->max_x < (st->pos_x + st->repeat_count - 1))
-											st->max_x = st->pos_x + st->repeat_count - 1;
-										if (st->max_y < (st->pos_y + i + n - 1))
-											st->max_y = st->pos_y + i + n - 1;
-										i += (n - 1);
-										sixel_vertical_mask <<= (n - 1);
+								sixel_vertical_mask = 0x01;
+								for (i = 0; i < 6; i++, data += width) {
+									if (bits & sixel_vertical_mask) {
+										for (x = 0; x < st->repeat_count; x++)
+											data[x] = color_index;
+										n = i;
 									}
 									sixel_vertical_mask <<= 1;
 								}
+								if (st->max_x < (st->pos_x + st->repeat_count - 1))
+									st->max_x = st->pos_x + st->repeat_count - 1;
 							}
+							if (st->max_y < (st->pos_y + n))
+								st->max_y = st->pos_y + n;
 						}
 					}
 					if (st->repeat_count > 0)

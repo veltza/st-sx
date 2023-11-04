@@ -225,6 +225,11 @@ static int cmdfd;
 static pid_t pid;
 sixel_state_t sixel_st;
 
+/* intermediate buffer for sixel data that minimize sixel_parser_parse() calls */
+unsigned char *sixelbuffer;
+int sixelbufferlen;
+int const sixelbuffersize = 512 * 1024;
+
 static const uchar utfbyte[UTF_SIZ + 1] = {0x80,    0, 0xC0, 0xE0, 0xF0};
 static const uchar utfmask[UTF_SIZ + 1] = {0xC0, 0x80, 0xE0, 0xF0, 0xF8};
 static const Rune utfmin[UTF_SIZ + 1] = {       0,    0,  0x80,  0x800,  0x10000};
@@ -2303,6 +2308,17 @@ strhandle(char *oscterm)
 	case 'P': /* DCS -- Device Control String */
 		if (IS_SET(MODE_SIXEL)) {
 			term.mode &= ~MODE_SIXEL;
+			if (!sixelbuffer) {
+				sixel_parser_deinit(&sixel_st);
+				return;
+			}
+			if (sixelbufferlen > 0) {
+				if (sixel_parser_parse(&sixel_st, sixelbuffer, sixelbufferlen) != 0) {
+					sixel_parser_deinit(&sixel_st);
+					perror("sixel_parser_parse() failed");
+					return;
+				}
+			}
 			new_image = malloc(sizeof(ImageList));
 			memset(new_image, 0, sizeof(ImageList));
 			if (sixel_parser_finalize(&sixel_st, &new_image->pixels) != 0) {
@@ -2780,8 +2796,16 @@ tputc(Rune u)
 		}
 
 		if (IS_SET(MODE_SIXEL)) {
-			if (sixel_parser_parse(&sixel_st, (unsigned char *)&u, 1) != 0)
-				perror("sixel_parser_parse() failed");
+			if (sixelbuffer) {
+				sixelbuffer[sixelbufferlen++] = (unsigned char)u;
+				if (sixelbufferlen >= sixelbuffersize) {
+					if (sixel_parser_parse(&sixel_st, sixelbuffer, sixelbufferlen) != 0) {
+						sixel_parser_deinit(&sixel_st);
+						perror("sixel_parser_parse() failed");
+					}
+					sixelbufferlen = 0;
+				}
+			}
 			return;
 		}
 		if (term.esc & ESC_DCS)

@@ -38,6 +38,9 @@ char *vtiden = "\033[?62;4c"; /* VT200 family (62) with sixel (4) */
 /* remove black bars from sixel images */
 int const sixelremovebars = 1;
 
+/* sixel rgb byte order: LSBFirst or MSBFirst */
+int const sixelbyteorder = LSBFirst;
+
 /* Kerning / character bounding-box multipliers */
 static float cwscale = 1.0;
 static float chscale = 1.0;
