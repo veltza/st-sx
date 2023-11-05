@@ -27,6 +27,7 @@ Sixels inside a [tmux](https://github.com/tmux/tmux) session (apps: [lsix](https
 - Sixel
 - Swapmouse
 - Undercurl
+- Vertcenter
 - Wide glyphs
 - Workingdir
 - Xresources

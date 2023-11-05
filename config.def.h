@@ -45,6 +45,10 @@ int const sixelbyteorder = LSBFirst;
 static float cwscale = 1.0;
 static float chscale = 1.0;
 
+/* vertically center lines in the space available if you have set a larger
+ * chscale in config.h or .Xresources: 0 = off, 1 = on */
+int vertcenter = 0;
+
 /*
  * word delimiter string
  *
@@ -613,6 +617,7 @@ ResourcePref resources[] = {
 		{ "boxdraw_bold",        INTEGER, &boxdraw_bold },
 		{ "boxdraw_braille",     INTEGER, &boxdraw_braille },
 		{ "hidecursor",          INTEGER, &hidecursor },
+		{ "vertcenter",          INTEGER, &vertcenter },
 		{ "undercurl_style",               INTEGER, &undercurl_style },
 		{ "undercurl_thickness_threshold", INTEGER, &undercurl_thickness_threshold },
 		{ "undercurl_extra_thickness",     INTEGER, &undercurl_extra_thickness },

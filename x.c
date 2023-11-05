@@ -1111,6 +1111,7 @@ xloadfonts(const char *fontstr, double fontsize)
 	/* Setting character width and height. */
 	win.cw = ceilf(dc.font.width * cwscale);
 	win.ch = ceilf(dc.font.height * chscale);
+	win.cyo = vertcenter ? ceilf(dc.font.height * (chscale - 1.0) / 2) : 0;
 
 	FcPatternDel(pattern, FC_SLANT);
 	FcPatternAddInteger(pattern, FC_SLANT, FC_SLANT_ITALIC);
@@ -1370,7 +1371,7 @@ xmakeglyphfontspecs(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x
 	mode = prevmode = glyphs[0].mode;
 	xresetfontsettings(mode, &font, &frcflags);
 
-	for (i = 0, xp = winx, yp = winy + font->ascent; i < len; ++i)
+	for (i = 0, xp = winx, yp = winy + font->ascent + win.cyo; i < len; ++i)
 	{
 		mode = glyphs[i].mode;
 
@@ -1504,7 +1505,7 @@ xmakeglyphfontspecs(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x
 			if (prevmode != mode) {
 				prevmode = mode;
 				xresetfontsettings(mode, &font, &frcflags);
-				yp = winy + font->ascent;
+				yp = winy + font->ascent + win.cyo;
 			}
 		}
 	}
@@ -1528,7 +1529,7 @@ xmakeglyphfontspecs(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x
 	FcCharSet *fccharset;
 	int i, f, numspecs = 0;
 
-	for (i = 0, xp = winx, yp = winy + font->ascent; i < len; ++i) {
+	for (i = 0, xp = winx, yp = winy + font->ascent + win.cyo; i < len; ++i) {
 		/* Fetch rune and mode for current glyph. */
 		rune = glyphs[i].u;
 		mode = glyphs[i].mode;
@@ -1553,7 +1554,7 @@ xmakeglyphfontspecs(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x
 				font = &dc.bfont;
 				frcflags = FRC_BOLD;
 			}
-			yp = winy + font->ascent;
+			yp = winy + font->ascent + win.cyo;
 		}
 
 		if (mode & ATTR_BOXDRAW) {
@@ -1820,7 +1821,7 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 
 		/* Render underline and strikethrough. */
 		int url_yoffset = 2;
-		const int undercurl_thickness = (win.ch / undercurl_thickness_threshold) + 1;
+		const int undercurl_thickness = (dc.font.height / undercurl_thickness_threshold) + 1;
 		if (base.mode & ATTR_UNDERLINE) {
 			// Underline Color
 			int wlw = undercurl_thickness; // Wave Line Width (thickness)
@@ -1864,17 +1865,17 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 			if ((base.ustyle >> (24+UNDERCURL_COLOR_NBITS)) != UNDERCURL_TYPE_CURLY) {
 				//XftDrawRect(xw.draw, fg, winx, winy + dc.font.ascent + 1, width, 1);
 				XFillRectangle(xw.dpy, XftDrawDrawable(xw.draw), ugc, winx,
-					winy + dc.font.ascent + 1, width, wlw);
+					winy + win.cyo + dc.font.ascent + 1, width, wlw);
 				if ((base.ustyle >> (24+UNDERCURL_COLOR_NBITS)) == UNDERCURL_TYPE_DOUBLE) {
 					XFillRectangle(xw.dpy, XftDrawDrawable(xw.draw), ugc, winx,
-						winy + dc.font.ascent + 1 + wlw*2, width, wlw);
+						winy + win.cyo + dc.font.ascent + 1 + wlw*2, width, wlw);
 				}
 				url_yoffset = wlw*2 + 1;
 			} else {
 				int ww = win.cw;
 				int wh = (int)((dc.font.descent - wlw/2 - 1) * undercurl_height_scale + 0.5);
 				int wx = winx;
-				int wy = winy + win.ch - dc.font.descent + undercurl_yoffset;
+				int wy = winy + win.cyo + dc.font.ascent + undercurl_yoffset;
 
 				if (undercurl_style == UNDERCURL_CURLY) {
 					// Draw waves
@@ -2184,7 +2185,7 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 		}
 
 		if (base.mode & ATTR_STRUCK) {
-			XftDrawRect(xw.draw, fg, winx, winy + 2 * dc.font.ascent * chscale / 3,
+			XftDrawRect(xw.draw, fg, winx, winy + win.cyo + 2 * dc.font.ascent / 3,
 					width, 1);
 		}
 
@@ -2197,7 +2198,7 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 				int wu = (x2 - xu + 1) * win.cw;
 				xu = borderpx + xu * win.cw;
 				XftDrawRect(xw.draw, fg, xu,
-					winy + dc.font.ascent * chscale + url_yoffset, wu,
+					winy + win.cyo + dc.font.ascent + url_yoffset, wu,
 					undercurl_thickness);
 				url_draw = (y != url_y2 || x + charlen <= x2);
 			}

@@ -49,6 +49,9 @@ St.color15:         white
 St.cwscale:         1.0
 St.chscale:         1.0
 
+! Vertically center lines in the space available: 0 = off, 1 = on
+St.vertcenter:      0
+
 ! Boxdraw settings see. config.def.h
 St.boxdraw:         0
 St.boxdraw_bold:    0
