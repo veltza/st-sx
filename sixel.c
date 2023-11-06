@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <string.h>  /* memcpy */
 
+#include "st.h"
+#include "win.h"
 #include "sixel.h"
 #include "sixel_hls.h"
 
@@ -32,6 +34,39 @@ static sixel_color_t const sixel_default_color_table[] = {
 };
 
 extern int const sixelremovebars;
+
+void
+scroll_images(int n) {
+	ImageList *im, *next;
+	int top = tisaltscr() ? 0 : term.scr - HISTSIZE;
+
+	for (im = term.images; im; im = next) {
+		next = im->next;
+		im->y += n;
+
+		/* check if the current sixel has exceeded the maximum
+		 * draw distance, and should therefore be deleted */
+		if (im->y < top) {
+			//fprintf(stderr, "im@0x%08x exceeded maximum distance\n");
+			delete_image(im);
+		}
+	}
+}
+
+void
+delete_image(ImageList *im)
+{
+	if (im->prev)
+		im->prev->next = im->next;
+	else
+		term.images = im->next;
+	if (im->next)
+		im->next->prev = im->prev;
+	if (im->pixmap)
+		XFreePixmap(xw.dpy, (Drawable)im->pixmap);
+	free(im->pixels);
+	free(im);
+}
 
 static int
 set_default_color(sixel_image_t *image)
@@ -215,7 +250,7 @@ sixel_parser_set_default_color(sixel_state_t *st)
 }
 
 int
-sixel_parser_finalize(sixel_state_t *st, unsigned char **pixels)
+sixel_parser_finalize(sixel_state_t *st, ImageList **newimages, int cx, int cy, int cw, int ch)
 {
 	int status = (-1);
 	int sx;
@@ -226,6 +261,8 @@ sixel_parser_finalize(sixel_state_t *st, unsigned char **pixels)
 	sixel_color_t *dst;
 	int color;
 	int w, h;
+	int i, j, cols, numimages;
+	ImageList *im, *next, *tail;
 
 	if (!image->data)
 		goto end;
@@ -259,23 +296,59 @@ sixel_parser_finalize(sixel_state_t *st, unsigned char **pixels)
 		h = image->height;
 	}
 
-	*pixels = malloc(w * h * 4);
-	if (*pixels == NULL) {
+	if ((numimages = (h + ch-1) / ch) <= 0) {
 		status = (-1);
 		goto end;
 	}
 
-	dst = (sixel_color_t *)*pixels;
-	for (y = 0; y < h; y++) {
-		src = st->image.data + image->width * y;
-		for (x = 0; x < w; ++x)
-			*dst++ = st->image.palette[*src++];
+	cols = (w + cw-1) / cw;
+
+	*newimages = NULL, tail = NULL;
+	for (y = 0, i = 0; i < numimages; i++) {
+		if ((im = malloc(sizeof(ImageList)))) {
+			if (!tail) {
+				*newimages = tail = im;
+				im->prev = im->next = NULL;
+			} else {
+				tail->next = im;
+				im->prev = tail;
+				im->next = NULL;
+				tail = im;
+			}
+			im->x = cx;
+			im->y = cy + i;
+			im->cols = cols;
+			im->width = w;
+			im->height = h - ch * i;
+			im->height = im->height > ch ? ch : im->height;
+			im->pixels = malloc(im->width * im->height * 4);
+			im->pixmap = NULL;
+			im->cw = cw;
+			im->ch = ch;
+		}
+		if (!im || !im->pixels) {
+			for (im = *newimages; im; im = next) {
+				next = im->next;
+				if (im->pixels)
+					free(im->pixels);
+				free(im);
+			}
+			*newimages = NULL;
+			status = (-1);
+			goto end;
+		}
+		dst = (sixel_color_t *)im->pixels;
+		for (j = 0; j < im->height && y < h; j++, y++) {
+			src = st->image.data + image->width * y;
+			for (x = 0; x < w; x++)
+				*dst++ = st->image.palette[*src++];
+		}
 	}
 
 	image->width = w;
 	image->height = h;
 
-	status = (0);
+	status = numimages;
 
 end:
 	return status;

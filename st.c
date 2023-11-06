@@ -49,14 +49,16 @@
 #define OSC_TERM_BEL  "\007"
 
 enum term_mode {
-	MODE_WRAP        = 1 << 0,
-	MODE_INSERT      = 1 << 1,
-	MODE_ALTSCREEN   = 1 << 2,
-	MODE_CRLF        = 1 << 3,
-	MODE_ECHO        = 1 << 4,
-	MODE_PRINT       = 1 << 5,
-	MODE_UTF8        = 1 << 6,
-	MODE_SIXEL       = 1 << 7,
+	MODE_WRAP         = 1 << 0,
+	MODE_INSERT       = 1 << 1,
+	MODE_ALTSCREEN    = 1 << 2,
+	MODE_CRLF         = 1 << 3,
+	MODE_ECHO         = 1 << 4,
+	MODE_PRINT        = 1 << 5,
+	MODE_UTF8         = 1 << 6,
+	MODE_SIXEL        = 1 << 7,
+	MODE_SIXEL_CUR_RT = 1 << 8,
+	MODE_SIXEL_SDM    = 1 << 9
 };
 
 enum scroll_mode {
@@ -145,6 +147,7 @@ static void ttywriteraw(const char *, size_t);
 
 static void csidump(void);
 static void csihandle(void);
+static void dcshandle(void);
 static void readcolonargs(char **, int, int[][CAR_PER_ARG]);
 static void csiparse(void);
 static void csireset(void);
@@ -236,6 +239,9 @@ static const Rune utfmin[UTF_SIZ + 1] = {       0,    0,  0x80,  0x800,  0x10000
 static const Rune utfmax[UTF_SIZ + 1] = {0x10FFFF, 0x7F, 0x7FF, 0xFFFF, 0x10FFFF};
 
 #include "patch/st_include.h"
+
+extern int focused;
+extern char *opt_alpha;
 
 ssize_t
 xwrite(int fd, const char *s, size_t len)
@@ -1177,13 +1183,15 @@ tscrolldown(int top, int n)
 
 	int i, bot = term.bot;
 	int scr = IS_SET(MODE_ALTSCREEN) ? 0 : term.scr;
+	int itop = top + scr, ibot = bot + scr;
 	Line temp;
+	ImageList *im, *next;
 
 	if (n <= 0)
 		return;
 	n = MIN(n, bot-top+1);
 
-	tsetdirt(top, bot-n);
+	tsetdirt(top + scr, bot + scr);
 	tclearregion(0, bot-n+1, term.col-1, bot, 1);
 
 	for (i = bot; i >= top+n; i--) {
@@ -1193,11 +1201,12 @@ tscrolldown(int top, int n)
 	}
 
 	/* move images, if they are inside the scrolling region */
-	ImageList *im;
-	for (im = term.images; im; im = im->next) {
-		if (im->y + im->rows - scr > top && im->y - scr <= bot) {
+	for (im = term.images; im; im = next) {
+		next = im->next;
+		if (im->y >= itop && im->y <= ibot) {
 			im->y += n;
-			im->should_delete |= (im->y - scr > bot);
+			if (im->y > ibot)
+				delete_image(im);
 		}
 	}
 
@@ -1214,7 +1223,9 @@ tscrollup(int top, int bot, int n, int mode)
 	int alt = IS_SET(MODE_ALTSCREEN);
 	int savehist = !alt && top == 0 && mode != SCROLL_NOSAVEHIST;
 	int scr = alt ? 0 : term.scr;
+	int itop = top + scr, ibot = bot + scr;
 	Line temp;
+	ImageList *im, *next;
 
 	if (n <= 0)
 		return;
@@ -1240,7 +1251,7 @@ tscrollup(int top, int bot, int n, int mode)
 			tfulldirt();
 	} else {
 		tclearregion(0, top, term.col-1, top+n-1, 1);
-		tsetdirt(top+n, bot);
+		tsetdirt(top + scr, bot + scr);
 	}
 
 	for (i = top; i <= bot-n; i++) {
@@ -1251,17 +1262,31 @@ tscrollup(int top, int bot, int n, int mode)
 
 	if (alt || !savehist) {
 		/* move images, if they are inside the scrolling region */
-		ImageList *im;
-		for (im = term.images; im; im = im->next) {
-			if (im->y + im->rows - scr > top && im->y - scr <= bot) {
+		for (im = term.images; im; im = next) {
+			next = im->next;
+			if (im->y >= itop && im->y <= ibot) {
 				im->y -= n;
-				im->should_delete |= (im->y + im->rows - scr <= top);
+				if (im->y < itop)
+					delete_image(im);
 			}
 		}
-	} else if (term.scr == 0) {
-		scroll_images(-1 * n);
 	} else {
-		scroll_images(term.scr - scr - n);
+		/* move images, if they are inside the scrolling region or scrollback */
+		for (im = term.images; im; im = next) {
+			next = im->next;
+			im->y -= scr;
+			if (im->y < 0) {
+				im->y -= n;
+			} else if (im->y >= top && im->y <= bot) {
+				im->y -= n;
+				if (im->y < top)
+					im->y -= top; // move to scrollback
+			}
+			if (im->y < -HISTSIZE)
+				delete_image(im);
+			else
+				im->y += term.scr;
+		}
 	}
 
 	if (sel.ob.x != -1 && sel.alt == alt) {
@@ -1503,10 +1528,12 @@ tinsertblankline(int n)
 void
 tdeleteimages(void)
 {
-	ImageList *im;
+	ImageList *im, *next;
 
-	for (im = term.images; im; im = im->next)
-		im->should_delete = 1;
+	for (im = term.images; im; im = next) {
+		next = im->next;
+		delete_image(im);
+	}
 }
 
 void
@@ -1807,6 +1834,12 @@ tsetmode(int priv, int set, const int *args, int narg)
 				      and can be mistaken for other control
 				      codes. */
 				break;
+			case 80: /* DECSDM -- Sixel Display Mode */
+				MODBIT(term.mode, set, MODE_SIXEL_SDM);
+				break;
+			case 8452: /* sixel scrolling leaves cursor to right of graphic */
+				MODBIT(term.mode, set, MODE_SIXEL_CUR_RT);
+				break;
 			default:
 				fprintf(stderr,
 					"erresc: unknown private set/reset mode %d\n",
@@ -1845,7 +1878,7 @@ csihandle(void)
 	char buf[40];
 	int n, x;
 	int pi, pa;
-	ImageList *im;
+	ImageList *im, *next;
 
 	switch (csiescseq.mode[0]) {
 	default:
@@ -1964,7 +1997,7 @@ csihandle(void)
 			for (n = term.row-1; n >= 0 && tlinelen(term.line[n]) == 0; n--)
 				;
 			for (im = term.images; im; im = im->next)
-				n = MAX(im->y - term.scr + im->rows - 1, n);
+				n = MAX(im->y - term.scr, n);
 			if (n >= 0)
 				tscrollup(0, term.row-1, n+1, SCROLL_SAVEHIST);
 			tscrollup(0, term.row-1, term.row-n-1, SCROLL_NOSAVEHIST);
@@ -1976,8 +2009,11 @@ csihandle(void)
 			term.scr = 0;
 			term.histi = 0;
 			term.histf = 0;
-			for (im = term.images; im; im = im->next)
-				im->should_delete |= (im->y + im->rows <= 0);
+			for (im = term.images; im; im = next) {
+				next = im->next;
+				if (im->y < 0)
+					delete_image(im);
+			}
 			break;
 		case 6: /* sixels */
 			tdeleteimages();
@@ -2008,16 +2044,20 @@ csihandle(void)
 				pa = csiescseq.arg[1];
 				if (pi == 1 && (pa == 1 || pa == 2 || pa == 4)) {
 					/* number of sixel color registers */
+					/* (read, reset and read the maximum value give the same response) */
 					n = snprintf(buf, sizeof buf, "\033[?1;0;%dS", DECSIXEL_PALETTE_MAX);
 					ttywrite(buf, n, 1);
 					break;
 				} else if (pi == 2 && (pa == 1 || pa == 2 || pa == 4)) {
 					/* sixel graphics geometry (in pixels) */
+					/* (read, reset and read the maximum value give the same response) */
 					n = snprintf(buf, sizeof buf, "\033[?2;0;%d;%dS",
-					             term.col * win.cw, term.row * win.ch);
+					             MIN(term.col * win.cw, DECSIXEL_WIDTH_MAX),
+					             MIN(term.row * win.ch, DECSIXEL_HEIGHT_MAX));
 					ttywrite(buf, n, 1);
 					break;
 				}
+				/* the number of color registers and sixel geometry can't be changed */
 				n = snprintf(buf, sizeof buf, "\033[?%d;3;0S", pi); /* failure */
 				ttywrite(buf, n, 1);
 			}
@@ -2082,6 +2122,17 @@ csihandle(void)
 			goto unknown;
 		}
 		break;
+	case '$':
+		/* DECRQM -- DEC Request Mode (private) */
+		if (csiescseq.mode[1] == 'p' && csiescseq.priv) {
+			if (csiescseq.arg[0] == 80) {
+				/* Sixel Display Mode  */
+				ttywrite(IS_SET(MODE_SIXEL_SDM) ? "\033[?80;1$y"
+				                                : "\033[?80;2$y", 9, 1);
+				break;
+			}
+		}
+		goto unknown;
 	case 'r': /* DECSTBM -- Set Scrolling Region */
 		if (csiescseq.priv) {
 			goto unknown;
@@ -2214,8 +2265,9 @@ strhandle(char *oscterm)
 {
 	char *p = NULL, *dec;
 	int j, narg, par;
-	ImageList *im, *new_image;
-	int i, x, x2, y2;
+	ImageList *im, *newimages, *next, *tail;
+	int i, x, y, x1, y1, x2, y2, numimages;
+	int cx, cy;
 	Line line;
 	const struct { int idx; char *str; } osc_table[] = {
 		{ defaultfg, "foreground" },
@@ -2319,50 +2371,63 @@ strhandle(char *oscterm)
 					return;
 				}
 			}
-			new_image = malloc(sizeof(ImageList));
-			memset(new_image, 0, sizeof(ImageList));
-			if (sixel_parser_finalize(&sixel_st, &new_image->pixels) != 0) {
-				perror("sixel_parser_finalize() failed");
+			cx = IS_SET(MODE_SIXEL_SDM) ? 0 : term.c.x;
+			cy = IS_SET(MODE_SIXEL_SDM) ? 0 : term.c.y;
+			if ((numimages = sixel_parser_finalize(&sixel_st, &newimages,
+					cx, cy + term.scr, win.cw, win.ch)) <= 0) {
 				sixel_parser_deinit(&sixel_st);
-				free(new_image);
+				perror("sixel_parser_finalize() failed");
 				return;
 			}
-			new_image->x = term.c.x;
-			new_image->y = term.c.y + term.scr;
-			new_image->yoff = 0;
-			new_image->width = sixel_st.image.width;
-			new_image->height = sixel_st.image.height;
-			new_image->cols = (new_image->width + win.cw-1) / win.cw;
-			new_image->rows = (new_image->height + win.ch-1) / win.ch;
-			new_image->cw = win.cw;
-			new_image->ch = win.ch;
 			sixel_parser_deinit(&sixel_st);
-			if (term.images) {
-				im = term.images;
-				x2 = new_image->x + new_image->cols;
-				y2 = new_image->y + new_image->rows;
-				do {
-					if (im->x >= new_image->x && im->x + im->cols <= x2 &&
-					    im->y >= new_image->y && im->y + im->rows <= y2) {
-						im->should_delete = 1;
-					}
-				} while (im->next && (im = im->next));
-				im->next = new_image;
-				new_image->prev = im;
-			} else {
-				term.images = new_image;
+			x1 = newimages->x;
+			y1 = newimages->y;
+			x2 = x1 + newimages->cols;
+			y2 = y1 + numimages;
+			for (tail = NULL, im = term.images; im; im = next) {
+				next = im->next;
+				if (im->x >= x1 && im->x + im->cols <= x2 &&
+					im->y >= y1 && im->y <= y2) {
+					delete_image(im);
+					continue;
+				}
+				tail = im;
 			}
-			x2 = MIN(term.c.x + new_image->cols, term.col);
-			for (i = 0; i < new_image->rows; i++) {
-				line = term.line[term.c.y];
-				for (x = term.c.x; x < x2; x++) {
+			if (tail) {
+				tail->next = newimages;
+				newimages->prev = tail;
+			} else {
+				term.images = newimages;
+			}
+			x2 = MIN(x2, term.col);
+			for (i = 0, im = newimages; im; im = next, i++) {
+				next = im->next;
+				if (IS_SET(MODE_SIXEL_SDM)) {
+					if (i >= term.row) {
+						delete_image(im);
+						continue;
+					}
+					im->y = i + term.scr;
+					line = term.line[i];
+				} else {
+					im->y = term.c.y + term.scr;
+					line = term.line[term.c.y];
+				}
+				for (x = im->x; x < x2; x++) {
 					line[x].u = ' ';
 					line[x].mode = ATTR_SIXEL;
 				}
-				term.dirty[MIN(term.c.y + term.scr, term.row-1)] = 1;
-				if (!IS_SET(MODE_ALTSCREEN) || (i < new_image->rows-1))
+				term.dirty[MIN(im->y, term.row-1)] = 1;
+				if (!IS_SET(MODE_SIXEL_SDM) && i < numimages-1) {
+					next = im->next;
+					im->next = NULL;
 					tnewline(0);
+					im->next = next;
+				}
 			}
+			/* if mode 8452 is set, sixel scrolling leaves cursor to right of graphic */
+			if (!IS_SET(MODE_SIXEL_SDM) && IS_SET(MODE_SIXEL_CUR_RT))
+				term.c.x = MIN(term.c.x + newimages->cols, term.col-1);
 		}
 		return;
 	case '_': /* APC -- Application Program Command */
@@ -2667,6 +2732,34 @@ tcontrolcode(uchar ascii)
 	}
 	/* only CAN, SUB, \a and C1 chars interrupt a sequence */
 	term.esc &= ~(ESC_STR_END|ESC_STR);
+}
+
+void
+dcshandle(void)
+{
+	unsigned char r, g, b;
+	int bgcolor;
+	float usedAlpha = (opt_alpha) ? strtof(opt_alpha, NULL)
+	                              : focused ? alpha : alphaUnfocused;
+
+	switch (csiescseq.mode[0]) {
+	default:
+		fprintf(stderr, "erresc: unknown csi ");
+		csidump();
+		/* die(""); */
+		break;
+	case 'q': /* DECSIXEL */
+		xgetcolor(term.c.attr.bg, &r, &g, &b);
+		bgcolor = (r << 16) | (g << 8) | (b);
+		bgcolor |= (int)(255.0 * (term.c.attr.bg == defaultbg ? usedAlpha : 1.0)) << 24;
+		if (sixel_parser_init(&sixel_st, (255 << 24), bgcolor, 1, win.cw, win.ch) != 0)
+			perror("sixel_parser_init() failed");
+		if (!sixelbuffer && !(sixelbuffer = malloc(sixelbuffersize)))
+			perror("sixelbuffer allocation failed");
+		sixelbufferlen = 0;
+		term.mode |= MODE_SIXEL;
+		break;
+	}
 }
 
 /*
@@ -2987,13 +3080,13 @@ treflow_moveimages(int oldy, int newy)
 void
 treflow(int col, int row)
 {
-	int i, j;
+	int i, j, x, x2;
 	int oce, nce, bot, scr;
 	int ox = 0, oy = -term.histf, nx = 0, ny = -1, len;
 	int cy = -1; /* proxy for new y coordinate of cursor */
-	int buflen, nlines;
+	int buflen, nlines, del;
 	Line *buf, bufline, line;
-	ImageList *im;
+	ImageList *im, *next;
 
 	for (im = term.images; im; im = im->next)
 		im->reflow_y = INT_MIN; /* unset reflow_y */
@@ -3109,17 +3202,38 @@ treflow(int col, int row)
 	}
 
 	/* move images to the final position */
-	for (im = term.images; im; im = im->next) {
-		if (im->reflow_y == INT_MIN)
-			im->should_delete = 1;
-		else
+	for (im = term.images; im; im = next) {
+		next = im->next;
+		if (im->reflow_y == INT_MIN) {
+			delete_image(im);
+		} else {
 			im->y = im->reflow_y - term.histf + term.scr - (ny + 1);
+			if (im->y - term.scr < -HISTSIZE || im->y - term.scr >= term.row)
+				delete_image(im);
+		}
+	}
+
+	/* expand images into new text cells or
+	 * delete images if there is text behind them */
+	for (im = term.images; im; im = next) {
+		next = im->next;
+		if (im->x < term.col) {
+			line = TLINE(im->y);
+			x2 = MIN(im->x + im->cols, col);
+			for (del = 0, x = im->x; x < x2; x++) {
+				if ((del = line[x].mode & ATTR_SET))
+					break;
+				line[x].u = ' ';
+				line[x].mode = ATTR_SIXEL;
+			}
+			if (del)
+				delete_image(im);
+		}
 	}
 
 	for (; buflen > 0; ny--, buflen--)
 		free(buf[ny % nlines]);
 	free(buf);
-
 }
 
 void
@@ -3232,6 +3346,7 @@ void
 tresizealt(int col, int row)
 {
 	int i, j;
+	ImageList *im, *next;
 
 	/* return if dimensions haven't changed */
 	if (term.col == col && term.row == row) {
@@ -3276,6 +3391,18 @@ tresizealt(int col, int row)
 	term.col = col, term.row = row;
 	/* reset scrolling region */
 	term.top = 0, term.bot = row - 1;
+
+	/* delete or clip images if they are not inside the screen */
+	for (im = term.images; im; im = next) {
+		next = im->next;
+		if (im->x >= term.col || im->y >= term.row || im->y < 0) {
+			delete_image(im);
+		} else {
+			if ((im->cols = MIN(im->x + im->cols, term.col) - im->x) <= 0)
+				delete_image(im);
+		}
+	}
+
 	/* dirty all lines */
 	tfulldirt();
 }
