@@ -1342,8 +1342,9 @@ readcolonargs(char **p, int cursor, int params[][CAR_PER_ARG])
 	char *np;
 
 	params[cursor][0] = -1;
-	params[cursor][1] = -1;
-	params[cursor][2] = -1;
+	params[cursor][1] = 0;
+	params[cursor][2] = 0;
+	params[cursor][3] = 0;
 
 	for (np = NULL, i = 0; **p == ':' && i < CAR_PER_ARG; i++, *p = np) {
 		do {
@@ -1625,12 +1626,12 @@ tsetattr(const int *attr, int l)
 			term.c.attr.mode |= ATTR_ITALIC;
 			break;
 		case 4:
-			utype = (csiescseq.carg[i][0] >= 0) ? MIN(csiescseq.carg[i][0], 3) : 1;
+			utype = (csiescseq.carg[i][0] >= 0) ? MIN(csiescseq.carg[i][0], 5) : 1;
 			if (!undercurl_style)
 				utype = (utype >= 3) ? 0 : utype;
 
-			term.c.attr.ustyle = (term.c.attr.ustyle & UNDERCURL_COLOR_MASK) |
-				(utype << (24+UNDERCURL_COLOR_NBITS));
+			term.c.attr.ustyle = (term.c.attr.ustyle & UNDERLINE_COLOR_MASK) |
+				(utype << (24+UNDERLINE_COLOR_NBITS));
 
 			if (utype)
 				term.c.attr.mode |= ATTR_UNDERLINE;
@@ -1689,21 +1690,28 @@ tsetattr(const int *attr, int l)
 			term.c.attr.bg = defaultbg;
 			break;
 		case 58:
-			if (csiescseq.carg[i][2] < 0) {
-				term.c.attr.ustyle = (term.c.attr.ustyle & ~UNDERCURL_COLOR_MASK) |
-					UNDERCURL_COLOR_PALETTE |
-					MAX(csiescseq.carg[i][1], 0);
-			} else {
-				term.c.attr.ustyle = (term.c.attr.ustyle & ~UNDERCURL_COLOR_MASK) |
-					UNDERCURL_COLOR_RGB |
+			switch (csiescseq.carg[i][0]) {
+			case 2: /* direct color in RGB space */
+				term.c.attr.ustyle = (term.c.attr.ustyle & ~UNDERLINE_COLOR_MASK) |
+					UNDERLINE_COLOR_RGB |
 					((csiescseq.carg[i][1] & 255) << 16) |
 					((csiescseq.carg[i][2] & 255) << 8) |
 					 (csiescseq.carg[i][3] & 255);
+				break;
+			case 5: /* indexed color */
+				term.c.attr.ustyle = (term.c.attr.ustyle & ~UNDERLINE_COLOR_MASK) |
+					UNDERLINE_COLOR_PALETTE |
+					MAX(csiescseq.carg[i][1], 0);
+				break;
+			default:
+				fprintf(stderr, "erresc(default): gfx attr %d unknown\n", attr[i]);
+				csidump();
+				break;
 			}
 			term.c.attr.mode ^= ATTR_DIRTYUNDERLINE;
 			break;
 		case 59:
-			term.c.attr.ustyle = (term.c.attr.ustyle & ~UNDERCURL_COLOR_MASK);
+			term.c.attr.ustyle = (term.c.attr.ustyle & ~UNDERLINE_COLOR_MASK);
 			term.c.attr.mode ^= ATTR_DIRTYUNDERLINE;
 			break;
 		default:

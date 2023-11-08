@@ -30,12 +30,18 @@
 #define IS_TRUECOL(x)		(1 << 24 & (x))
 #define HISTSIZE      2000
 
-#define UNDERCURL_COLOR_PALETTE  (1<<24)
-#define UNDERCURL_COLOR_RGB      (2<<24)
-#define UNDERCURL_COLOR_NBITS    2
-#define UNDERCURL_COLOR_MASK     ((1 << (24+UNDERCURL_COLOR_NBITS)) - 1)
-#define UNDERCURL_TYPE_DOUBLE    2
-#define UNDERCURL_TYPE_CURLY     3
+#define UNDERLINE_COLOR_PALETTE  (1<<24)
+#define UNDERLINE_COLOR_RGB      (2<<24)
+#define UNDERLINE_COLOR_NBITS    2
+#define UNDERLINE_COLOR_MASK     ((1 << (24+UNDERLINE_COLOR_NBITS)) - 1)
+
+enum underlinetype {
+	UNDERLINE_SINGLE = 1,
+	UNDERLINE_DOUBLE = 2,
+	UNDERLINE_CURLY  = 3,
+	UNDERLINE_DOTTED = 4,
+	UNDERLINE_DASHED = 5
+};
 
 enum glyph_attribute {
 	ATTR_NULL           = 0,
