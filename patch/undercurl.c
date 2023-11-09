@@ -372,8 +372,9 @@ undercurldotted(GC gc, int wx, int wy, int ww, int wlw, int charlen)
 {
 	int i, j, x, e;
 	int numrects = charlen * 2;
-
 	XRectangle *rects = xmalloc(sizeof(XRectangle) * numrects);
+
+	wx += MAX(ww/8, 1); /* center the dots */
 
 	for (j = 0, i = 0; i < numrects; i++) {
 		x = wx + j++ * ww / 4;
@@ -398,7 +399,6 @@ undercurldashed(GC gc, int wx, int wy, int ww, int wlw, int charlen)
 	int spc = ww / 2;
 	int rwidth = ww - spc;
 	int fwidth = rwidth / 2;
-
 	XRectangle *rects = xmalloc(sizeof(XRectangle) * (charlen + 1));
 
 	/* first (half width) */
