@@ -370,19 +370,17 @@ undercurlcurly(GC gc, int wx, int wy, int ww, int wh, int charlen)
 static void
 undercurldotted(GC gc, int wx, int wy, int ww, int wlw, int charlen)
 {
-	int i, j, x, e;
-	int numrects = charlen * 2;
+	unsigned int i, x;
+	unsigned int numrects = charlen * 2;
 	XRectangle *rects = xmalloc(sizeof(XRectangle) * numrects);
 
 	wx += MAX(ww/8, 1); /* center the dots */
 
-	for (j = 0, i = 0; i < numrects; i++) {
-		x = wx + j++ * ww / 4;
-		e = wx + j++ * ww / 4;
+	for (x = 4*wx, i = 0; i < numrects; i++, x += 2*ww) {
 		rects[i] = (XRectangle) {
-			.x = x,
+			.x = x/4,
 			.y = wy,
-			.width = e - x,
+			.width = (x + ww)/4 - x/4,
 			.height = wlw
 		};
 	}
@@ -395,35 +393,34 @@ static void
 undercurldashed(GC gc, int wx, int wy, int ww, int wlw, int charlen)
 {
 	int i;
-	int winx = wx;
 	int spc = ww / 2;
-	int rwidth = ww - spc;
-	int fwidth = rwidth / 2;
+	int width = ww - spc;
+	int hwidth = width - width / 2;
 	XRectangle *rects = xmalloc(sizeof(XRectangle) * (charlen + 1));
 
-	/* first (half width) */
+	/* first half-length dash */
 	rects[0] = (XRectangle) {
 		.x = wx,
 		.y = wy,
-		.width = fwidth,
+		.width = hwidth,
 		.height = wlw
 	};
 
-	/* rest (full width) */
-	for (wx += fwidth + spc, i = 1; i < charlen; i++, wx += ww) {
+	/* full-length dashes */
+	for (wx += hwidth + spc, i = 1; i < charlen; i++, wx += ww) {
 		rects[i] = (XRectangle) {
 			.x = wx,
 			.y = wy,
-			.width = rwidth,
+			.width = width,
 			.height = wlw
 		};
 	}
 
-	/* last (half width) */
+	/* last half-length dash */
 	rects[i++] = (XRectangle) {
 		.x = wx,
 		.y = wy,
-		.width = winx + charlen * ww - wx,
+		.width = width - hwidth,
 		.height = wlw
 	};
 
