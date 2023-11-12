@@ -3216,7 +3216,7 @@ treflow(int col, int row)
 			delete_image(im);
 		} else {
 			im->y = im->reflow_y - term.histf + term.scr - (ny + 1);
-			if (im->y - term.scr < -HISTSIZE || im->y - term.scr >= term.row)
+			if (im->y - term.scr < -HISTSIZE || im->y - term.scr >= row)
 				delete_image(im);
 		}
 	}
@@ -3225,7 +3225,7 @@ treflow(int col, int row)
 	 * delete images if there is text behind them */
 	for (im = term.images; im; im = next) {
 		next = im->next;
-		if (im->x < term.col) {
+		if (im->x < col) {
 			line = TLINE(im->y);
 			x2 = MIN(im->x + im->cols, col);
 			for (del = 0, x = im->x; x < x2; x++) {
