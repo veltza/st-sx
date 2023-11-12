@@ -33,8 +33,6 @@ static sixel_color_t const sixel_default_color_table[] = {
 	SIXEL_XRGB(80, 80, 80),  /* 15 Gray 75% */
 };
 
-extern int const sixelremovebars;
-
 void
 scroll_images(int n) {
 	ImageList *im, *next;
@@ -288,13 +286,8 @@ sixel_parser_finalize(sixel_state_t *st, ImageList **newimages, int cx, int cy, 
 			goto end;
 	}
 
-	if (sixelremovebars) {
-		w = st->max_x < image->width ? st->max_x : image->width;
-		h = st->max_y < image->height ? st->max_y : image->height;
-	} else {
-		w = image->width;
-		h = image->height;
-	}
+	w = st->max_x < image->width ? st->max_x : image->width;
+	h = st->max_y < image->height ? st->max_y : image->height;
 
 	if ((numimages = (h + ch-1) / ch) <= 0) {
 		status = (-1);
@@ -344,9 +337,6 @@ sixel_parser_finalize(sixel_state_t *st, ImageList **newimages, int cx, int cy, 
 				*dst++ = st->image.palette[*src++];
 		}
 	}
-
-	image->width = w;
-	image->height = h;
 
 	status = numimages;
 

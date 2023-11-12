@@ -35,9 +35,6 @@ char *stty_args = "stty raw pass8 nl -echo -iexten -cstopb 38400";
 /* identification sequence returned in DA and DECID */
 char *vtiden = "\033[?62;4c"; /* VT200 family (62) with sixel (4) */
 
-/* remove black bars from sixel images */
-int const sixelremovebars = 1;
-
 /* sixel rgb byte order: LSBFirst or MSBFirst */
 int const sixelbyteorder = LSBFirst;
 
