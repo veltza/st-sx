@@ -240,9 +240,6 @@ static const Rune utfmax[UTF_SIZ + 1] = {0x10FFFF, 0x7F, 0x7FF, 0xFFFF, 0x10FFFF
 
 #include "patch/st_include.h"
 
-extern int focused;
-extern char *opt_alpha;
-
 ssize_t
 xwrite(int fd, const char *s, size_t len)
 {
@@ -2745,10 +2742,8 @@ tcontrolcode(uchar ascii)
 void
 dcshandle(void)
 {
-	unsigned char r, g, b;
 	int bgcolor;
-	float usedAlpha = (opt_alpha) ? strtof(opt_alpha, NULL)
-	                              : focused ? alpha : alphaUnfocused;
+	unsigned char r, g, b, a = 255;
 
 	switch (csiescseq.mode[0]) {
 	default:
@@ -2757,9 +2752,16 @@ dcshandle(void)
 		/* die(""); */
 		break;
 	case 'q': /* DECSIXEL */
-		xgetcolor(term.c.attr.bg, &r, &g, &b);
-		bgcolor = (r << 16) | (g << 8) | (b);
-		bgcolor |= (int)(255.0 * (term.c.attr.bg == defaultbg ? usedAlpha : 1.0)) << 24;
+		if (IS_TRUECOL(term.c.attr.bg)) {
+			r = term.c.attr.bg >> 16 & 255;
+			g = term.c.attr.bg >> 8 & 255;
+			b = term.c.attr.bg >> 0 & 255;
+		} else {
+			xgetcolor(term.c.attr.bg, &r, &g, &b);
+			if (term.c.attr.bg == defaultbg)
+				a = dc.col[defaultbg].pixel >> 24 & 255;
+		}
+		bgcolor = a << 24 | r << 16 | g << 8 | b;
 		if (sixel_parser_init(&sixel_st, (255 << 24), bgcolor, 1, win.cw, win.ch) != 0)
 			perror("sixel_parser_init() failed");
 		if (!sixelbuffer && !(sixelbuffer = malloc(sixelbuffersize)))
