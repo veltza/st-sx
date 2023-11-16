@@ -1361,12 +1361,12 @@ xmakeglyphfontspecs(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x
 	HbTransformData shaped = { 0 };
 
 	/* Initial values. */
-	mode = prevmode = glyphs[0].mode;
+	mode = prevmode = glyphs[0].mode & ~ATTR_WRAP;
 	xresetfontsettings(mode, &font, &frcflags);
 
 	for (i = 0, xp = winx, yp = winy + font->ascent + win.cyo; i < len; ++i)
 	{
-		mode = glyphs[i].mode;
+		mode = glyphs[i].mode & ~ATTR_WRAP;
 
 		/* Skip dummy wide-character spacing. */
 		if (mode & ATTR_WDUMMY && i < (len - 1))
