@@ -2281,26 +2281,32 @@ strhandle(char *oscterm)
 	};
 
 	term.esc &= ~(ESC_STR_END|ESC_STR);
-	strparse();
+
+	/* strparse() truncates window titles after the first semicolon in
+	 * the title, so they need to be processed without the function */
+	if (strescseq.type == 'k') {
+		/* old title set compatibility */
+		strescseq.buf[strescseq.len] = '\0';
+		xsettitle(strescseq.buf, 0);
+		return;
+	} else if(strescseq.type == ']' &&
+	          strescseq.buf[1] == ';' &&
+	          strescseq.buf[0] <= '2') {
+		strescseq.buf[strescseq.len] = '\0';
+		if (strescseq.buf[0] != '1')
+			xsettitle(strescseq.buf + 2, 0);
+		if (strescseq.buf[0] <= '1')
+			xseticontitle(strescseq.buf + 2);
+		return;
+	} else {
+		strparse();
+	}
+
 	par = (narg = strescseq.narg) ? atoi(strescseq.args[0]) : 0;
 
 	switch (strescseq.type) {
 	case ']': /* OSC -- Operating System Command */
 		switch (par) {
-		case 0:
-			if (narg > 1) {
-				xsettitle(strescseq.args[1], 0);
-				xseticontitle(strescseq.args[1]);
-			}
-			return;
-		case 1:
-			if (narg > 1)
-				xseticontitle(strescseq.args[1]);
-			return;
-		case 2:
-			if (narg > 1)
-				xsettitle(strescseq.args[1], 0);
-			return;
 		case 52:
 			if (narg > 2 && allowwindowops) {
 				dec = base64dec(strescseq.args[2]);
@@ -2359,9 +2365,6 @@ strhandle(char *oscterm)
 			return;
 		}
 		break;
-	case 'k': /* old title set compatibility */
-		xsettitle(strescseq.args[0], 0);
-		return;
 	case 'P': /* DCS -- Device Control String */
 		if (IS_SET(MODE_SIXEL)) {
 			term.mode &= ~MODE_SIXEL;
