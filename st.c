@@ -37,6 +37,8 @@
 #define CAR_PER_ARG   4
 #define STR_BUF_SIZ   ESC_BUF_SIZ
 #define STR_ARG_SIZ   ESC_ARG_SIZ
+#define STR_TERM_ST   "\033\\"
+#define STR_TERM_BEL  "\007"
 
 /* macros */
 #define IS_SET(flag)    ((term.mode & (flag)) != 0)
@@ -44,9 +46,6 @@
 #define ISCONTROLC1(c)  (BETWEEN(c, 0x80, 0x9f))
 #define ISCONTROL(c)    (ISCONTROLC0(c) || ISCONTROLC1(c))
 #define ISDELIM(u)      (u && wcschr(worddelimiters, u))
-
-#define OSC_TERM_ST   "\033\\"
-#define OSC_TERM_BEL  "\007"
 
 enum term_mode {
 	MODE_WRAP         = 1 << 0,
@@ -138,6 +137,7 @@ typedef struct {
 	size_t len;            /* raw string length */
 	char *args[STR_ARG_SIZ];
 	int narg;              /* nb of args */
+	char *term;            /* terminator: ST or BEL */
 } STREscape;
 
 static void execsh(char *, char **);
@@ -151,10 +151,10 @@ static void dcshandle(void);
 static void readcolonargs(char **, int, int[][CAR_PER_ARG]);
 static void csiparse(void);
 static void csireset(void);
-static void osc_color_response(int, int, int, char *);
+static void osc_color_response(int, int, int);
 static int eschandle(uchar);
 static void strdump(void);
-static void strhandle(char *);
+static void strhandle(void);
 static void strparse(void);
 static void strreset(void);
 
@@ -2241,7 +2241,7 @@ csireset(void)
 }
 
 void
-osc_color_response(int num, int index, int is_osc4, char *oscterm)
+osc_color_response(int num, int index, int is_osc4)
 {
 	int n;
 	char buf[32];
@@ -2255,7 +2255,7 @@ osc_color_response(int num, int index, int is_osc4, char *oscterm)
 	}
 
 	n = snprintf(buf, sizeof buf, "\033]%s%d;rgb:%02x%02x/%02x%02x/%02x%02x%s",
-	             is_osc4 ? "4;" : "", num, r, r, g, g, b, b, oscterm);
+	             is_osc4 ? "4;" : "", num, r, r, g, g, b, b, strescseq.term);
 	if (n < 0 || n >= sizeof(buf)) {
 		fprintf(stderr, "error: %s while printing %s response\n",
 		        n < 0 ? "snprintf failed" : "truncation occurred",
@@ -2266,7 +2266,7 @@ osc_color_response(int num, int index, int is_osc4, char *oscterm)
 }
 
 void
-strhandle(char *oscterm)
+strhandle(void)
 {
 	char *p = NULL, *dec;
 	int j, narg, par;
@@ -2282,31 +2282,25 @@ strhandle(char *oscterm)
 
 	term.esc &= ~(ESC_STR_END|ESC_STR);
 
-	/* strparse() truncates window titles after the first semicolon in
-	 * the title, so they need to be processed without the function */
-	if (strescseq.type == 'k') {
-		/* old title set compatibility */
-		strescseq.buf[strescseq.len] = '\0';
-		xsettitle(strescseq.buf, 0);
-		return;
-	} else if(strescseq.type == ']' &&
-	          strescseq.buf[1] == ';' &&
-	          strescseq.buf[0] <= '2') {
-		strescseq.buf[strescseq.len] = '\0';
-		if (strescseq.buf[0] != '1')
-			xsettitle(strescseq.buf + 2, 0);
-		if (strescseq.buf[0] <= '1')
-			xseticontitle(strescseq.buf + 2);
-		return;
-	} else {
-		strparse();
-	}
-
-	par = (narg = strescseq.narg) ? atoi(strescseq.args[0]) : 0;
-
 	switch (strescseq.type) {
 	case ']': /* OSC -- Operating System Command */
+		strparse();
+		par = (narg = strescseq.narg) ? atoi(strescseq.args[0]) : 0;
 		switch (par) {
+		case 0:
+			if (narg > 1) {
+				xsettitle(strescseq.args[1], 0);
+				xseticontitle(strescseq.args[1]);
+			}
+			return;
+		case 1:
+			if (narg > 1)
+				xseticontitle(strescseq.args[1]);
+			return;
+		case 2:
+			if (narg > 1)
+				xsettitle(strescseq.args[1], 0);
+			return;
 		case 52:
 			if (narg > 2 && allowwindowops) {
 				dec = base64dec(strescseq.args[2]);
@@ -2330,7 +2324,7 @@ strhandle(char *oscterm)
 				break; /* shouldn't be possible */
 
 			if (!strcmp(p, "?")) {
-				osc_color_response(par, osc_table[j].idx, 0, oscterm);
+				osc_color_response(par, osc_table[j].idx, 0);
 			} else if (xsetcolorname(osc_table[j].idx, p)) {
 				fprintf(stderr, "erresc: invalid %s color: %s\n",
 				        osc_table[j].str, p);
@@ -2347,7 +2341,7 @@ strhandle(char *oscterm)
 			j = (narg > 1) ? atoi(strescseq.args[1]) : -1;
 
 			if (p && !strcmp(p, "?")) {
-				osc_color_response(j, 0, 1, oscterm);
+				osc_color_response(j, 0, 1);
 			} else if (xsetcolorname(j, p)) {
 				if (par == 104 && narg <= 1) {
 					xloadcols();
@@ -2365,6 +2359,10 @@ strhandle(char *oscterm)
 			return;
 		}
 		break;
+	case 'k': /* old title set compatibility */
+		strescseq.buf[strescseq.len] = '\0';
+		xsettitle(strescseq.buf, 0);
+		return;
 	case 'P': /* DCS -- Device Control String */
 		if (IS_SET(MODE_SIXEL)) {
 			term.mode &= ~MODE_SIXEL;
@@ -2459,6 +2457,14 @@ strparse(void)
 	if (*p == '\0')
 		return;
 
+	/* preserve semicolons in window titles and icon names */
+	if(strescseq.type == ']' && p[0] <= '2' && p[1] == ';') {
+		strescseq.args[strescseq.narg++] = p;
+		strescseq.args[strescseq.narg++] = p + 2;
+		p[1] = '\0';
+		return;
+	}
+
 	while (strescseq.narg < STR_ARG_SIZ) {
 		strescseq.args[strescseq.narg++] = p;
 		while ((c = *p) != ';' && c != '\0')
@@ -2493,7 +2499,7 @@ strdump(void)
 			fprintf(stderr, "(%02x)", c);
 		}
 	}
-	fprintf(stderr, "ESC\\\n");
+	fprintf(stderr, (strescseq.term[0] == 0x1b) ? "ESC\\\n" : "BEL\n");
 }
 
 void
@@ -2502,6 +2508,7 @@ strreset(void)
 	strescseq = (STREscape){
 		.buf = xrealloc(strescseq.buf, STR_BUF_SIZ),
 		.siz = STR_BUF_SIZ,
+		.term = STR_TERM_ST,
 	};
 }
 
@@ -2667,7 +2674,8 @@ tcontrolcode(uchar ascii)
 	case '\a':   /* BEL */
 		if (term.esc & ESC_STR_END) {
 			/* backwards compatibility to xterm */
-			strhandle(OSC_TERM_BEL);
+			strescseq.term = STR_TERM_BEL;
+			strhandle();
 		} else {
 			xbell();
 		}
@@ -2855,7 +2863,8 @@ eschandle(uchar ascii)
 		break;
 	case '\\': /* ST -- String Terminator */
 		if (term.esc & ESC_STR_END)
-			strhandle(OSC_TERM_ST);
+			strescseq.term = STR_TERM_ST;
+			strhandle();
 		break;
 	default:
 		fprintf(stderr, "erresc: unknown sequence ESC 0x%02X '%c'\n",
