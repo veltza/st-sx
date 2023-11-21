@@ -1594,7 +1594,8 @@ tdefcolor(const int *attr, int *npar, int l)
 void
 tsetattr(const int *attr, int l)
 {
-	int i, utype;
+	int i, j, t, utype;
+	int cattr[5];
 	int32_t idx;
 
 	for (i = 0; i < l; i++) {
@@ -1687,25 +1688,23 @@ tsetattr(const int *attr, int l)
 			term.c.attr.bg = defaultbg;
 			break;
 		case 58:
-			switch (csiescseq.carg[i][0]) {
-			case 2: /* direct color in RGB space */
-				term.c.attr.ustyle = (term.c.attr.ustyle & ~UNDERLINE_COLOR_MASK) |
-					UNDERLINE_COLOR_RGB |
-					((csiescseq.carg[i][1] & 255) << 16) |
-					((csiescseq.carg[i][2] & 255) << 8) |
-					 (csiescseq.carg[i][3] & 255);
-				break;
-			case 5: /* indexed color */
-				term.c.attr.ustyle = (term.c.attr.ustyle & ~UNDERLINE_COLOR_MASK) |
-					UNDERLINE_COLOR_PALETTE |
-					MAX(csiescseq.carg[i][1], 0);
-				break;
-			default:
-				fprintf(stderr, "erresc(default): gfx attr %d unknown\n", attr[i]);
-				csidump();
-				break;
+			if (csiescseq.carg[i][0] >= 0) {
+				cattr[0] = 58;
+				for (t = 0, j = 0; j < 4; j++)
+					cattr[j + 1] = csiescseq.carg[i][j];
+				idx = tdefcolor(cattr, &t, 5);
+			} else {
+				idx = tdefcolor(attr, &i, l);
 			}
-			term.c.attr.mode ^= ATTR_DIRTYUNDERLINE;
+			if (idx >= 0) {
+				term.c.attr.ustyle = (term.c.attr.ustyle & ~UNDERLINE_COLOR_MASK) |
+					(IS_TRUECOL(idx) ? UNDERLINE_COLOR_RGB : UNDERLINE_COLOR_PALETTE) |
+					(idx & 0xffffff);
+				term.c.attr.mode ^= ATTR_DIRTYUNDERLINE;
+			} else {
+				fprintf(stderr, "erresc(58): gfx attr unknown\n");
+				csidump();
+			}
 			break;
 		case 59:
 			term.c.attr.ustyle = (term.c.attr.ustyle & ~UNDERLINE_COLOR_MASK);
