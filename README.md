@@ -26,6 +26,7 @@ Sixels inside a [tmux](https://github.com/tmux/tmux) session (apps: [lsix](https
 - Scrollback-reflow
 - Sixel
 - Swapmouse
+- Sync
 - Undercurl
 - Vertcenter
 - Wide glyphs
