@@ -325,8 +325,10 @@ utf8decode(const char *c, Rune *u, size_t clen)
 	if (!clen)
 		return 0;
 	udecoded = utf8decodebyte(c[0], &len);
-	if (!BETWEEN(len, 1, UTF_SIZ))
+	if (!BETWEEN(len, 2, UTF_SIZ)) {
+		*u = (len == 1) ? udecoded : UTF_INVALID;
 		return 1;
+	}
 	for (i = 1, j = 1; i < clen && j < len; ++i, ++j) {
 		udecoded = (udecoded << 6) | utf8decodebyte(c[i], &type);
 		if (type != 0)
