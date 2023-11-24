@@ -211,9 +211,9 @@ static int regionselected(int, int, int, int);
 static void selsnap(int *, int *, int);
 
 static size_t utf8decode(const char *, Rune *, size_t);
-static Rune utf8decodebyte(char, size_t *);
-static char utf8encodebyte(Rune, size_t);
-static size_t utf8validate(Rune *, size_t);
+static inline Rune utf8decodebyte(char, size_t *);
+static inline char utf8encodebyte(Rune, size_t);
+static inline size_t utf8validate(Rune *, size_t);
 
 static char *base64dec(const char *);
 static char base64dec_getc(const char **);
@@ -318,7 +318,7 @@ xstrdup(const char *s)
 size_t
 utf8decode(const char *c, Rune *u, size_t clen)
 {
-	size_t i, j, len, type;
+	size_t i, len;
 	Rune udecoded;
 
 	*u = UTF_INVALID;
@@ -329,12 +329,13 @@ utf8decode(const char *c, Rune *u, size_t clen)
 		*u = (len == 1) ? udecoded : UTF_INVALID;
 		return 1;
 	}
-	for (i = 1, j = 1; i < clen && j < len; ++i, ++j) {
-		udecoded = (udecoded << 6) | utf8decodebyte(c[i], &type);
-		if (type != 0)
-			return j;
+	clen = MIN(clen, len);
+	for (i = 1; i < clen; ++i) {
+		if ((c[i] & 0xC0) != 0x80)
+			return i;
+		udecoded = (udecoded << 6) | (c[i] & 0x3F);
 	}
-	if (j < len)
+	if (i < len)
 		return 0;
 	*u = (!BETWEEN(udecoded, utfmin[len], utfmax[len]) || BETWEEN(udecoded, 0xD800, 0xDFFF))
 	        ? UTF_INVALID : udecoded;
