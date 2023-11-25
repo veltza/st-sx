@@ -229,11 +229,6 @@ static int cmdfd;
 static pid_t pid;
 sixel_state_t sixel_st;
 
-/* intermediate buffer for sixel data that minimize sixel_parser_parse() calls */
-unsigned char *sixelbuffer;
-int sixelbufferlen;
-int const sixelbuffersize = 512 * 1024;
-
 static const uchar utfbyte[UTF_SIZ + 1] = {0x80,    0, 0xC0, 0xE0, 0xF0};
 static const uchar utfmask[UTF_SIZ + 1] = {0xC0, 0x80, 0xE0, 0xF0, 0xF8};
 static const Rune utfmin[UTF_SIZ + 1] = {       0,    0,  0x80,  0x800,  0x10000};
@@ -2412,16 +2407,9 @@ strhandle(void)
 	case 'P': /* DCS -- Device Control String */
 		if (IS_SET(MODE_SIXEL)) {
 			term.mode &= ~MODE_SIXEL;
-			if (!sixelbuffer) {
+			if (!sixel_st.image.data) {
 				sixel_parser_deinit(&sixel_st);
 				return;
-			}
-			if (sixelbufferlen > 0) {
-				if (sixel_parser_parse(&sixel_st, sixelbuffer, sixelbufferlen) != 0) {
-					sixel_parser_deinit(&sixel_st);
-					perror("sixel_parser_parse() failed");
-					return;
-				}
 			}
 			cx = IS_SET(MODE_SIXEL_SDM) ? 0 : term.c.x;
 			cy = IS_SET(MODE_SIXEL_SDM) ? 0 : term.c.y;
@@ -2831,9 +2819,6 @@ dcshandle(void)
 		bgcolor = a << 24 | r << 16 | g << 8 | b;
 		if (sixel_parser_init(&sixel_st, (255 << 24), bgcolor, 1, win.cw, win.ch) != 0)
 			perror("sixel_parser_init() failed");
-		if (!sixelbuffer && !(sixelbuffer = malloc(sixelbuffersize)))
-			perror("sixelbuffer allocation failed");
-		sixelbufferlen = 0;
 		term.mode |= MODE_SIXEL;
 		break;
 	}
@@ -2939,7 +2924,7 @@ tputc(Rune u)
 	Glyph *gp;
 
 	control = ISCONTROL(u);
-	if (u < 127 || !IS_SET(MODE_UTF8 | MODE_SIXEL))
+	if (u < 127 || !IS_SET(MODE_UTF8))
 	{
 		c[0] = u;
 		width = len = 1;
@@ -2966,19 +2951,6 @@ tputc(Rune u)
 			goto check_control_code;
 		}
 
-		if (IS_SET(MODE_SIXEL)) {
-			if (sixelbuffer) {
-				sixelbuffer[sixelbufferlen++] = (unsigned char)u;
-				if (sixelbufferlen >= sixelbuffersize) {
-					if (sixel_parser_parse(&sixel_st, sixelbuffer, sixelbufferlen) != 0) {
-						sixel_parser_deinit(&sixel_st);
-						perror("sixel_parser_parse() failed");
-					}
-					sixelbufferlen = 0;
-				}
-			}
-			return;
-		}
 		if (term.esc & ESC_DCS)
 			goto check_control_code;
 
@@ -3121,8 +3093,10 @@ twrite(const char *buf, int buflen, int show_ctrl)
 	twrite_aborted = 0;
 
 	for (n = 0; n < buflen; n += charsize) {
-		if (IS_SET(MODE_UTF8) && !IS_SET(MODE_SIXEL))
-		{
+		if (IS_SET(MODE_SIXEL) && sixel_st.state != PS_ESC) {
+			charsize = sixel_parser_parse(&sixel_st, (const unsigned char*)buf + n, buflen - n);
+			continue;
+		} else if (IS_SET(MODE_UTF8)) {
 			/* process a complete utf8 char */
 			charsize = utf8decode(buf + n, &u, buflen - n);
 			if (charsize == 0)

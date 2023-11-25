@@ -346,9 +346,8 @@ end:
 
 /* convert sixel data into indexed pixel bytes and palette data */
 int
-sixel_parser_parse(sixel_state_t *st, unsigned char *p, size_t len)
+sixel_parser_parse(sixel_state_t *st, const unsigned char *p, size_t len)
 {
-	int status = (-1);
 	int n = 0;
 	int i;
 	int x;
@@ -360,14 +359,14 @@ sixel_parser_parse(sixel_state_t *st, unsigned char *p, size_t len)
 	int c;
 	int pos;
 	int width;
-	unsigned char *pend = p + len;
+	const unsigned char *p0 = p, *p2 = p + len;
 	sixel_image_t *image = &st->image;
 	sixel_color_no_t *data, color_index;
 
 	if (!image->data)
-		goto end;
+		st->state = PS_ERROR;
 
-	while (p < pend) {
+	while (p < p2) {
 		switch (st->state) {
 		case PS_ESC:
 			goto end;
@@ -376,7 +375,6 @@ sixel_parser_parse(sixel_state_t *st, unsigned char *p, size_t len)
 			switch (*p) {
 			case '\x1b':
 				st->state = PS_ESC;
-				p++;
 				break;
 			case '"':
 				st->param = 0;
@@ -426,9 +424,12 @@ sixel_parser_parse(sixel_state_t *st, unsigned char *p, size_t len)
 						if (sy > DECSIXEL_HEIGHT_MAX)
 							sy = DECSIXEL_HEIGHT_MAX;
 
-						status = image_buffer_resize(image, sx, sy);
-						if (status < 0)
-							goto end;
+						if (image_buffer_resize(image, sx, sy) < 0) {
+							perror("sixel_parser_parse() failed");
+							st->state = PS_ERROR;
+							p++;
+							break;
+						}
 					}
 
 					if (st->color_index > image->ncolors)
@@ -495,7 +496,6 @@ sixel_parser_parse(sixel_state_t *st, unsigned char *p, size_t len)
 			switch (*p) {
 			case '\x1b':
 				st->state = PS_ESC;
-				p++;
 				break;
 			case '0':
 			case '1':
@@ -553,9 +553,11 @@ sixel_parser_parse(sixel_state_t *st, unsigned char *p, size_t len)
 					if (sy > DECSIXEL_HEIGHT_MAX)
 						sy = DECSIXEL_HEIGHT_MAX;
 
-					status = image_buffer_resize(image, sx, sy);
-					if (status < 0)
-						goto end;
+					if (image_buffer_resize(image, sx, sy) < 0) {
+						perror("sixel_parser_parse() failed");
+						st->state = PS_ERROR;
+						break;
+					}
 				}
 				st->state = PS_DECSIXEL;
 				st->param = 0;
@@ -568,7 +570,6 @@ sixel_parser_parse(sixel_state_t *st, unsigned char *p, size_t len)
 			switch (*p) {
 			case '\x1b':
 				st->state = PS_ESC;
-				p++;
 				break;
 			case '0':
 			case '1':
@@ -601,7 +602,6 @@ sixel_parser_parse(sixel_state_t *st, unsigned char *p, size_t len)
 			switch (*p) {
 			case '\x1b':
 				st->state = PS_ESC;
-				p++;
 				break;
 			case '0':
 			case '1':
@@ -665,15 +665,21 @@ sixel_parser_parse(sixel_state_t *st, unsigned char *p, size_t len)
 				break;
 			}
 			break;
+
+		case PS_ERROR:
+			if (*p == '\x1b') {
+				st->state = PS_ESC;
+				goto end;
+			}
+			p++;
+			break;
 		default:
 			break;
 		}
 	}
 
-	status = (0);
-
 end:
-	return status;
+	return p - p0;
 }
 
 void
