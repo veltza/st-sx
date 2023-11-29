@@ -17,6 +17,8 @@
 #include <time.h>
 #include <unistd.h>
 #include <wchar.h>
+#include <X11/keysym.h>
+#include <X11/X.h>
 
 #include "st.h"
 #include "win.h"
@@ -3341,6 +3343,9 @@ tresize(int col, int row)
 		return;
 	} */
 
+	if (row != term.row || col != term.col)
+		win.mode ^= kbds_keyboardhandler(XK_Escape, NULL, 0, 1);
+
 	term.dirty = xrealloc(term.dirty, row * sizeof(*term.dirty));
 	term.tabs = xrealloc(term.tabs, col * sizeof(*term.tabs));
 	if (col > term.col) {
@@ -3505,10 +3510,11 @@ draw(void)
 
 	drawregion(0, 0, term.col, term.row);
 
-	if (term.scr == 0)
+	if (!kbds_drawcursor()) {
 		xdrawcursor(cx, term.c.y, term.line[term.c.y][cx],
 				term.ocx, term.ocy, term.line[term.ocy][term.ocx],
 				term.line[term.ocy], term.col);
+	}
 	term.ocx = cx;
 	term.ocy = term.c.y;
 	xfinishdraw();

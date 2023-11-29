@@ -71,7 +71,6 @@ static void xdrawglyphfontspecs(const XftGlyphFontSpec *, Glyph, int, int, int, 
 #if LIGATURES
 static void xresetfontsettings(ushort mode, Font **font, int *frcflags);
 #endif
-static void xdrawglyph(Glyph, int, int);
 static void xclear(int, int, int, int);
 static int xgeommasktogravity(int);
 static int ximopen(Display *);
@@ -218,6 +217,9 @@ clippaste(const Arg *dummy)
 {
 	Atom clipboard;
 
+	if (IS_SET(MODE_KBDSELECT))
+		return;
+
 	clipboard = XInternAtom(xw.dpy, "CLIPBOARD", 0);
 	XConvertSelection(xw.dpy, clipboard, xsel.xtarget, clipboard,
 			xw.win, CurrentTime);
@@ -232,6 +234,9 @@ numlock(const Arg *dummy)
 void
 selpaste(const Arg *dummy)
 {
+	if (IS_SET(MODE_KBDSELECT))
+		return;
+
 	XConvertSelection(xw.dpy, XA_PRIMARY, xsel.xtarget, XA_PRIMARY,
 			xw.win, CurrentTime);
 }
@@ -339,6 +344,9 @@ mousesel(XEvent *e, int done)
 {
 	int type, seltype = SEL_REGULAR;
 	uint state = e->xbutton.state & ~(Button1Mask | forcemousemod);
+
+	if (kbds_isselectmode())
+		return;
 
 	for (type = 1; type < LEN(selmasks); ++type) {
 		if (match(selmasks[type], state)) {
@@ -457,6 +465,9 @@ bpress(XEvent *e)
 		}
 		xsel.tclick2 = xsel.tclick1;
 		xsel.tclick1 = now;
+
+		if (kbds_isselectmode())
+			return;
 
 		selstart(evcol(e), evrow(e), snap);
 
@@ -1901,7 +1912,7 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Glyph og, Line line, int le
 	 * It will restore the ligatures broken by the cursor. */
 	xdrawline(line, 0, oy, len);
 
-	if (IS_SET(MODE_HIDE))
+	if (IS_SET(MODE_HIDE) && !kbds_isrunning())
 		return;
 
 	/*
@@ -2106,6 +2117,8 @@ xdrawline(Line line, int x1, int y1, int x2)
 		xdrawglyphfontspecs(specs, seq[i].base, seq[i].numspecs, seq[i].ox, y1, DRAW_FG);
 		specs += seq[i].numspecs;
 	}
+
+	kbds_drawmode(y1);
 }
 #else
 void
@@ -2145,6 +2158,8 @@ xdrawline(Line line, int x1, int y1, int x2)
 		if (i > 0)
 			xdrawglyphfontspecs(specs, base, i, ox, y1, dmode);
 	}
+
+	kbds_drawmode(y1);
 }
 #endif
 
@@ -2440,6 +2455,13 @@ kpress(XEvent *ev)
 			return;
 	} else {
 		len = XLookupString(e, buf, sizeof buf, &ksym, NULL);
+	}
+
+	if (IS_SET(MODE_KBDSELECT) ) {
+		if (match(XK_NO_MOD, e->state) ||
+			(XK_Shift_L | XK_Shift_R) & e->state )
+			win.mode ^= kbds_keyboardhandler(ksym, buf, len, 0);
+		return;
 	}
 
 	screen = tisaltscr() ? S_ALT : S_PRI;

@@ -2,6 +2,7 @@
 #include "alpha.c"
 #include "boxdraw.c"
 #include "font2.c"
+#include "keyboardselect_x.c"
 #include "openurlonclick.c"
-#include "xresources.c"
 #include "undercurl.c"
+#include "xresources.c"
