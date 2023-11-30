@@ -456,9 +456,3 @@ kbds_isselectmode(void)
 {
 	return kbds_in_use && kbds_mode & KBDS_MODE_SELECT;
 }
-
-int
-kbds_isrunning(void)
-{
-	return kbds_in_use;
-}
