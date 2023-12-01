@@ -79,7 +79,7 @@ hbfindfont(XftFont *match)
 }
 
 void hbtransform(HbTransformData *data, XftFont *xfont, const Glyph *glyphs, int start, int length) {
-	ushort mode = USHRT_MAX;
+	uint32_t mode;
 	unsigned int glyph_count;
 	int rune_idx, glyph_idx, end = start + length;
 

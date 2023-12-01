@@ -60,8 +60,9 @@ enum glyph_attribute {
 	ATTR_SELECTED       = 1 << 12,
 	ATTR_BOXDRAW        = 1 << 13,
 	ATTR_DIRTYUNDERLINE = 1 << 14,
-	ATTR_SIXEL          = 1 << 15,
+	ATTR_HIGHLIGHT      = 1 << 15,
 	ATTR_BOLD_FAINT = ATTR_BOLD | ATTR_FAINT,
+	ATTR_SIXEL          = 1 << 31,
 };
 
 typedef struct _ImageList {
@@ -121,7 +122,7 @@ typedef XftGlyphFontSpec GlyphFontSpec;
 #define Glyph Glyph_
 typedef struct {
 	Rune u;           /* character code */
-	ushort mode;      /* attribute flags */
+	uint32_t mode;    /* attribute flags */
 	uint32_t fg;      /* foreground  */
 	uint32_t bg;      /* background  */
 	uint32_t ustyle;  /* underline style and color */

@@ -69,7 +69,7 @@ static inline ushort sixd_to_16bit(int);
 static int xmakeglyphfontspecs(XftGlyphFontSpec *, const Glyph *, int, int, int);
 static void xdrawglyphfontspecs(const XftGlyphFontSpec *, Glyph, int, int, int, int);
 #if LIGATURES
-static void xresetfontsettings(ushort mode, Font **font, int *frcflags);
+static void xresetfontsettings(uint32_t mode, Font **font, int *frcflags);
 #endif
 static void xclear(int, int, int, int);
 static int xgeommasktogravity(int);
@@ -1339,7 +1339,7 @@ xinit(int cols, int rows)
 
 #if LIGATURES
 void
-xresetfontsettings(ushort mode, Font **font, int *frcflags)
+xresetfontsettings(uint32_t mode, Font **font, int *frcflags)
 {
 	*font = &dc.font;
 	if ((mode & ATTR_ITALIC) && (mode & ATTR_BOLD)) {
@@ -1360,7 +1360,7 @@ int
 xmakeglyphfontspecs(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x, int y)
 {
 	float winx = borderpx + x * win.cw, winy = borderpx + y * win.ch, xp, yp;
-	ushort mode, prevmode;
+	uint32_t mode, prevmode;
 	Font *font = &dc.font;
 	int frcflags = FRC_NORMAL;
 	float runewidth = win.cw;
@@ -1524,7 +1524,7 @@ int
 xmakeglyphfontspecs(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x, int y)
 {
 	float winx = borderpx + x * win.cw, winy = borderpx + y * win.ch, xp, yp;
-	ushort mode, prevmode = USHRT_MAX;
+	uint32_t mode, prevmode = -1;
 	Font *font = &dc.font;
 	int frcflags = FRC_NORMAL;
 	float runewidth = win.cw;
@@ -1746,6 +1746,11 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 	if (base.mode & ATTR_INVISIBLE)
 		fg = bg;
 
+	if (base.mode & ATTR_HIGHLIGHT) {
+		fg = &dc.col[(base.mode & ATTR_REVERSE) ? highlightbg : highlightfg];
+		bg = &dc.col[(base.mode & ATTR_REVERSE) ? highlightfg : highlightbg];
+	}
+
 	if (dmode & DRAW_BG) {
 		/* Intelligent cleaning up of the borders. */
 		if (x == 0) {
@@ -1918,7 +1923,7 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Glyph og, Line line, int le
 	/*
 	 * Select the right color for the right mode.
 	 */
-	g.mode &= ATTR_BOLD|ATTR_ITALIC|ATTR_UNDERLINE|ATTR_STRUCK|ATTR_WIDE|ATTR_BOXDRAW;
+	g.mode &= ATTR_BOLD|ATTR_ITALIC|ATTR_UNDERLINE|ATTR_STRUCK|ATTR_WIDE|ATTR_BOXDRAW|ATTR_HIGHLIGHT;
 
 	if (IS_SET(MODE_REVERSE)) {
 		g.mode |= ATTR_REVERSE;
@@ -1950,6 +1955,9 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Glyph og, Line line, int le
 		} else
 			drawcol = dc.col[g.bg];
 	}
+
+	if (g.mode & ATTR_HIGHLIGHT)
+		g.mode ^= selected(cx, cy) ? 0 : ATTR_REVERSE;
 
 	/* draw the new one */
 	if (IS_SET(MODE_FOCUSED)) {

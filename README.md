@@ -70,7 +70,6 @@ You can also configure st-sx via Xresources. See xresources-example file.
   * ...sixels are not enabled in the release version of tmux. You have to compile it yourself with `./configure --enable-sixel`.
   * ...some sixels don't show up. The maximum size of sixels in tmux is 1 MB. You can increase the size limit by changing `INPUT_BUF_LIMIT` in `tmux/input.c`.
   * ...sixels may disappear or get stuck. The reason is that the sixel implementation in tmux is not robust yet.
-- Search results are not highlighted in keyboard selection mode.
 
 ## Thanks
 

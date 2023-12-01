@@ -181,6 +181,10 @@ static unsigned int defaultrcs = 257;
 unsigned int bg = 259;
 unsigned int bgUnfocused = 260;
 
+/* Foreground and background color of search results */
+unsigned int highlightfg = 15;
+unsigned int highlightbg = 160;
+
 /*
  * Default shape of cursor
  * 2: Block ("█")
@@ -605,6 +609,8 @@ ResourcePref resources[] = {
 		{ "bgUnfocused",         STRING,  &colorname[260] },
 		{ "cursorColor",         STRING,  &colorname[256] },
 		{ "reverseCursor",       STRING,  &colorname[257] },
+		{ "highlightfg",         INTEGER, &highlightfg },
+		{ "highlightbg",         INTEGER, &highlightbg },
 		{ "alpha",               FLOAT,   &alpha },
 		{ "alphaUnfocused",      FLOAT,   &alphaUnfocused },
 		{ "termname",            STRING,  &termname },

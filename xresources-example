@@ -45,6 +45,10 @@ St.color13:         magenta
 St.color14:         cyan
 St.color15:         white
 
+! Foreground and background color of search results
+St.highlightfg:     15
+St.highlightbg:     160
+
 ! Kerning / character bounding-box multipliers
 St.cwscale:         1.0
 St.chscale:         1.0

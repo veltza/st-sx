@@ -30,10 +30,10 @@ kbds_drawmode(int y)
 	g.bg = defaultbg;
 
 	if (kbds_mode & KBDS_MODE_SEARCH) {
-		g.u = kbds_searchdir < 0 ? '/' : '?';
+		g.u = (kbds_searchdir < 0) ? '/' : '?';
 		xdrawglyph(g, 0, y);
 		for (i = 0; i < term.col-1; i++) {
-			g.u = i < kbds_searchlen ? kbds_searchstr[i] : ' ';
+			g.u = (i < kbds_searchlen) ? kbds_searchstr[i] : ' ';
 			g.mode = (i == kbds_searchlen) ? ATTR_NULL : ATTR_REVERSE;
 			xdrawglyph(g, i + 1, y);
 		}
@@ -83,57 +83,136 @@ kbds_drawcursor(void)
 	return term.scr != 0 || kbds_in_use;
 }
 
-void
-kbds_search(int dir)
+int
+kbds_ismatch(Line line, int x, int y, int bot, int len)
 {
-	Glyph *line;
-	int i, s, x, y;
-	int yoff = (term.histf - term.scr), bot = term.col*(term.row + term.histf) - 1;
+	int i, xo = x, yo = y, l = len;
+	Line ln = line;
 
-	if (!dir || !kbds_searchlen)
+	if (len <= 0 || (x + kbds_searchlen > len &&
+	    (!(line[len-1].mode & ATTR_WRAP) || y >= bot)))
+		return 0;
+
+	for (i = 0; i < kbds_searchlen; i++, x++) {
+		if (x >= len) {
+			if (!(line[len-1].mode & ATTR_WRAP) || ++y > bot)
+				return 0;
+			x = 0;
+			line = TLINE(y);
+			if ((len = tlinelen(line)) <= 0)
+				return 0;
+		}
+		if ((kbds_searchcase && kbds_searchstr[i] != line[x].u) ||
+		    (!kbds_searchcase && towlower(kbds_searchstr[i]) != towlower(line[x].u)))
+			return 0;
+	}
+
+	for (i = 0; i < kbds_searchlen; i++, xo++) {
+		if (xo >= l) {
+			xo = 0, yo++;
+			ln = TLINE(yo);
+			l = tlinelen(ln);
+		}
+		ln[xo].mode |= ATTR_HIGHLIGHT;
+	}
+	return 1;
+}
+
+void
+kbds_searchall(void)
+{
+	int top = tisaltscr() ? 0 : -term.histf + term.scr;
+	int bot = tisaltscr() ? term.row-1 : term.row + term.scr - 1;
+	int x, y, len;
+	Line line;
+
+	if (!kbds_searchlen)
 		return;
 
-	for (i = term.col*(kbds_c.y + yoff) + kbds_c.x + dir; i >= 0 && i <= bot; i += dir) {
-		for (s = 0; s < kbds_searchlen && i + s <= bot; s++) {
-			x = (i + s) % term.col;
-			y = (i + s) / term.col - yoff;
-			if ((kbds_searchcase && kbds_searchstr[s] != TLINE(y)[x].u) ||
-			    (!kbds_searchcase && towlower(kbds_searchstr[s]) != towlower(TLINE(y)[x].u)))
-				break;
-		}
-		if (s == kbds_searchlen) {
-			kbds_c.x = i % term.col;
-			kbds_c.y = i / term.col - yoff;
-			if (kbds_c.y < 0)
-				kscrollup(&((Arg){ .i = -kbds_c.y }));
-			else if (kbds_c.y >= term.row)
-				kscrolldown(&((Arg){ .i = kbds_c.y - term.row + 1 }));
-			LIMIT(kbds_c.y, 0, term.row-1);
-			if (kbds_mode & KBDS_MODE_LSELECT) {
-				kbds_type = SEL_REGULAR;
-				kbds_setmode(kbds_mode & ~(KBDS_MODE_LSELECT));
+	for (y = top; y <= bot; y++) {
+		line = TLINE(y);
+		len = tlinelen(line);
+		for (x = 0; x < len; x++)
+			kbds_ismatch(line, x, y, bot, len);
+	}
+	tfulldirt();
+}
+
+void
+kbds_searchnext(int dir)
+{
+	int top = tisaltscr() ? 0 : -term.histf + term.scr;
+	int bot = tisaltscr() ? term.row-1 : term.row + term.scr - 1;
+	int xo, yo, x = kbds_c.x, y = kbds_c.y;
+	Line line = TLINE(y);
+	int len = tlinelen(line);
+	int wrapped = 0;
+
+	if (!kbds_searchlen)
+		return;
+
+	if (dir < 0 && x > len)
+		x = len;
+
+	for (kbds_quant = MAX(kbds_quant, 1); kbds_quant > 0;) {
+		for (xo = x, yo = y;;) {
+			x += dir;
+			if (x < 0 || x >= len) {
+				y += dir;
+				if (y < top)
+					y = bot, wrapped = 1;
+				else if (y > bot)
+					y = top, wrapped = 1;
+				line = TLINE(y);
+				len = tlinelen(line);
+				x = (dir > 0) ? 0 : MAX(len-1, 0);
 			}
-			kbds_selecttext();
-			if (--kbds_quant > 0)
-				return kbds_search(dir);
-			break;
+			if (kbds_ismatch(line, x, y, bot, len)) {
+				if (y < 0)
+					kscrollup(&((Arg){ .i = -y }));
+				else if (y >= term.row)
+					kscrolldown(&((Arg){ .i = y - term.row + 1 }));
+				LIMIT(y, 0, term.row-1);
+				if (!tisaltscr())
+					top = -term.histf + term.scr, bot =  term.row + term.scr - 1;
+				kbds_c.x = x, kbds_c.y = y;
+				kbds_quant--;
+				break;
+			}
+			if ((wrapped && dir > 0 && x >= xo && y >= yo) ||
+			    (wrapped && dir < 0 && x <= xo && y <= yo))
+				goto end;
 		}
 	}
+end:
 	kbds_quant = 0;
+}
+
+void
+kbds_clearhighlights(void)
+{
+	int x, y;
+	Line line;
+
+	for (y = (tisaltscr() ? 0 : -term.histf); y < term.row; y++) {
+		line = TLINEABS(y);
+		for (x = 0; x < term.col; x++)
+			line[x].mode &= ~ATTR_HIGHLIGHT;
+	}
+	tfulldirt();
 }
 
 int
 kbds_isdelim(Line line, int x, int y, int len, const char *delims)
 {
-	int top = -term.histf + term.scr, bot = term.row + term.scr - 1;
-
 	if (x >= len) {
-		if (len <= 0 || !(line[len-1].mode & ATTR_WRAP) || ++y > bot)
+		if (len <= 0 || !(line[len-1].mode & ATTR_WRAP) ||
+		   ++y >= (tisaltscr() ? term.row : term.row + term.scr))
 			return 1;
 		line = TLINE(y);
 		x = 0;
 	} else if (x < 0) {
-		if (--y < top)
+		if (--y < (tisaltscr() ? 0 : -term.histf + term.scr))
 			return 1;
 		line = TLINE(y);
 		x = tlinelen(line)-1;
@@ -147,7 +226,8 @@ kbds_isdelim(Line line, int x, int y, int len, const char *delims)
 void
 kbds_nextword(int start, int dir, const char *delims)
 {
-	int top = -term.histf + term.scr, bot = term.row + term.scr - 1;
+	int top = tisaltscr() ? 0 : -term.histf + term.scr;
+	int bot = tisaltscr() ? term.row-1 : term.row + term.scr - 1;
 	int x = kbds_c.x, y = kbds_c.y;
 	Line line = TLINE(y);
 	int len = tlinelen(line);
@@ -171,11 +251,12 @@ kbds_nextword(int start, int dir, const char *delims)
 		{
 			if (y < 0)
 				kscrollup(&((Arg){ .i = -y }));
-			if (y >= term.row)
+			else if (y >= term.row)
 				kscrolldown(&((Arg){ .i = y - term.row + 1 }));
 			LIMIT(y, 0, term.row-1);
+			if (!tisaltscr())
+				top = -term.histf + term.scr, bot =  term.row + term.scr - 1;
 			kbds_c.x = x, kbds_c.y = y;
-			top = -term.histf + term.scr, bot = term.row + term.scr - 1;
 			kbds_quant--;
 		}
 	}
@@ -185,7 +266,7 @@ kbds_nextword(int start, int dir, const char *delims)
 int
 kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 {
-	int i, q, *xy;
+	int i, q, *xy, prev;
 
 	if (kbds_mode & KBDS_MODE_SEARCH && !forcequit) {
 		switch (ksym) {
@@ -199,7 +280,8 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 						break;
 					}
 				}
-				kbds_search(kbds_searchdir);
+				kbds_searchall();
+				kbds_searchnext(kbds_searchdir);
 				kbds_setmode(kbds_mode ^ KBDS_MODE_SEARCH);
 				break;
 			case XK_BackSpace:
@@ -263,10 +345,10 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		}
 		break;
 	case XK_t:
-		if (kbds_mode & KBDS_MODE_LSELECT)
-			break;
-		selextend(kbds_c.x, kbds_c.y, kbds_type ^= (SEL_REGULAR | SEL_RECTANGULAR), 0);
-		selextend(kbds_c.x, kbds_c.y, kbds_type, 0);
+		if (!(kbds_mode & KBDS_MODE_LSELECT)) {
+			selextend(kbds_c.x, kbds_c.y, kbds_type ^= (SEL_REGULAR | SEL_RECTANGULAR), 0);
+			selextend(kbds_c.x, kbds_c.y, kbds_type, 0);
+		}
 		break;
 	case XK_y:
 	case XK_Y:
@@ -288,6 +370,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		kbds_searchdir = (ksym == XK_question) ? 1 : -1;
 		kbds_searchlen = 0;
 		kbds_setmode(kbds_mode ^ KBDS_MODE_SEARCH);
+		kbds_clearhighlights();
 		return 0;
 	case XK_q:
 	case XK_Escape:
@@ -321,11 +404,11 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		kbds_in_use = kbds_quant = 0;
 		free(kbds_searchstr);
 		kscrolldown(&((Arg){ .i = term.histf }));
-		tfulldirt();
+		kbds_clearhighlights();
 		return MODE_KBDSELECT;
 	case XK_n:
 	case XK_N:
-		kbds_search(ksym == XK_n ? kbds_searchdir : -kbds_searchdir);
+		kbds_searchnext(ksym == XK_n ? kbds_searchdir : -kbds_searchdir);
 		break;
 	case XK_BackSpace:
 		if (!(kbds_mode & KBDS_MODE_LSELECT))
@@ -355,24 +438,30 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		kbds_c.y = 0;
 		break;
 	case XK_M:
-		kbds_c.y = MIN(term.c.y + term.scr, term.row-1) / 2;
+		kbds_c.y = tisaltscr()
+			? term.row / 2
+			: MIN(term.c.y + term.scr, term.row-1) / 2;
 		break;
 	case XK_L:
-		kbds_c.y = MIN(term.c.y + term.scr, term.row-1);
+		kbds_c.y = tisaltscr()
+			? term.row-1
+			: MIN(term.c.y + term.scr, term.row-1);
 		break;
 	case XK_Page_Up:
 	case XK_KP_Page_Up:
 	case XK_K:
-		i = term.scr;
+		prev = term.scr;
 		kscrollup(&((Arg){ .i = term.row }));
-		kbds_c.y = MAX(0, kbds_c.y - term.row + term.scr - i);
+		kbds_c.y = tisaltscr() ? 0 : MAX(0, kbds_c.y - term.row + term.scr - prev);
 		break;
 	case XK_Page_Down:
 	case XK_KP_Page_Down:
 	case XK_J:
-		i = term.scr;
+		prev = term.scr;
 		kscrolldown(&((Arg){ .i = term.row }));
-		kbds_c.y = MIN(MIN(term.c.y + term.scr, term.row-1), kbds_c.y + term.row + term.scr - i);
+		kbds_c.y = tisaltscr()
+			? term.row-1
+			: MIN(MIN(term.c.y + term.scr, term.row-1), kbds_c.y + term.row + term.scr - prev);
 		break;
 	case XK_asterisk:
 	case XK_KP_Multiply:
