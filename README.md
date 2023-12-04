@@ -36,10 +36,16 @@ Sixels inside a [tmux](https://github.com/tmux/tmux) session (apps: [lsix](https
 
 ## Dependencies
 
+Arch:
+
+```
+sudo pacman -S libx11 libxft imlib2 gd
+```
+
 Ubuntu:
 
 ```
-sudo apt install libx11-xcb-dev libxft-dev libgd-dev libimlib2-dev libharfbuzz-dev
+sudo apt install libx11-xcb-dev libxft-dev libimlib2-dev libgd-dev libharfbuzz-dev
 ```
 
 You don't have to install `libharfbuzz-dev`, if you don't use ligatures. Edit config.h and config.mk to disable ligatures.
