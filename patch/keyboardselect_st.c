@@ -86,8 +86,8 @@ kbds_drawcursor(void)
 int
 kbds_ismatch(Line line, int x, int y, int bot, int len)
 {
-	int i, xo = x, yo = y, l = len;
-	Line ln = line;
+	int i, xo = x, yo = y, hlen = len;
+	Line hline = line;
 
 	if (len <= 0 || (x + kbds_searchlen > len &&
 	    (!(line[len-1].mode & ATTR_WRAP) || y >= bot)))
@@ -103,17 +103,17 @@ kbds_ismatch(Line line, int x, int y, int bot, int len)
 				return 0;
 		}
 		if ((kbds_searchcase && kbds_searchstr[i] != line[x].u) ||
-		    (!kbds_searchcase && towlower(kbds_searchstr[i]) != towlower(line[x].u)))
+		    (!kbds_searchcase && kbds_searchstr[i] != towlower(line[x].u)))
 			return 0;
 	}
 
 	for (i = 0; i < kbds_searchlen; i++, xo++) {
-		if (xo >= l) {
+		if (xo >= hlen) {
 			xo = 0, yo++;
-			ln = TLINE(yo);
-			l = tlinelen(ln);
+			hline = TLINE(yo);
+			hlen = tlinelen(hline);
 		}
-		ln[xo].mode |= ATTR_HIGHLIGHT;
+		hline[xo].mode |= ATTR_HIGHLIGHT;
 	}
 	return 1;
 }
@@ -121,8 +121,8 @@ kbds_ismatch(Line line, int x, int y, int bot, int len)
 void
 kbds_searchall(void)
 {
-	int top = tisaltscr() ? 0 : -term.histf + term.scr;
-	int bot = tisaltscr() ? term.row-1 : term.row + term.scr - 1;
+	int top = IS_SET(MODE_ALTSCREEN) ? 0 : -term.histf + term.scr;
+	int bot = IS_SET(MODE_ALTSCREEN) ? term.row-1 : term.row + term.scr - 1;
 	int x, y, len;
 	Line line;
 
@@ -141,8 +141,8 @@ kbds_searchall(void)
 void
 kbds_searchnext(int dir)
 {
-	int top = tisaltscr() ? 0 : -term.histf + term.scr;
-	int bot = tisaltscr() ? term.row-1 : term.row + term.scr - 1;
+	int top = IS_SET(MODE_ALTSCREEN) ? 0 : -term.histf + term.scr;
+	int bot = IS_SET(MODE_ALTSCREEN) ? term.row-1 : term.row + term.scr - 1;
 	int xo, yo, x = kbds_c.x, y = kbds_c.y;
 	Line line = TLINE(y);
 	int len = tlinelen(line);
@@ -173,7 +173,7 @@ kbds_searchnext(int dir)
 				else if (y >= term.row)
 					kscrolldown(&((Arg){ .i = y - term.row + 1 }));
 				LIMIT(y, 0, term.row-1);
-				if (!tisaltscr())
+				if (!IS_SET(MODE_ALTSCREEN))
 					top = -term.histf + term.scr, bot =  term.row + term.scr - 1;
 				kbds_c.x = x, kbds_c.y = y;
 				kbds_quant--;
@@ -194,7 +194,7 @@ kbds_clearhighlights(void)
 	int x, y;
 	Line line;
 
-	for (y = (tisaltscr() ? 0 : -term.histf); y < term.row; y++) {
+	for (y = (IS_SET(MODE_ALTSCREEN) ? 0 : -term.histf); y < term.row; y++) {
 		line = TLINEABS(y);
 		for (x = 0; x < term.col; x++)
 			line[x].mode &= ~ATTR_HIGHLIGHT;
@@ -207,12 +207,12 @@ kbds_isdelim(Line line, int x, int y, int len, const char *delims)
 {
 	if (x >= len) {
 		if (len <= 0 || !(line[len-1].mode & ATTR_WRAP) ||
-		   ++y >= (tisaltscr() ? term.row : term.row + term.scr))
+		   ++y >= (IS_SET(MODE_ALTSCREEN) ? term.row : term.row + term.scr))
 			return 1;
 		line = TLINE(y);
 		x = 0;
 	} else if (x < 0) {
-		if (--y < (tisaltscr() ? 0 : -term.histf + term.scr))
+		if (--y < (IS_SET(MODE_ALTSCREEN) ? 0 : -term.histf + term.scr))
 			return 1;
 		line = TLINE(y);
 		x = tlinelen(line)-1;
@@ -226,8 +226,8 @@ kbds_isdelim(Line line, int x, int y, int len, const char *delims)
 void
 kbds_nextword(int start, int dir, const char *delims)
 {
-	int top = tisaltscr() ? 0 : -term.histf + term.scr;
-	int bot = tisaltscr() ? term.row-1 : term.row + term.scr - 1;
+	int top = IS_SET(MODE_ALTSCREEN) ? 0 : -term.histf + term.scr;
+	int bot = IS_SET(MODE_ALTSCREEN) ? term.row-1 : term.row + term.scr - 1;
 	int x = kbds_c.x, y = kbds_c.y;
 	Line line = TLINE(y);
 	int len = tlinelen(line);
@@ -254,7 +254,7 @@ kbds_nextword(int start, int dir, const char *delims)
 			else if (y >= term.row)
 				kscrolldown(&((Arg){ .i = y - term.row + 1 }));
 			LIMIT(y, 0, term.row-1);
-			if (!tisaltscr())
+			if (!IS_SET(MODE_ALTSCREEN))
 				top = -term.histf + term.scr, bot =  term.row + term.scr - 1;
 			kbds_c.x = x, kbds_c.y = y;
 			kbds_quant--;
@@ -266,7 +266,7 @@ kbds_nextword(int start, int dir, const char *delims)
 int
 kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 {
-	int i, q, *xy, prev;
+	int i, q, *xy, dy, prevscr;
 
 	if (kbds_mode & KBDS_MODE_SEARCH && !forcequit) {
 		switch (ksym) {
@@ -438,30 +438,32 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		kbds_c.y = 0;
 		break;
 	case XK_M:
-		kbds_c.y = tisaltscr()
-			? term.row / 2
+		kbds_c.y = IS_SET(MODE_ALTSCREEN)
+			? (term.row-1) / 2
 			: MIN(term.c.y + term.scr, term.row-1) / 2;
 		break;
 	case XK_L:
-		kbds_c.y = tisaltscr()
+		kbds_c.y = IS_SET(MODE_ALTSCREEN)
 			? term.row-1
 			: MIN(term.c.y + term.scr, term.row-1);
 		break;
 	case XK_Page_Up:
 	case XK_KP_Page_Up:
 	case XK_K:
-		prev = term.scr;
+		prevscr = term.scr;
 		kscrollup(&((Arg){ .i = term.row }));
-		kbds_c.y = tisaltscr() ? 0 : MAX(0, kbds_c.y - term.row + term.scr - prev);
+		kbds_c.y = IS_SET(MODE_ALTSCREEN)
+			? 0
+			: MAX(0, kbds_c.y - term.row + term.scr - prevscr);
 		break;
 	case XK_Page_Down:
 	case XK_KP_Page_Down:
 	case XK_J:
-		prev = term.scr;
+		prevscr = term.scr;
 		kscrolldown(&((Arg){ .i = term.row }));
-		kbds_c.y = tisaltscr()
+		kbds_c.y = IS_SET(MODE_ALTSCREEN)
 			? term.row-1
-			: MIN(MIN(term.c.y + term.scr, term.row-1), kbds_c.y + term.row + term.scr - prev);
+			: MIN(MIN(term.c.y + term.scr, term.row-1), kbds_c.y + term.row + term.scr - prevscr);
 		break;
 	case XK_asterisk:
 	case XK_KP_Multiply:
@@ -492,6 +494,15 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 	case XK_E:
 		if (!(kbds_mode & KBDS_MODE_LSELECT))
 			kbds_nextword(0, +1, (ksym == XK_e) ? kbds_ldelim : kbds_sdelim);
+		break;
+	case XK_z:
+		prevscr = term.scr;
+		dy = kbds_c.y - (term.row-1) / 2;
+		if (dy <= 0)
+			kscrollup(&((Arg){ .i = -dy }));
+		else
+			kscrolldown(&((Arg){ .i = dy }));
+		kbds_c.y += term.scr - prevscr;
 		break;
 	case XK_0:
 	case XK_KP_0:

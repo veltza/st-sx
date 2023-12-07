@@ -11,6 +11,7 @@ w, W                     jump forwards to the start of a word
 e, E                     jump forwards to the end of a word
 b, B                     jump backwards to the start of a word
 g, G:                    go to the first/last line
+z:                       center the screen on the cursor
 PgUp or K, PgDown or J:  scroll the page up/down
 /, ?:                    activate input mode and search up/down
 n, N:                    repeat last search and search forward/backward
