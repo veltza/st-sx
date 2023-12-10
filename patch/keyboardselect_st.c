@@ -432,11 +432,13 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		break;
 	case XK_asciicircum:
 	case XK_I:
-		line = TLINE(kbds_c.y);
-		len = tlinelen(line);
-		for (i = 0; i < len && line[i].u == ' '; i++)
-			;
-		kbds_c.x = (i < len) ? i : 0;
+		if (!(kbds_mode & KBDS_MODE_LSELECT)) {
+			line = TLINE(kbds_c.y);
+			len = tlinelen(line);
+			for (i = 0; i < len && line[i].u == ' '; i++)
+				;
+			kbds_c.x = (i < len) ? i : 0;
+		}
 		break;
 	case XK_End:
 	case XK_KP_End:
