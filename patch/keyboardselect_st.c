@@ -267,6 +267,7 @@ int
 kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 {
 	int i, q, *xy, dy, prevscr;
+	Line line;
 
 	if (kbds_mode & KBDS_MODE_SEARCH && !forcequit) {
 		switch (ksym) {
@@ -423,10 +424,19 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 			kbds_c.x = term.col-1;
 		break;
 	case XK_dollar:
+	case XK_A:
 		if (!(kbds_mode & KBDS_MODE_LSELECT)) {
 			kbds_c.x = tlinelen(TLINE(kbds_c.y))-1;
 			kbds_c.x = MAX(kbds_c.x, 0);
 		}
+		break;
+	case XK_asciicircum:
+	case XK_I:
+		line = TLINE(kbds_c.y);
+		len = tlinelen(line);
+		for (i = 0; i < len && line[i].u == ' '; i++)
+			;
+		kbds_c.x = (i < len) ? i : 0;
 		break;
 	case XK_End:
 	case XK_KP_End:

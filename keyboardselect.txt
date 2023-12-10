@@ -3,7 +3,8 @@ Shortcuts in keyboard selection mode:
 h, j, k, l:              move cursor left/down/up/right (also with arrow keys)
 H, M, L:                 move cursor to the top/middle/bottom of the screen
 Home, End:               move cursor to the top/bottom of the screen
-Backspace or 0, $:       move cursor to the beginning/end of the line
+Backspace or 0, $ or A:  move cursor to the beginning/end of the line
+^ or I:                  move cursor to the beginning of the indented line
 !:                       move cursor to the middle of the row
 _:                       move cursor to the right edge of the screen
 *:                       move cursor to the center of the screen
