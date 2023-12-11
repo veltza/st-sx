@@ -251,8 +251,6 @@ int
 sixel_parser_finalize(sixel_state_t *st, ImageList **newimages, int cx, int cy, int cw, int ch)
 {
 	int status = (-1);
-	int sx;
-	int sy;
 	sixel_image_t *image = &st->image;
 	int x, y;
 	sixel_color_no_t *src;
@@ -270,15 +268,6 @@ sixel_parser_finalize(sixel_state_t *st, ImageList **newimages, int cx, int cy, 
 
 	if (++st->max_y < st->attributed_pv)
 		st->max_y = st->attributed_pv;
-
-	sx = (st->max_x + st->grid_width - 1) / st->grid_width * st->grid_width;
-	sy = (st->max_y + st->grid_height - 1) / st->grid_height * st->grid_height;
-
-	if (image->width > sx || image->height > sy) {
-		status = image_buffer_resize(image, sx, sy);
-		if (status < 0)
-			goto end;
-	}
 
 	if (image->use_private_register && image->ncolors > 2 && !image->palette_modified) {
 		status = set_default_color(image);
