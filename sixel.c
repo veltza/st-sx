@@ -534,8 +534,10 @@ sixel_parser_parse(sixel_state_t *st, const unsigned char *p, size_t len)
 					if (image->height > st->attributed_pv)
 						sy = image->height;
 
-					sx = (sx + st->grid_width - 1) / st->grid_width * st->grid_width;
-					sy = (sy + st->grid_height - 1) / st->grid_height * st->grid_height;
+					/* the height of the image buffer must be divisible by 6
+					 * to avoid unnecessary resizing of the image buffer in
+					 * sixel_parser_parse() */
+					sy = (sy + 5) / 6 * 6;
 
 					if (sx > DECSIXEL_WIDTH_MAX)
 						sx = DECSIXEL_WIDTH_MAX;
