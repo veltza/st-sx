@@ -2461,7 +2461,6 @@ strhandle(void)
 				}
 				term.dirty[MIN(im->y, term.row-1)] = 1;
 				if (!IS_SET(MODE_SIXEL_SDM) && i < numimages-1) {
-					next = im->next;
 					im->next = NULL;
 					tnewline(0);
 					im->next = next;
