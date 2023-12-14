@@ -621,6 +621,8 @@ ResourcePref resources[] = {
 		{ "boxdraw_braille",     INTEGER, &boxdraw_braille },
 		{ "hidecursor",          INTEGER, &hidecursor },
 		{ "vertcenter",          INTEGER, &vertcenter },
+		{ "cols",                INTEGER, &cols },
+		{ "rows",                INTEGER, &rows },
 		{ "undercurl_style",               INTEGER, &undercurl_style },
 		{ "undercurl_thickness_threshold", INTEGER, &undercurl_thickness_threshold },
 		{ "undercurl_extra_thickness",     INTEGER, &undercurl_extra_thickness },

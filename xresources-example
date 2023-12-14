@@ -12,6 +12,10 @@ St.font:            JetBrainsMono Nerd Font:size=10:antialias=true:autohint=true
 St.font_fallback1:  JoyPixels:size=10.0:antialias=true:autohint=true
 St.font_fallback2:  Symbola:size=13.5:antialias=true:autohint=true
 
+! Default columns and rows numbers
+St.cols:            80
+St.rows:            24
+
 ! Border
 St.borderpx:        2
 
