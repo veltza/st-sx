@@ -185,6 +185,8 @@ static char *opt_line  = NULL;
 static char *opt_name  = NULL;
 static char *opt_title = NULL;
 static char *opt_dir   = NULL;
+static int opt_geometry_cols;
+static int opt_geometry_rows;
 
 static int focused = 0;
 
@@ -2701,6 +2703,8 @@ main(int argc, char *argv[])
 	case 'g':
 		xw.gm = XParseGeometry(EARGF(usage()),
 				&xw.l, &xw.t, &cols, &rows);
+		opt_geometry_cols = cols;
+		opt_geometry_rows = rows;
 		break;
 	case 'i':
 		xw.isfixed = 1;

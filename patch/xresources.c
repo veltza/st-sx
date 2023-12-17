@@ -51,6 +51,10 @@ config_init(Display *dpy)
 	db = XrmGetStringDatabase(resm);
 	for (p = resources; p < resources + LEN(resources); p++)
 		resource_load(db, p->name, p->type, p->dst);
+
+	/* command line arguments override xresources */
+	cols = (opt_geometry_cols > 0) ? opt_geometry_cols : cols;
+	rows = (opt_geometry_rows > 0) ? opt_geometry_rows : rows;
 }
 
 void
