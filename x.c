@@ -1420,10 +1420,10 @@ xmakeglyphfontspecs(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x
 					runewidth = win.cw * ((glyphs[start + idx].mode & ATTR_WIDE) ? 2.0f : 1.0f);
 				}
 
-				if (glyphs[start + code_idx].mode & ATTR_BOXDRAW) {
+				if (glyphs[start + idx].mode & ATTR_BOXDRAW) {
 					/* minor shoehorning: boxdraw uses only this ushort */
 					specs[numspecs].font = font->match;
-					specs[numspecs].glyph = boxdrawindex(&glyphs[start + code_idx]);
+					specs[numspecs].glyph = boxdrawindex(&glyphs[start + idx]);
 					specs[numspecs].x = xp;
 					specs[numspecs].y = yp;
 					numspecs++;
