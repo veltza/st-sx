@@ -1911,10 +1911,6 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Glyph og, Line line, int le
 	Color drawcol;
 	XRenderColor colbg;
 
-	/* remove the old cursor */
-	if (selected(ox, oy))
-		og.mode ^= ATTR_REVERSE;
-
 	/* Redraw the line where cursor was previously.
 	 * It will restore the ligatures broken by the cursor. */
 	xdrawline(line, 0, oy, len);
@@ -1925,7 +1921,7 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Glyph og, Line line, int le
 	/*
 	 * Select the right color for the right mode.
 	 */
-	g.mode &= ATTR_BOLD|ATTR_ITALIC|ATTR_UNDERLINE|ATTR_STRUCK|ATTR_WIDE|ATTR_BOXDRAW|ATTR_HIGHLIGHT;
+	g.mode &= ATTR_BOLD|ATTR_ITALIC|ATTR_UNDERLINE|ATTR_STRUCK|ATTR_WIDE|ATTR_BOXDRAW|ATTR_HIGHLIGHT|ATTR_REVERSE;
 
 	if (IS_SET(MODE_REVERSE)) {
 		g.mode |= ATTR_REVERSE;
@@ -1939,10 +1935,10 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Glyph og, Line line, int le
 		}
 	} else {
 		if (selected(cx, cy)) {
+			g.mode &= ~ATTR_REVERSE;
 			g.fg = defaultfg;
 			g.bg = defaultrcs;
-		}
-		else if (!(og.mode & ATTR_REVERSE)) {
+		} else {
 			unsigned int tmpcol = g.bg;
 			g.bg = g.fg;
 			g.fg = tmpcol;
