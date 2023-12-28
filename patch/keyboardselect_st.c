@@ -84,6 +84,17 @@ kbds_drawcursor(void)
 }
 
 int
+kbds_moveto(int x, int y)
+{
+	kbds_c.x = x;
+	kbds_c.y = y;
+	LIMIT(kbds_c.x, 0, term.col-1);
+	LIMIT(kbds_c.y, 0, term.row-1);
+	if ((TLINE(kbds_c.y)[kbds_c.x].mode & ATTR_WDUMMY) && kbds_c.x > 0)
+		kbds_c.x--;
+}
+
+int
 kbds_ismatch(Line line, int x, int y, int bot, int len)
 {
 	int i, xo = x, yo = y, hlen = len;
@@ -203,24 +214,31 @@ kbds_clearhighlights(void)
 }
 
 int
-kbds_isdelim(Line line, int x, int y, int len, const char *delims)
+kbds_isdelim(Line line, int x, int y, int xoff, int len, const char *delims)
 {
-	if (x >= len) {
-		if (len <= 0 || !(line[len-1].mode & ATTR_WRAP) ||
-		   ++y >= (IS_SET(MODE_ALTSCREEN) ? term.row : term.row + term.scr))
-			return 1;
-		line = TLINE(y);
-		x = 0;
-	} else if (x < 0) {
-		if (--y < (IS_SET(MODE_ALTSCREEN) ? 0 : -term.histf + term.scr))
-			return 1;
-		line = TLINE(y);
-		x = tlinelen(line)-1;
-		if (x < 0 || !(line[x].mode & ATTR_WRAP))
-			return 1;
+	for (;;) {
+		x += xoff;
+		if (x >= len) {
+			if (len <= 0 || !(line[len-1].mode & ATTR_WRAP) ||
+			   ++y >= (IS_SET(MODE_ALTSCREEN) ? term.row : term.row + term.scr))
+				return 1;
+			line = TLINE(y);
+			len = tlinelen(line);
+			x = 0;
+		} else if (x < 0) {
+			if (--y < (IS_SET(MODE_ALTSCREEN) ? 0 : -term.histf + term.scr))
+				return 1;
+			line = TLINE(y);
+			len = tlinelen(line);
+			x = len-1;
+			if (x < 0 || !(line[x].mode & ATTR_WRAP))
+				return 1;
+		}
+		if ((line[x].mode & ATTR_WDUMMY) && xoff != 0)
+			continue;
+		return !(line[x].mode & ATTR_SET) || line[x].u == 0 ||
+		       (line[x].u < 128 && strchr(delims, (int)line[x].u) != NULL);
 	}
-	return !(line[x].mode & ATTR_SET) || line[x].u == 0 ||
-	       (line[x].u < 128 && strchr(delims, (int)line[x].u) != NULL);
 }
 
 void
@@ -246,8 +264,10 @@ kbds_nextword(int start, int dir, const char *delims)
 			len = tlinelen(line);
 			x = (dir > 0) ? 0 : MAX(len-1, 0);
 		}
-		if (!kbds_isdelim(line, x, y, len, delims) &&
-		    kbds_isdelim(line, x + xoff, y, len, delims))
+		if (line[x].mode & ATTR_WDUMMY)
+			continue;
+		if (!kbds_isdelim(line, x, y, 0, len, delims) &&
+		    kbds_isdelim(line, x, y, xoff, len, delims))
 		{
 			if (y < 0)
 				kscrollup(&((Arg){ .i = -y }));
@@ -413,22 +433,20 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		break;
 	case XK_BackSpace:
 		if (!(kbds_mode & KBDS_MODE_LSELECT))
-			kbds_c.x = 0;
+			kbds_moveto(0, kbds_c.y);
 		break;
 	case XK_exclam:
 		if (!(kbds_mode & KBDS_MODE_LSELECT))
-			kbds_c.x = term.col / 2;
+			kbds_moveto(term.col/2, kbds_c.y);
 		break;
 	case XK_underscore:
 		if (!(kbds_mode & KBDS_MODE_LSELECT))
-			kbds_c.x = term.col-1;
+			kbds_moveto(term.col-1, kbds_c.y);
 		break;
 	case XK_dollar:
 	case XK_A:
-		if (!(kbds_mode & KBDS_MODE_LSELECT)) {
-			kbds_c.x = tlinelen(TLINE(kbds_c.y))-1;
-			kbds_c.x = MAX(kbds_c.x, 0);
-		}
+		if (!(kbds_mode & KBDS_MODE_LSELECT))
+			kbds_moveto(tlinelen(TLINE(kbds_c.y))-1, kbds_c.y);
 		break;
 	case XK_asciicircum:
 	case XK_I:
@@ -437,7 +455,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 			len = tlinelen(line);
 			for (i = 0; i < len && line[i].u == ' '; i++)
 				;
-			kbds_c.x = (i < len) ? i : 0;
+			kbds_moveto((i < len) ? i : 0, kbds_c.y);
 		}
 		break;
 	case XK_End:
@@ -479,10 +497,8 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		break;
 	case XK_asterisk:
 	case XK_KP_Multiply:
-		if (!(kbds_mode & KBDS_MODE_LSELECT)) {
-			kbds_c.x = term.col / 2;
-			kbds_c.y = (term.row-1) / 2;
-		}
+		if (!(kbds_mode & KBDS_MODE_LSELECT))
+			kbds_moveto(term.col/2, (term.row-1) / 2);
 		break;
 	case XK_g:
 		kscrollup(&((Arg){ .i = term.histf }));
@@ -546,16 +562,25 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		if (kbds_mode & KBDS_MODE_LSELECT && !(i & 1))
 			return 0;
 
-		xy = i & 1 ? &kbds_c.y : &kbds_c.x;
-		*xy += (kbds_quant ? kbds_quant : 1) * (i & 2 ? 1 : -1);
+		kbds_quant = (kbds_quant ? kbds_quant : 1);
 
-		if (i & 1 && *xy < 0)
-			kscrollup(&((Arg){ .i = -*xy }));
-		else if (i & 1 && *xy >= term.row)
-			kscrolldown(&((Arg){ .i = *xy - term.row + 1 }));
-
-		LIMIT(kbds_c.x, 0, term.col-1);
-		LIMIT(kbds_c.y, 0, term.row-1);
+		if (i & 1) {
+			kbds_c.y += kbds_quant * (i & 2 ? 1 : -1);
+			if (kbds_c.y < 0)
+				kscrollup(&((Arg){ .i = -kbds_c.y }));
+			else if (kbds_c.y >= term.row)
+				kscrolldown(&((Arg){ .i = kbds_c.y - term.row + 1 }));
+		} else {
+			for (line = TLINE(kbds_c.y); kbds_quant > 0;) {
+				kbds_c.x += (i & 2 ? 1 : -1);
+				if (kbds_c.x < 0 || kbds_c.x >= term.col)
+					break;
+				if (line[kbds_c.x].mode & ATTR_WDUMMY)
+					continue;
+				kbds_quant--;
+			}
+		}
+		kbds_moveto(kbds_c.x, kbds_c.y);
 	}
 	kbds_selecttext();
 	kbds_quant = 0;
