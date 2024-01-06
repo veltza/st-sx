@@ -3,7 +3,7 @@
 static int kbds_in_use, kbds_quant;
 static int kbds_type_old = SEL_REGULAR, kbds_type = SEL_REGULAR;
 static int kbds_mode, kbds_searchlen, kbds_searchdir, kbds_searchcase;
-static Rune *kbds_searchstr;
+static Glyph *kbds_searchstr;
 static TCursor kbds_c, kbds_oc;
 static const char kbds_ldelim[] = "!\"#$%&'()*+,-./:;<=>?@[\\]^`{|}~ \t";
 static const char kbds_sdelim[] = " \t";
@@ -30,13 +30,20 @@ kbds_drawmode(int y)
 	g.bg = defaultbg;
 
 	if (kbds_mode & KBDS_MODE_SEARCH) {
+		for (g.u = ' ', i = 0; i < term.col; i++)
+			xdrawglyph(g, i, y);
 		g.u = (kbds_searchdir < 0) ? '/' : '?';
 		xdrawglyph(g, 0, y);
-		for (i = 0; i < term.col-1; i++) {
-			g.u = (i < kbds_searchlen) ? kbds_searchstr[i] : ' ';
-			g.mode = (i == kbds_searchlen) ? ATTR_NULL : ATTR_REVERSE;
+		for (i = 0; i < kbds_searchlen; i++) {
+			if (kbds_searchstr[i].mode & ATTR_WDUMMY)
+				continue;
+			g.u = kbds_searchstr[i].u;
+			g.mode = kbds_searchstr[i].mode | ATTR_REVERSE;
 			xdrawglyph(g, i + 1, y);
 		}
+		g.u = ' ';
+		g.mode = ATTR_NULL;
+		xdrawglyph(g, i + 1, y);
 	} else {
 		for (n = 6, i = term.col-1; i >= 0 && n > 0; i--) {
 			m = (!(kbds_mode & KBDS_MODE_SELECT) || (kbds_mode & KBDS_MODE_LSELECT))
@@ -113,8 +120,8 @@ kbds_ismatch(Line line, int x, int y, int bot, int len)
 			if ((len = tlinelen(line)) <= 0)
 				return 0;
 		}
-		if ((kbds_searchcase && kbds_searchstr[i] != line[x].u) ||
-		    (!kbds_searchcase && kbds_searchstr[i] != towlower(line[x].u)))
+		if ((kbds_searchcase && kbds_searchstr[i].u != line[x].u) ||
+		    (!kbds_searchcase && kbds_searchstr[i].u != towlower(line[x].u)))
 			return 0;
 	}
 
@@ -283,11 +290,57 @@ kbds_nextword(int start, int dir, const char *delims)
 	kbds_quant = 0;
 }
 
+void
+kbds_pasteintosearch(const char *data, int len, int append)
+{
+	static char buf[BUFSIZ];
+	static int buflen;
+	Rune u;
+	int l, n, charsize;
+
+	if (!append)
+		buflen = 0;
+
+	for (; len > 0; len -= l, data += l) {
+		l = MIN(sizeof(buf) - buflen, len);
+		memmove(buf + buflen, data, l);
+		buflen += l;
+		for (n = 0; n < buflen; n += charsize) {
+			if (IS_SET(MODE_UTF8)) {
+				/* process a complete utf8 char */
+				charsize = utf8decode(buf + n, &u, buflen - n);
+				if (charsize == 0)
+					break;
+			} else {
+				u = buf[n] & 0xFF;
+				charsize = 1;
+			}
+			if (u > 0x1f && kbds_searchlen < term.col-2) {
+				kbds_searchstr[kbds_searchlen].u = u;
+				kbds_searchstr[kbds_searchlen++].mode = ATTR_NULL;
+				if (wcwidth(u) > 1) {
+					kbds_searchstr[kbds_searchlen-1].mode = ATTR_WIDE;
+					if (kbds_searchlen < term.col-2) {
+						kbds_searchstr[kbds_searchlen].u = '\0';
+						kbds_searchstr[kbds_searchlen++].mode = ATTR_WDUMMY;
+					}
+				}
+			}
+		}
+		buflen -= n;
+		/* keep any incomplete UTF-8 byte sequence for the next call */
+		if (buflen > 0)
+			memmove(buf, buf + n, buflen);
+	}
+	term.dirty[term.row-1] = 1;
+}
+
 int
 kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 {
 	int i, q, *xy, dy, prevscr;
 	Line line;
+	Rune u;
 
 	if (kbds_mode & KBDS_MODE_SEARCH && !forcequit) {
 		switch (ksym) {
@@ -296,7 +349,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 				/* FALLTHROUGH */
 			case XK_Return:
 				for (kbds_searchcase = 0, i = 0; i < kbds_searchlen; i++) {
-					if (kbds_searchstr[i] != towlower(kbds_searchstr[i])) {
+					if (kbds_searchstr[i].u != towlower(kbds_searchstr[i].u)) {
 						kbds_searchcase = 1;
 						break;
 					}
@@ -306,15 +359,25 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 				kbds_setmode(kbds_mode ^ KBDS_MODE_SEARCH);
 				break;
 			case XK_BackSpace:
-				if (!kbds_searchlen)
-					return 0;
-				kbds_searchstr[--kbds_searchlen] = ' ';
+				if (kbds_searchlen) {
+					kbds_searchlen--;
+					if (kbds_searchlen && (kbds_searchstr[kbds_searchlen].mode & ATTR_WDUMMY))
+						kbds_searchlen--;
+				}
 				break;
 			default:
-				if (len < 1 || kbds_searchlen >= term.col-1)
+				if (len < 1 || kbds_searchlen >= term.col-2)
 					return 0;
-				utf8decode(buf, &kbds_searchstr[kbds_searchlen], len);
-				kbds_searchlen++;
+				utf8decode(buf, &u, len);
+				kbds_searchstr[kbds_searchlen].u = u;
+				kbds_searchstr[kbds_searchlen++].mode = ATTR_NULL;
+				if (wcwidth(u) > 1) {
+					kbds_searchstr[kbds_searchlen-1].mode = ATTR_WIDE;
+					if (kbds_searchlen < term.col-2) {
+						kbds_searchstr[kbds_searchlen].u = '\0';
+						kbds_searchstr[kbds_searchlen++].mode = ATTR_WDUMMY;
+					}
+				}
 				break;
 		}
 		term.dirty[term.row-1] = 1;
@@ -323,7 +386,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 
 	switch (ksym) {
 	case -1:
-		kbds_searchstr = xmalloc(term.col * sizeof(Rune));
+		kbds_searchstr = xmalloc(term.col * sizeof(Glyph));
 		kbds_in_use = 1;
 		kbds_c = kbds_oc = term.c;
 		kbds_setmode(0);
@@ -591,5 +654,11 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 int
 kbds_isselectmode(void)
 {
-	return kbds_in_use && kbds_mode & KBDS_MODE_SELECT;
+	return kbds_in_use && (kbds_mode & KBDS_MODE_SELECT);
+}
+
+int
+kbds_issearchmode(void)
+{
+	return kbds_in_use && (kbds_mode & KBDS_MODE_SEARCH);
 }
