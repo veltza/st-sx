@@ -132,6 +132,7 @@ typedef Glyph *Line;
 
 typedef struct {
 	int ox;
+	int charlen;
 	int numspecs;
 	Glyph base;
 } GlyphFontSeq;

@@ -67,7 +67,7 @@ char *font2_xresources[FONT2_XRESOURCES_SIZE];
 
 static inline ushort sixd_to_16bit(int);
 static int xmakeglyphfontspecs(XftGlyphFontSpec *, const Glyph *, int, int, int);
-static void xdrawglyphfontspecs(const XftGlyphFontSpec *, Glyph, int, int, int, int);
+static void xdrawglyphfontspecs(const XftGlyphFontSpec *, Glyph, int, int, int, int, int);
 #if LIGATURES
 static void xresetfontsettings(uint32_t mode, Font **font, int *frcflags);
 #endif
@@ -1667,9 +1667,8 @@ xmakeglyphfontspecs(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x
 #endif
 
 void
-xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, int y, int dmode)
+xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, int y, int dmode, int charlen)
 {
-	int charlen = len * ((base.mode & ATTR_WIDE) ? 2 : 1);
 	int winx = borderpx + x * win.cw, winy = borderpx + y * win.ch;
 	int width = charlen * win.cw;
 	Color *fg, *bg, *temp, revfg, revbg, truefg, truebg;
@@ -1905,10 +1904,11 @@ void
 xdrawglyph(Glyph g, int x, int y)
 {
 	int numspecs;
-	XftGlyphFontSpec spec;
+	XftGlyphFontSpec *specs = xw.specbuf;
 
-	numspecs = xmakeglyphfontspecs(&spec, &g, 1, x, y);
-	xdrawglyphfontspecs(&spec, g, numspecs, x, y, DRAW_BG | DRAW_FG);
+	numspecs = xmakeglyphfontspecs(specs, &g, 1, x, y);
+	xdrawglyphfontspecs(specs, g, numspecs, x, y, DRAW_BG | DRAW_FG,
+	                    (g.mode & ATTR_WIDE) ? 2 : 1);
 }
 
 void
@@ -2105,28 +2105,30 @@ xdrawline(Line line, int x1, int y1, int x2)
 			new.mode ^= ATTR_REVERSE;
 		if ((i > 0) && ATTRCMP(seq[j].base, new)) {
 			numspecs = xmakeglyphfontspecs(specs, &line[ox], x - ox, ox, y1);
-			xdrawglyphfontspecs(specs, seq[j].base, numspecs, ox, y1, DRAW_BG);
+			xdrawglyphfontspecs(specs, seq[j].base, numspecs, ox, y1, DRAW_BG, x - ox);
+			seq[j].charlen = x - ox;
 			seq[j++].numspecs = numspecs;
 			specs += numspecs;
 			i = 0;
 		}
 		if (i == 0) {
 			ox = x;
-			seq[j].ox= ox;
+			seq[j].ox = ox;
 			seq[j].base = new;
 		}
 		i++;
 	}
 	if (i > 0) {
 		numspecs = xmakeglyphfontspecs(specs, &line[ox], x2 - ox, ox, y1);
-		xdrawglyphfontspecs(specs, seq[j].base, numspecs, ox, y1, DRAW_BG);
+		xdrawglyphfontspecs(specs, seq[j].base, numspecs, ox, y1, DRAW_BG, x2 - ox);
+		seq[j].charlen = x2 - ox;
 		seq[j++].numspecs = numspecs;
 	}
 
 	/* foreground */
 	specs = xw.specbuf;
 	for (i = 0; i < j; i++) {
-		xdrawglyphfontspecs(specs, seq[i].base, seq[i].numspecs, seq[i].ox, y1, DRAW_FG);
+		xdrawglyphfontspecs(specs, seq[i].base, seq[i].numspecs, seq[i].ox, y1, DRAW_FG, seq[i].charlen);
 		specs += seq[i].numspecs;
 	}
 
@@ -2156,7 +2158,7 @@ xdrawline(Line line, int x1, int y1, int x2)
 			if (selected(x, y1))
 				new.mode ^= ATTR_REVERSE;
 			if (i > 0 && ATTRCMP(base, new)) {
-				xdrawglyphfontspecs(specs, base, i, ox, y1, dmode);
+				xdrawglyphfontspecs(specs, base, i, ox, y1, dmode, x - ox);
 				specs += i;
 				numspecs -= i;
 				i = 0;
@@ -2168,7 +2170,7 @@ xdrawline(Line line, int x1, int y1, int x2)
 			i++;
 		}
 		if (i > 0)
-			xdrawglyphfontspecs(specs, base, i, ox, y1, dmode);
+			xdrawglyphfontspecs(specs, base, i, ox, y1, dmode, x2 - ox);
 	}
 
 	kbds_drawmode(y1);
