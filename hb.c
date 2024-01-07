@@ -89,6 +89,7 @@ void hbtransform(HbTransformData *data, XftFont *xfont, const Glyph *glyphs, int
 
 	hb_buffer_t *buffer = hb_buffer_create();
 	hb_buffer_set_direction(buffer, HB_DIRECTION_LTR);
+	hb_buffer_set_cluster_level(buffer, HB_BUFFER_CLUSTER_LEVEL_MONOTONE_CHARACTERS);
 
 	/* Resize the buffer if required length is larger. */
 	if (hbrunebuffer.capacity < length) {
