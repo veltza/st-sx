@@ -32,7 +32,7 @@ kbds_drawmode(int y)
 	if (kbds_mode & KBDS_MODE_SEARCH) {
 		for (g.u = ' ', i = 0; i < term.col; i++)
 			xdrawglyph(g, i, y);
-		g.u = (kbds_searchdir < 0) ? '/' : '?';
+		g.u = (kbds_searchdir > 0) ? '/' : '?';
 		xdrawglyph(g, 0, y);
 		for (i = 0; i < kbds_searchlen; i++) {
 			if (kbds_searchstr[i].mode & ATTR_WDUMMY)
@@ -451,7 +451,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 	case XK_slash:
 	case XK_KP_Divide:
 	case XK_question:
-		kbds_searchdir = (ksym == XK_question) ? 1 : -1;
+		kbds_searchdir = (ksym == XK_question) ? -1 : 1;
 		kbds_searchlen = 0;
 		kbds_setmode(kbds_mode ^ KBDS_MODE_SEARCH);
 		kbds_clearhighlights();
