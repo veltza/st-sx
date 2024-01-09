@@ -33,6 +33,7 @@ typedef struct {
 } RuneBuffer;
 
 static RuneBuffer hbrunebuffer = { 0, NULL };
+static hb_buffer_t *hbbuffer;
 
 /*
  * Poplulate the array with a list of font features, wrapped in FEATURE macro,
@@ -40,6 +41,18 @@ static RuneBuffer hbrunebuffer = { 0, NULL };
  * FEATURE('c', 'a', 'l', 't'), FEATURE('d', 'l', 'i', 'g')
  */
 hb_feature_t features[] = { };
+
+void
+hbcreatebuffer()
+{
+	hbbuffer = hb_buffer_create();
+}
+
+void
+hbdestroybuffer()
+{
+	hb_buffer_destroy(hbbuffer);
+}
 
 void
 hbunloadfonts()
@@ -82,12 +95,15 @@ void hbtransform(HbTransformData *data, XftFont *xfont, const Glyph *glyphs, int
 	uint32_t mode;
 	unsigned int glyph_count;
 	int rune_idx, glyph_idx, end = start + length;
+	hb_buffer_t *buffer = hbbuffer;
 
 	hb_font_t *font = hbfindfont(xfont);
-	if (font == NULL)
+	if (font == NULL) {
+		data->count = 0;
 		return;
+	}
 
-	hb_buffer_t *buffer = hb_buffer_create();
+	hb_buffer_reset(buffer);
 	hb_buffer_set_direction(buffer, HB_DIRECTION_LTR);
 	hb_buffer_set_cluster_level(buffer, HB_BUFFER_CLUSTER_LEVEL_MONOTONE_CHARACTERS);
 
@@ -118,9 +134,4 @@ void hbtransform(HbTransformData *data, XftFont *xfont, const Glyph *glyphs, int
 	data->glyphs = info;
 	data->positions = pos;
 	data->count = glyph_count;
-}
-
-void hbcleanup(HbTransformData *data) {
-	hb_buffer_destroy(data->buffer);
-	memset(data, 0, sizeof(HbTransformData));
 }

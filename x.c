@@ -1380,7 +1380,7 @@ xmakeglyphfontspecs(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x
 	FcCharSet *fccharset;
 	int i, f, length = 0, start = 0, numspecs = 0;
 	float cluster_xp = xp, cluster_yp = yp;
-	HbTransformData shaped = { 0 };
+	HbTransformData shaped;
 
 	/* Initial values. */
 	mode = prevmode = glyphs[0].mode & ~ATTR_WRAP;
@@ -1513,7 +1513,6 @@ xmakeglyphfontspecs(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x
 			}
 
 			/* Cleanup and get ready for next segment. */
-			hbcleanup(&shaped);
 			start = i;
 
 			/* Determine font for glyph if different from previous glyph. */
@@ -2759,6 +2758,9 @@ run:
 	if (!(xw.dpy = XOpenDisplay(NULL)))
 		die("Can't open display\n");
 
+	#if LIGATURES
+	hbcreatebuffer();
+	#endif
 	config_init(xw.dpy);
 	cols = MAX(cols, 1);
 	rows = MAX(rows, 1);
@@ -2770,6 +2772,9 @@ run:
 	if (opt_dir && chdir(opt_dir))
 		die("Can't change to working directory %s\n", opt_dir);
 	run();
+	#if LIGATURES
+	hbdestroybuffer();
+	#endif
 
 	return 0;
 }
