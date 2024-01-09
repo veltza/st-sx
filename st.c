@@ -167,7 +167,7 @@ static void tdumpline(int);
 static void tdump(void);
 static void tclearregion(int, int, int, int, int);
 static void tcursor(int);
-static void tclearglyph(Glyph *, int);
+static inline void tclearglyph(Glyph *, int);
 static void tresetcursor(void);
 static void tdeletechar(int);
 static void tdeleteimages(void);
@@ -209,7 +209,7 @@ static void selnormalize(void);
 static void selscroll(int, int, int);
 static void selmove(int);
 static void selremove(void);
-static int regionselected(int, int, int, int);
+static inline int regionselected(int, int, int, int);
 static void selsnap(int *, int *, int);
 
 static size_t utf8decode(const char *, Rune *, size_t);

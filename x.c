@@ -71,7 +71,7 @@ static void xdrawglyphfontspecs(const XftGlyphFontSpec *, Glyph, int, int, int, 
 #if LIGATURES
 static void xresetfontsettings(uint32_t mode, Font **font, int *frcflags);
 #endif
-static void xclear(int, int, int, int);
+static inline void xclear(int, int, int, int);
 static int xgeommasktogravity(int);
 static int ximopen(Display *);
 static void ximinstantiate(Display *, XPointer, XPointer);
