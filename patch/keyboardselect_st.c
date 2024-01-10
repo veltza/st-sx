@@ -178,9 +178,11 @@ kbds_searchnext(int dir)
 			if (x < 0 || x >= len) {
 				y += dir;
 				if (y < top)
-					y = bot, wrapped = 1;
+					y = bot, wrapped++;
 				else if (y > bot)
-					y = top, wrapped = 1;
+					y = top, wrapped++;
+				if (wrapped > 1)
+					goto end;
 				line = TLINE(y);
 				len = tlinelen(line);
 				x = (dir > 0) ? 0 : MAX(len-1, 0);
