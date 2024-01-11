@@ -35,10 +35,10 @@ kbds_drawmode(int y)
 		g.u = (kbds_searchdir > 0) ? '/' : '?';
 		xdrawglyph(g, 0, y);
 		for (i = 0; i < kbds_searchlen; i++) {
-			if (kbds_searchstr[i].mode & ATTR_WDUMMY)
-				continue;
 			g.u = kbds_searchstr[i].u;
-			g.mode = kbds_searchstr[i].mode | ATTR_REVERSE;
+			g.mode = kbds_searchstr[i].mode | ATTR_WIDE | ATTR_REVERSE;
+			if (g.u == ' ' || g.mode & ATTR_WDUMMY)
+				continue;
 			xdrawglyph(g, i + 1, y);
 		}
 		g.u = ' ';
