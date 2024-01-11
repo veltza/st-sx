@@ -262,6 +262,8 @@ static Shortcut shortcuts[] = {
 	{ TERMMOD,              XK_Num_Lock,    numlock,         {.i =  0} },
 	{ TERMMOD,              XK_Return,      newterm,         {.i =  0} },
 	{ TERMMOD,              XK_space,       keyboard_select, { 0 } },
+	{ TERMMOD,              XK_F,           searchforward,   { 0 } },
+	{ TERMMOD,              XK_B,           searchbackward,  { 0 } },
 };
 
 /*

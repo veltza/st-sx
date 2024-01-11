@@ -3,6 +3,7 @@
 static int kbds_in_use, kbds_quant;
 static int kbds_type_old = SEL_REGULAR, kbds_type = SEL_REGULAR;
 static int kbds_mode, kbds_searchlen, kbds_searchdir, kbds_searchcase;
+static int kbds_directsearch;
 static Glyph *kbds_searchstr;
 static TCursor kbds_c, kbds_oc;
 static const char kbds_ldelim[] = "!\"#$%&'()*+,-./:;<=>?@[\\]^`{|}~ \t";
@@ -136,24 +137,26 @@ kbds_ismatch(Line line, int x, int y, int bot, int len)
 	return 1;
 }
 
-void
+int
 kbds_searchall(void)
 {
 	int top = IS_SET(MODE_ALTSCREEN) ? 0 : -term.histf + term.scr;
 	int bot = IS_SET(MODE_ALTSCREEN) ? term.row-1 : term.row + term.scr - 1;
-	int x, y, len;
+	int x, y, len, count = 0;
 	Line line;
 
 	if (!kbds_searchlen)
-		return;
+		return 0;
 
 	for (y = top; y <= bot; y++) {
 		line = TLINE(y);
 		len = tlinelen(line);
 		for (x = 0; x < len; x++)
-			kbds_ismatch(line, x, y, bot, len);
+			count += kbds_ismatch(line, x, y, bot, len);
 	}
 	tfulldirt();
+
+	return count;
 }
 
 void
@@ -340,7 +343,7 @@ kbds_pasteintosearch(const char *data, int len, int append)
 int
 kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 {
-	int i, q, *xy, dy, prevscr;
+	int i, q, *xy, dy, prevscr, count;
 	Line line;
 	Rune u;
 
@@ -356,9 +359,11 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 						break;
 					}
 				}
-				kbds_searchall();
+				count = kbds_searchall();
 				kbds_searchnext(kbds_searchdir);
 				kbds_setmode(kbds_mode ^ KBDS_MODE_SEARCH);
+				if (count == 0 && kbds_directsearch)
+					ksym = XK_Escape;
 				break;
 			case XK_BackSpace:
 				if (kbds_searchlen) {
@@ -382,8 +387,12 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 				}
 				break;
 		}
-		term.dirty[term.row-1] = 1;
-		return 0;
+		/* If the direct search is aborted, we just go to the next switch
+		 * statement and exit the keyboard selection mode immediately */
+		if (!(ksym == XK_Escape && kbds_directsearch)) {
+			term.dirty[term.row-1] = 1;
+			return 0;
+		}
 	}
 
 	switch (ksym) {
@@ -450,10 +459,13 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 			kbds_setmode(kbds_mode & ~(KBDS_MODE_SELECT | KBDS_MODE_LSELECT));
 		}
 		break;
+	case -2:
+	case -3:
 	case XK_slash:
 	case XK_KP_Divide:
 	case XK_question:
-		kbds_searchdir = (ksym == XK_question) ? -1 : 1;
+		kbds_directsearch = (ksym == -2 || ksym == -3);
+		kbds_searchdir = (ksym == XK_question || ksym == -3) ? -1 : 1;
 		kbds_searchlen = 0;
 		kbds_setmode(kbds_mode ^ KBDS_MODE_SEARCH);
 		kbds_clearhighlights();
@@ -571,7 +583,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		break;
 	case XK_G:
 		kscrolldown(&((Arg){ .i = term.histf }));
-		kbds_c.y = term.c.y;
+		kbds_c.y = IS_SET(MODE_ALTSCREEN) ? term.row-1 : term.c.y;
 		break;
 	case XK_b:
 	case XK_B:
