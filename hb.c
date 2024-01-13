@@ -43,19 +43,19 @@ static hb_buffer_t *hbbuffer;
 hb_feature_t features[] = { };
 
 void
-hbcreatebuffer()
+hbcreatebuffer(void)
 {
 	hbbuffer = hb_buffer_create();
 }
 
 void
-hbdestroybuffer()
+hbdestroybuffer(void)
 {
 	hb_buffer_destroy(hbbuffer);
 }
 
 void
-hbunloadfonts()
+hbunloadfonts(void)
 {
 	for (int i = 0; i < hbfontcache.capacity; i++) {
 		hb_font_destroy(hbfontcache.fonts[i].font);
@@ -91,7 +91,9 @@ hbfindfont(XftFont *match)
 	return font;
 }
 
-void hbtransform(HbTransformData *data, XftFont *xfont, const Glyph *glyphs, int start, int length) {
+void
+hbtransform(HbTransformData *data, XftFont *xfont, const Glyph *glyphs, int start, int length)
+{
 	uint32_t mode;
 	unsigned int glyph_count;
 	int rune_idx, glyph_idx, end = start + length;
