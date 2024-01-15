@@ -1903,7 +1903,7 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Glyph og, Line line, int le
 		}
 	} else {
 		if (selected(cx, cy)) {
-			g.mode &= ~ATTR_REVERSE;
+			g.mode &= ~(ATTR_REVERSE | ATTR_HIGHLIGHT);
 			g.fg = defaultfg;
 			g.bg = defaultrcs;
 		} else {
@@ -1923,7 +1923,7 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Glyph og, Line line, int le
 	}
 
 	if (g.mode & ATTR_HIGHLIGHT)
-		g.mode ^= selected(cx, cy) ? 0 : ATTR_REVERSE;
+		g.mode ^= ATTR_REVERSE;
 
 	/* draw the new one */
 	if (IS_SET(MODE_FOCUSED)) {
@@ -2094,7 +2094,7 @@ xdrawline(Line line, int x1, int y1, int x2)
 		specs += seq[i].numspecs;
 	}
 
-	kbds_drawmode(y1);
+	kbds_drawstatusbar(y1);
 }
 #else
 void
@@ -2135,7 +2135,7 @@ xdrawline(Line line, int x1, int y1, int x2)
 			xdrawglyphfontspecs(specs, base, i, ox, y1, dmode, x2 - ox);
 	}
 
-	kbds_drawmode(y1);
+	kbds_drawstatusbar(y1);
 }
 #endif
 

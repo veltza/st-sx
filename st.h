@@ -332,6 +332,8 @@ extern char *scroll;
 extern char *stty_args;
 extern char *vtiden;
 extern wchar_t *worddelimiters;
+extern wchar_t *kbds_sdelim;
+extern wchar_t *kbds_ldelim;
 extern int allowaltscreen;
 extern int allowwindowops;
 extern char *termname;
