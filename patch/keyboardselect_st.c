@@ -108,6 +108,18 @@ kbds_moveto(int x, int y)
 		kbds_c.x--;
 }
 
+void
+kbds_copytoclipboard(void)
+{
+	if (kbds_mode == KBDS_MODE_LSELECT) {
+		selextend(term.col-1, kbds_c.y, SEL_RECTANGULAR, 1);
+		sel.type = SEL_REGULAR;
+	} else {
+		selextend(kbds_c.x, kbds_c.y, kbds_seltype, 1);
+	}
+	xsetsel(getsel());
+}
+
 int
 kbds_ismatch(Line line, int x, int y, int bot, int len)
 {
@@ -444,12 +456,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 	case XK_y:
 	case XK_Y:
 		if (kbds_mode >= KBDS_MODE_SELECT) {
-			if (kbds_mode == KBDS_MODE_LSELECT)
-				selextend(term.col-1, kbds_c.y, SEL_RECTANGULAR, 1);
-			else
-				selextend(kbds_c.x, kbds_c.y, kbds_seltype, 1);
-			xsetsel(getsel());
-			xclipcopy();
+			kbds_copytoclipboard();
 			selclear();
 			kbds_setmode(KBDS_MODE_MOVE);
 		}
@@ -481,14 +488,8 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		kbds_setmode(KBDS_MODE_MOVE);
 		/* FALLTHROUGH */
 	case XK_Return:
-		if (kbds_mode >= KBDS_MODE_SELECT) {
-			if (kbds_mode == KBDS_MODE_LSELECT)
-				selextend(term.col-1, kbds_c.y, SEL_RECTANGULAR, 1);
-			else
-				selextend(kbds_c.x, kbds_c.y, kbds_seltype, 1);
-			xsetsel(getsel());
-			xclipcopy();
-		}
+		if (kbds_mode >= KBDS_MODE_SELECT)
+			kbds_copytoclipboard();
 		kbds_in_use = kbds_quant = 0;
 		free(kbds_searchstr);
 		kscrolldown(&((Arg){ .i = term.histf }));
