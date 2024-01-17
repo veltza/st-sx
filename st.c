@@ -444,7 +444,16 @@ tlinelen(Line line)
 {
 	int i = term.col - 1;
 
-	for (; i >= 0 && !(line[i].mode & (ATTR_SET | ATTR_WRAP)); i--);
+	/* We are using a different algorithm on the alt screen because an
+	 * application might use spaces to clear the screen and in that case it is
+	 * impossible to find the end of the line when every cell has the ATTR_SET
+	 * attribute. The second algorithm is more accurate on the main screen and
+	 * and we can use it there. */
+	if (IS_SET(MODE_ALTSCREEN))
+		for (; i >= 0 && !(line[i].mode & ATTR_WRAP) && line[i].u == ' '; i--);
+	else
+		for (; i >= 0 && !(line[i].mode & (ATTR_SET | ATTR_WRAP)); i--);
+
 	return i + 1;
 }
 
