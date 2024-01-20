@@ -4,20 +4,24 @@ static int kbds_in_use, kbds_quant;
 static int kbds_seltype = SEL_REGULAR;
 static int kbds_mode, kbds_directsearch;
 static int kbds_searchlen, kbds_searchdir, kbds_searchcase;
+static int kbds_finddir, kbds_findtill;
 static Glyph *kbds_searchstr;
+static Rune kbds_findchar;
 static TCursor kbds_c, kbds_oc;
 
 enum keyboardselect_mode {
 	KBDS_MODE_MOVE    = 0,
-	KBDS_MODE_SEARCH  = 1,
-	KBDS_MODE_SELECT  = 3,
-	KBDS_MODE_LSELECT = 5,
+	KBDS_MODE_SELECT  = 1<<1,
+	KBDS_MODE_LSELECT = 1<<2,
+	KBDS_MODE_FIND    = 1<<3,
+	KBDS_MODE_SEARCH  = 1<<4,
 };
 
 void
 kbds_drawstatusbar(int y)
 {
-	static char *modes[] = { " MOVE ", " SEARCH FW ", " SEARCH BW ", " SELECT " , " RSELECT ", " LSELECT " };
+	static char *modes[] = { " MOVE ", "", " SELECT ", " RSELECT ", " LSELECT ",
+	                         " SEARCH FW ", " SEARCH BW ", " FIND FW ", " FIND BW " };
 	static char quant[20] = { ' ' };
 	static Glyph g;
 	int i, n, m;
@@ -30,10 +34,14 @@ kbds_drawstatusbar(int y)
 	g.bg = defaultbg;
 
 	if (y == 0) {
-		m = kbds_mode;
-		if ((kbds_mode == KBDS_MODE_SELECT && kbds_seltype == SEL_RECTANGULAR) ||
-		    (kbds_mode == KBDS_MODE_SEARCH && kbds_searchdir < 0))
-			m++;
+		if (kbds_issearchmode())
+			m = 5 + (kbds_searchdir < 0 ? 1 : 0);
+		else if (kbds_mode & KBDS_MODE_FIND)
+			m = 7 + (kbds_finddir < 0 ? 1 : 0);
+		else if (kbds_mode & KBDS_MODE_SELECT)
+			m = 2 + (kbds_seltype == SEL_RECTANGULAR ? 1 : 0);
+		else
+			m = kbds_mode;
 		for (n = strlen(modes[m]), i = term.col-1; i >= 0 && n > 0; i--) {
 			g.u = modes[m][--n];
 			xdrawglyph(g, i, y);
@@ -47,7 +55,7 @@ kbds_drawstatusbar(int y)
 		}
 	}
 
-	if (y == term.row-1 && kbds_mode == KBDS_MODE_SEARCH) {
+	if (y == term.row-1 && kbds_issearchmode()) {
 		for (g.u = ' ', i = 0; i < term.col; i++)
 			xdrawglyph(g, i, y);
 		g.u = (kbds_searchdir > 0) ? '/' : '?';
@@ -75,20 +83,20 @@ kbds_setmode(int mode)
 void
 kbds_selecttext(void)
 {
-	if (kbds_in_use && kbds_mode >= KBDS_MODE_SELECT) {
-		if (kbds_mode == KBDS_MODE_LSELECT)
+	if (kbds_isselectmode()) {
+		if (kbds_mode & KBDS_MODE_LSELECT)
 			selextend(term.col-1, kbds_c.y, SEL_RECTANGULAR, 0);
 		else
 			selextend(kbds_c.x, kbds_c.y, kbds_seltype, 0);
 		if (sel.mode == SEL_IDLE)
-			kbds_setmode(KBDS_MODE_MOVE);
+			kbds_setmode(kbds_mode & ~(KBDS_MODE_SELECT | KBDS_MODE_LSELECT));
 	}
 }
 
 int
 kbds_drawcursor(void)
 {
-	if (kbds_in_use && (kbds_mode != KBDS_MODE_SEARCH || kbds_c.y != term.row-1)) {
+	if (kbds_in_use && (!kbds_issearchmode() || kbds_c.y != term.row-1)) {
 		xdrawcursor(kbds_c.x, kbds_c.y, TLINE(kbds_c.y)[kbds_c.x],
 					kbds_oc.x, kbds_oc.y, TLINE(kbds_oc.y)[kbds_oc.x],
 					TLINE(kbds_oc.y), term.col);
@@ -111,7 +119,7 @@ kbds_moveto(int x, int y)
 void
 kbds_copytoclipboard(void)
 {
-	if (kbds_mode == KBDS_MODE_LSELECT) {
+	if (kbds_mode & KBDS_MODE_LSELECT) {
 		selextend(term.col-1, kbds_c.y, SEL_RECTANGULAR, 1);
 		sel.type = SEL_REGULAR;
 	} else {
@@ -196,7 +204,7 @@ kbds_searchnext(int dir)
 	int wrapped = 0;
 
 	if (!kbds_searchlen)
-		return;
+		goto end;
 
 	if (dir < 0 && x > len)
 		x = len;
@@ -230,6 +238,67 @@ kbds_searchnext(int dir)
 			    (wrapped && dir < 0 && x <= xo && y <= yo))
 				goto end;
 		}
+	}
+end:
+	kbds_quant = 0;
+}
+
+void
+kbds_findnext(int dir, int repeat)
+{
+	int x = kbds_c.x, y = kbds_c.y;
+	int ox = kbds_c.x, oy = kbds_c.y;
+	int prevx = kbds_c.x, prevy = kbds_c.y;
+	Line line = TLINE(y);
+	int len = tlinelen(line);
+	int skipfirst;
+
+	if (len <= 0 || kbds_findchar == 0)
+		goto end;
+
+	if (dir < 0 && x > len)
+		x = prevx = len;
+
+	kbds_quant = MAX(kbds_quant, 1);
+	skipfirst = (kbds_quant == 1 && repeat && kbds_findtill);
+
+	while (kbds_quant > 0) {
+		x += dir;
+		if (dir > 0 && x >= len) {
+			if (!(line[len-1].mode & ATTR_WRAP) || ++y > kbds_bot())
+				break;
+			line = TLINE(y);
+			if ((len = tlinelen(line)) <= 0)
+				break;
+			x = 0;
+		} else if (x < 0) {
+			if (--y < kbds_top())
+				break;
+			line = TLINE(y);
+			len = tlinelen(line);
+			if (len <= 0 || !(line[len-1].mode & ATTR_WRAP))
+				break;
+			x = len-1;
+		}
+		if (line[x].mode & ATTR_WDUMMY)
+			continue;
+		if (line[x].u == kbds_findchar) {
+			kbds_c.x = kbds_findtill ? prevx : x;
+			kbds_c.y = kbds_findtill ? prevy : y;
+			if (y < 0) {
+				kscrollup(&((Arg){ .i = -y }));
+				kbds_c.y = kbds_findtill ? prevy - y : 0;
+			} else if (y >= term.row) {
+				kscrolldown(&((Arg){ .i = y - term.row + 1 }));
+				kbds_c.y = term.row-1 - (kbds_findtill ? y - prevy : 0);
+			}
+			LIMIT(y, 0, term.row-1);
+			if (skipfirst && ox == kbds_c.x && oy == kbds_c.y)
+				skipfirst = 0;
+			else
+				kbds_quant--;
+		}
+		prevx = x, prevy = y;
 	}
 end:
 	kbds_quant = 0;
@@ -367,7 +436,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 	Line line;
 	Rune u;
 
-	if (kbds_mode == KBDS_MODE_SEARCH && !forcequit) {
+	if (kbds_issearchmode() && !forcequit) {
 		switch (ksym) {
 			case XK_Escape:
 				kbds_searchlen = 0;
@@ -381,7 +450,8 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 				}
 				count = kbds_searchall();
 				kbds_searchnext(kbds_searchdir);
-				kbds_setmode(KBDS_MODE_MOVE);
+				kbds_selecttext();
+				kbds_setmode(kbds_mode & ~KBDS_MODE_SEARCH);
 				if (count == 0 && kbds_directsearch)
 					ksym = XK_Escape;
 				break;
@@ -413,6 +483,23 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 			term.dirty[term.row-1] = 1;
 			return 0;
 		}
+	} else if ((kbds_mode & KBDS_MODE_FIND) && !forcequit) {
+		kbds_findchar = 0;
+		switch (ksym) {
+			case XK_Escape:
+			case XK_Return:
+				kbds_quant = 0;
+				break;
+			default:
+				if (len < 1)
+					return 0;
+				utf8decode(buf, &kbds_findchar, len);
+				kbds_findnext(kbds_finddir, 0);
+				kbds_selecttext();
+				break;
+		}
+		kbds_setmode(kbds_mode & ~KBDS_MODE_FIND);
+		return 0;
 	}
 
 	switch (ksym) {
@@ -423,44 +510,44 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		kbds_setmode(KBDS_MODE_MOVE);
 		return MODE_KBDSELECT;
 	case XK_V:
-		if (kbds_mode == KBDS_MODE_LSELECT) {
+		if (kbds_mode & KBDS_MODE_LSELECT) {
 			selclear();
-			kbds_setmode(KBDS_MODE_MOVE);
-		} else if (kbds_mode == KBDS_MODE_SELECT) {
+			kbds_setmode(kbds_mode & ~(KBDS_MODE_SELECT | KBDS_MODE_LSELECT));
+		} else if (kbds_mode & KBDS_MODE_SELECT) {
 			selextend(term.col-1, kbds_c.y, SEL_RECTANGULAR, 0);
 			sel.ob.x = 0;
 			tfulldirt();
-			kbds_setmode(KBDS_MODE_LSELECT);
+			kbds_setmode((kbds_mode ^ KBDS_MODE_SELECT) | KBDS_MODE_LSELECT);
 		} else {
 			selstart(0, kbds_c.y, 0);
 			selextend(term.col-1, kbds_c.y, SEL_RECTANGULAR, 0);
-			kbds_setmode(KBDS_MODE_LSELECT);
+			kbds_setmode(kbds_mode | KBDS_MODE_LSELECT);
 		}
 		break;
 	case XK_v:
-		if (kbds_mode == KBDS_MODE_SELECT) {
+		if (kbds_mode & KBDS_MODE_SELECT) {
 			selclear();
-			kbds_setmode(KBDS_MODE_MOVE);
-		} else if (kbds_mode == KBDS_MODE_LSELECT) {
+			kbds_setmode(kbds_mode & ~(KBDS_MODE_SELECT | KBDS_MODE_LSELECT));
+		} else if (kbds_mode & KBDS_MODE_LSELECT) {
 			selextend(kbds_c.x, kbds_c.y, kbds_seltype, 0);
-			kbds_setmode(KBDS_MODE_SELECT);
+			kbds_setmode((kbds_mode ^ KBDS_MODE_LSELECT) | KBDS_MODE_SELECT);
 		} else {
 			selstart(kbds_c.x, kbds_c.y, 0);
-			kbds_setmode(KBDS_MODE_SELECT);
+			kbds_setmode(kbds_mode | KBDS_MODE_SELECT);
 		}
 		break;
-	case XK_t:
-		if (kbds_mode != KBDS_MODE_LSELECT) {
+	case XK_s:
+		if (!(kbds_mode & KBDS_MODE_LSELECT)) {
 			kbds_seltype ^= (SEL_REGULAR | SEL_RECTANGULAR);
 			selextend(kbds_c.x, kbds_c.y, kbds_seltype, 0);
 		}
 		break;
 	case XK_y:
 	case XK_Y:
-		if (kbds_mode >= KBDS_MODE_SELECT) {
+		if (kbds_isselectmode()) {
 			kbds_copytoclipboard();
 			selclear();
-			kbds_setmode(KBDS_MODE_MOVE);
+			kbds_setmode(kbds_mode & ~(KBDS_MODE_SELECT | KBDS_MODE_LSELECT));
 		}
 		break;
 	case -2:
@@ -471,7 +558,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		kbds_directsearch = (ksym == -2 || ksym == -3);
 		kbds_searchdir = (ksym == XK_question || ksym == -3) ? -1 : 1;
 		kbds_searchlen = 0;
-		kbds_setmode(KBDS_MODE_SEARCH);
+		kbds_setmode(kbds_mode | KBDS_MODE_SEARCH);
 		kbds_clearhighlights();
 		return 0;
 	case XK_q:
@@ -483,14 +570,14 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 			break;
 		}
 		selclear();
-		if (kbds_mode >= KBDS_MODE_SELECT && !forcequit) {
+		if (kbds_isselectmode() && !forcequit) {
 			kbds_setmode(KBDS_MODE_MOVE);
 			break;
 		}
 		kbds_setmode(KBDS_MODE_MOVE);
 		/* FALLTHROUGH */
 	case XK_Return:
-		if (kbds_mode >= KBDS_MODE_SELECT)
+		if (kbds_isselectmode())
 			kbds_copytoclipboard();
 		kbds_in_use = kbds_quant = 0;
 		free(kbds_searchstr);
@@ -600,6 +687,22 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 			kscrolldown(&((Arg){ .i = dy }));
 		kbds_c.y += term.scr - prevscr;
 		break;
+	case XK_f:
+	case XK_F:
+	case XK_t:
+	case XK_T:
+		kbds_finddir = (ksym == XK_f || ksym == XK_t) ? 1 : -1;
+		kbds_findtill = (ksym == XK_t || ksym == XK_T) ? 1 : 0;
+		kbds_setmode(kbds_mode | KBDS_MODE_FIND);
+		return 0;
+	case XK_semicolon:
+	case XK_r:
+		kbds_findnext(kbds_finddir, 1);
+		break;
+	case XK_comma:
+	case XK_R:
+		kbds_findnext(-kbds_finddir, 1);
+		break;
 	case XK_0:
 	case XK_KP_0:
 		if (!kbds_quant) {
@@ -678,11 +781,11 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 int
 kbds_isselectmode(void)
 {
-	return kbds_in_use && kbds_mode >= KBDS_MODE_SELECT;
+	return kbds_in_use && (kbds_mode & (KBDS_MODE_SELECT | KBDS_MODE_LSELECT));
 }
 
 int
 kbds_issearchmode(void)
 {
-	return kbds_in_use && kbds_mode == KBDS_MODE_SEARCH;
+	return kbds_in_use && (kbds_mode & KBDS_MODE_SEARCH);
 }
