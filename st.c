@@ -1858,9 +1858,9 @@ tsetmode(int priv, int set, const int *args, int narg)
 				if (!allowaltscreen)
 					break;
 				if (set)
-					tloadaltscreen(*args == 1049, *args == 1049);
+					tloadaltscreen(*args != 47, *args == 1049);
 				else
-					tloaddefscreen(*args == 1047, *args == 1049);
+					tloaddefscreen(*args != 47, *args == 1049);
 				break;
 			case 1048:
 				if (!allowaltscreen)
