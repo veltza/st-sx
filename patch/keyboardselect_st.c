@@ -38,6 +38,7 @@ kbds_drawstatusbar(int y)
 	static char quant[20] = { ' ' };
 	static Glyph g;
 	int i, n, m;
+	int mlen, qlen;
 
 	if (!kbds_in_use)
 		return;
@@ -55,13 +56,14 @@ kbds_drawstatusbar(int y)
 			m = 2 + (kbds_seltype == SEL_RECTANGULAR ? 1 : 0);
 		else
 			m = kbds_mode;
-		for (n = strlen(modes[m]), i = term.col-1; i >= 0 && n > 0; i--) {
-			g.u = modes[m][--n];
-			xdrawglyph(g, i, y);
-		}
-		if (kbds_quant) {
-			n = snprintf(quant+1, sizeof quant-1, "%i", kbds_quant) + 1;
-			for (; i >= 0 && n > 0; i--) {
+		mlen = strlen(modes[m]);
+		qlen = kbds_quant ? snprintf(quant+1, sizeof quant-1, "%i", kbds_quant) + 1 : 0;
+		if (kbds_c.y != y || kbds_c.x < term.col - qlen - mlen) {
+			for (n = mlen, i = term.col-1; i >= 0 && n > 0; i--) {
+				g.u = modes[m][--n];
+				xdrawglyph(g, i, y);
+			}
+			for (n = qlen; i >= 0 && n > 0; i--) {
 				g.u = quant[--n];
 				xdrawglyph(g, i, y);
 			}
