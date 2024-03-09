@@ -2913,9 +2913,10 @@ eschandle(uchar ascii)
 		tcursor(CURSOR_LOAD);
 		break;
 	case '\\': /* ST -- String Terminator */
-		if (term.esc & ESC_STR_END)
+		if (term.esc & ESC_STR_END) {
 			strescseq.term = STR_TERM_ST;
 			strhandle();
+		}
 		break;
 	default:
 		fprintf(stderr, "erresc: unknown sequence ESC 0x%02X '%c'\n",
