@@ -818,6 +818,9 @@ xloadalpha(void)
 	dc.col[defaultbg].color.alpha = (unsigned short)(0xffff * usedAlpha);
 	dc.col[defaultbg].pixel &= 0x00FFFFFF;
 	dc.col[defaultbg].pixel |= (unsigned char)(0xff * usedAlpha) << 24;
+	dc.col[defaultbg].color.red   *= usedAlpha;
+	dc.col[defaultbg].color.green *= usedAlpha;
+	dc.col[defaultbg].color.blue  *= usedAlpha;
 }
 
 void
