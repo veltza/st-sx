@@ -268,6 +268,35 @@ kbds_moveforward(KCursor *c, int dx, int wrap)
 	return 1;
 }
 
+void
+kbds_jumptoprompt(int dy)
+{
+	int x = 0, y = kbds_c.y + dy, bot;
+	Line line;
+
+	for (bot = kbds_bot(); bot > kbds_top(); bot--) {
+		if (tlinelen(TLINE(bot)) > 0)
+			break;
+	}
+
+	if ((dy > 0 && y > bot) || IS_SET(MODE_ALTSCREEN))
+		return;
+
+	LIMIT(y, kbds_top(), bot);
+
+	for (; y >= kbds_top() && y <= bot; y += dy) {
+		for (line = TLINE(y), x = 0; x < term.col; x++) {
+			if (line[x].mode & ATTR_FTCS_PROMPT)
+				goto found;
+		}
+		x = 0;
+	}
+
+found:
+	LIMIT(y, kbds_top(), bot);
+	kbds_moveto(x, y);
+}
+
 int
 kbds_ismatch(KCursor c)
 {
@@ -712,6 +741,12 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 	case XK_comma:
 	case XK_R:
 		kbds_findnext(-kbds_finddir, 1);
+		break;
+	case XK_Z:
+		kbds_jumptoprompt(-1);
+		break;
+	case XK_X:
+		kbds_jumptoprompt(1);
 		break;
 	case XK_0:
 	case XK_KP_0:

@@ -2409,6 +2409,18 @@ strhandle(void)
 				tfulldirt();
 			}
 			return;
+		case 133: /* OSC 133 */
+			if (narg < 2)
+				break;
+			switch (*strescseq.args[1]) {
+			case 'A':
+				term.c.attr.mode |= ATTR_FTCS_PROMPT;
+				break;
+			default:
+				fprintf(stderr, "erresc: unknown OSC 133 argument: %c\n", *strescseq.args[1]);
+				break;
+			}
+			return;
 		}
 		break;
 	case 'k': /* old title set compatibility */
@@ -3072,6 +3084,7 @@ check_control_code:
 	}
 
 	tsetchar(u, &term.c.attr, term.c.x, term.c.y);
+	term.c.attr.mode &= ~ATTR_FTCS_PROMPT;
 	term.lastc = u;
 
 	if (width == 2) {
