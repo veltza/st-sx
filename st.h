@@ -61,7 +61,7 @@ enum glyph_attribute {
 	ATTR_BOXDRAW        = 1 << 13,
 	ATTR_DIRTYUNDERLINE = 1 << 14,
 	ATTR_HIGHLIGHT      = 1 << 15,
-	ATTR_FTCS_PROMPT    = 1 << 16,  /* OSC "133;A" */
+	ATTR_FTCS_PROMPT    = 1 << 16,  /* OSC "133;A" - start of shell prompt */
 	ATTR_BOLD_FAINT = ATTR_BOLD | ATTR_FAINT,
 	ATTR_SIXEL          = 1 << 31,
 };

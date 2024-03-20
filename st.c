@@ -2409,15 +2409,16 @@ strhandle(void)
 				tfulldirt();
 			}
 			return;
-		case 133: /* OSC 133 */
+		case 133: /* semantic prompts */
 			if (narg < 2)
 				break;
 			switch (*strescseq.args[1]) {
 			case 'A':
+				/* start of shell prompt */
 				term.c.attr.mode |= ATTR_FTCS_PROMPT;
 				break;
 			default:
-				fprintf(stderr, "erresc: unknown OSC 133 argument: %c\n", *strescseq.args[1]);
+				/* fprintf(stderr, "erresc: unknown OSC 133 argument: %c\n", *strescseq.args[1]); */
 				break;
 			}
 			return;
