@@ -19,14 +19,14 @@ St.rows:            24
 ! Border
 St.borderpx:        2
 
+/* Allow resizing the window to any pixel size: 0 = off, 1 = on */
+St.anysize:         1
+
 ! Background opacity
 St.alpha:           0.93
 St.alphaUnfocused:  0.60
 
 ! Colors
-! - cursorColor is used only when Reverse Video (DECSCNM) is set, otherwise
-!   the cursor color is the same as the foreground color
-! - reverseCursor is used when text is selected
 St.foreground:      gray90
 St.background:      black
 St.bgUnfocused:     black
@@ -52,6 +52,11 @@ St.color15:         white
 ! Foreground and background color of search results
 St.highlightfg:     15
 St.highlightbg:     160
+
+! Dynamic cursor color:
+! 0 = the cursor color is fixed (default st behavior)
+! 1 = the cursor uses reverse colors based on the colors of the text cell
+St.dynamic_cursor_color: 1
 
 ! Kerning / character bounding-box multipliers
 St.cwscale:         1.0

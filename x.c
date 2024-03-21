@@ -940,8 +940,8 @@ xhints(void)
 	sizeh->flags = PSize | PResizeInc | PBaseSize | PMinSize;
 	sizeh->height = win.h;
 	sizeh->width = win.w;
-	sizeh->height_inc = 1;
-	sizeh->width_inc = 1;
+	sizeh->height_inc = anysize ? 1 : win.ch;
+	sizeh->width_inc = anysize ? 1 : win.cw;
 	sizeh->base_height = 2 * borderpx;
 	sizeh->base_width = 2 * borderpx;
 	sizeh->min_height = win.ch + 2 * borderpx;
@@ -1932,28 +1932,40 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Glyph og, Line line, int le
 			g.fg = defaultcs;
 		}
 	} else {
-		if (selected(cx, cy)) {
-			g.mode &= ~(ATTR_REVERSE | ATTR_HIGHLIGHT);
-			g.fg = defaultfg;
-			g.bg = defaultrcs;
+		if (dynamic_cursor_color) {
+			if (selected(cx, cy)) {
+				g.mode &= ~(ATTR_REVERSE | ATTR_HIGHLIGHT);
+				g.fg = defaultfg;
+				g.bg = defaultrcs;
+			} else {
+				unsigned int tmpcol = g.bg;
+				g.bg = g.fg;
+				g.fg = tmpcol;
+			}
+			if (IS_TRUECOL(g.bg)) {
+				colbg.alpha = 0xffff;
+				colbg.red = TRUERED(g.bg);
+				colbg.green = TRUEGREEN(g.bg);
+				colbg.blue = TRUEBLUE(g.bg);
+				XftColorAllocValue(xw.dpy, xw.vis, xw.cmap, &colbg, &drawcol);
+			} else
+				drawcol = dc.col[g.bg];
 		} else {
-			unsigned int tmpcol = g.bg;
-			g.bg = g.fg;
-			g.fg = tmpcol;
-		}
-
-		if (IS_TRUECOL(g.bg)) {
-			colbg.alpha = 0xffff;
-			colbg.red = TRUERED(g.bg);
-			colbg.green = TRUEGREEN(g.bg);
-			colbg.blue = TRUEBLUE(g.bg);
-			XftColorAllocValue(xw.dpy, xw.vis, xw.cmap, &colbg, &drawcol);
-		} else
+			if (selected(cx, cy)) {
+				g.fg = defaultfg;
+				g.bg = defaultrcs;
+			} else {
+				g.fg = defaultbg;
+				g.bg = defaultcs;
+			}
 			drawcol = dc.col[g.bg];
+		}
 	}
 
-	if (g.mode & ATTR_HIGHLIGHT)
-		g.mode ^= ATTR_REVERSE;
+	if (dynamic_cursor_color && !IS_SET(MODE_REVERSE))
+		g.mode ^= (g.mode & ATTR_HIGHLIGHT) ? ATTR_REVERSE : 0;
+	else
+		g.mode &= ~ATTR_HIGHLIGHT;
 
 	/* draw the new one */
 	if (IS_SET(MODE_FOCUSED)) {

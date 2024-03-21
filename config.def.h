@@ -190,6 +190,13 @@ unsigned int highlightfg = 15;
 unsigned int highlightbg = 160;
 
 /*
+ * Dynamic cursor color
+ * 0: the cursor color is fixed (default st behavior)
+ * 1: the cursor uses reverse colors based on the colors of the text cell
+*/
+unsigned int dynamic_cursor_color = 1;
+
+/*
  * Default shape of cursor
  * 2: Block ("█")
  * 4: Underline ("_")
@@ -204,6 +211,9 @@ static unsigned int cursorshape = 2;
 
 static unsigned int cols = 80;
 static unsigned int rows = 24;
+
+/* Allow resizing the window to any pixel size: 0 = off, 1 = on */
+unsigned int anysize = 1;
 
 /*
  * Default colour and shape of the mouse cursor
@@ -611,6 +621,7 @@ ResourcePref resources[] = {
 		{ "reverseCursor",       STRING,  &colorname[257] },
 		{ "highlightfg",         INTEGER, &highlightfg },
 		{ "highlightbg",         INTEGER, &highlightbg },
+		{ "dynamic_cursor_color",INTEGER, &dynamic_cursor_color },
 		{ "alpha",               FLOAT,   &alpha },
 		{ "alphaUnfocused",      FLOAT,   &alphaUnfocused },
 		{ "termname",            STRING,  &termname },
@@ -631,6 +642,7 @@ ResourcePref resources[] = {
 		{ "vertcenter",          INTEGER, &vertcenter },
 		{ "cols",                INTEGER, &cols },
 		{ "rows",                INTEGER, &rows },
+		{ "anysize",             INTEGER, &anysize },
 		{ "undercurl_style",               INTEGER, &undercurl_style },
 		{ "undercurl_thickness_threshold", INTEGER, &undercurl_thickness_threshold },
 		{ "undercurl_extra_thickness",     INTEGER, &undercurl_extra_thickness },
