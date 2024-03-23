@@ -1677,8 +1677,6 @@ tsetattr(const int *attr, int l)
 				term.c.attr.mode |= ATTR_UNDERLINE;
 			else
 				term.c.attr.mode &= ~ATTR_UNDERLINE;
-
-			term.c.attr.mode ^= ATTR_DIRTYUNDERLINE;
 			break;
 		case 5: /* slow blink */
 			/* FALLTHROUGH */
@@ -1742,7 +1740,6 @@ tsetattr(const int *attr, int l)
 				term.c.attr.ustyle = (term.c.attr.ustyle & ~UNDERLINE_COLOR_MASK) |
 					(IS_TRUECOL(idx) ? UNDERLINE_COLOR_RGB : UNDERLINE_COLOR_PALETTE) |
 					(idx & 0xffffff);
-				term.c.attr.mode ^= ATTR_DIRTYUNDERLINE;
 			} else {
 				fprintf(stderr, "erresc(58): gfx attr unknown\n");
 				csidump();
@@ -1750,7 +1747,6 @@ tsetattr(const int *attr, int l)
 			break;
 		case 59:
 			term.c.attr.ustyle = (term.c.attr.ustyle & ~UNDERLINE_COLOR_MASK);
-			term.c.attr.mode ^= ATTR_DIRTYUNDERLINE;
 			break;
 		default:
 			if (BETWEEN(attr[i], 30, 37)) {

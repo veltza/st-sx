@@ -21,7 +21,8 @@
 #define LIMIT(x, a, b)		(x) = (x) < (a) ? (a) : (x) > (b) ? (b) : (x)
 #define ATTRCMP(a, b)		(((a).mode & (~ATTR_WRAP)) != ((b).mode & (~ATTR_WRAP)) || \
 				(a).fg != (b).fg || \
-				(a).bg != (b).bg)
+				(a).bg != (b).bg || \
+				(((a).mode & ATTR_UNDERLINE) && (a).ustyle != (b).ustyle))
 #define TIMEDIFF(t1, t2)	((t1.tv_sec-t2.tv_sec)*1000 + \
 				(t1.tv_nsec-t2.tv_nsec)/1E6)
 #define MODBIT(x, set, bit)	((set) ? ((x) |= (bit)) : ((x) &= ~(bit)))
@@ -59,9 +60,8 @@ enum glyph_attribute {
 	ATTR_WDUMMY         = 1 << 11,
 	ATTR_SELECTED       = 1 << 12,
 	ATTR_BOXDRAW        = 1 << 13,
-	ATTR_DIRTYUNDERLINE = 1 << 14,
-	ATTR_HIGHLIGHT      = 1 << 15,
-	ATTR_FTCS_PROMPT    = 1 << 16,  /* OSC "133;A" - start of shell prompt */
+	ATTR_HIGHLIGHT      = 1 << 14,
+	ATTR_FTCS_PROMPT    = 1 << 15,  /* OSC "133;A" - start of shell prompt */
 	ATTR_BOLD_FAINT = ATTR_BOLD | ATTR_FAINT,
 	ATTR_SIXEL          = 1 << 31,
 };
