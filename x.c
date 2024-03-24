@@ -68,7 +68,7 @@ char *font2_xresources[FONT2_XRESOURCES_SIZE];
 
 static inline ushort sixd_to_16bit(int);
 #if LIGATURES
-static inline void xresetfontsettings(uint32_t mode, Font **font, int *frcflags);
+static inline void xresetfontsettings(ushort mode, Font **font, int *frcflags);
 #endif
 static int xmakeglyphfontspecs(XftGlyphFontSpec *, const Glyph *, int, int, int);
 static void xdrawglyphfontspecs(const XftGlyphFontSpec *, Glyph, int, int, int, int, int);
@@ -1377,7 +1377,7 @@ xinit(int cols, int rows)
 
 #if LIGATURES
 void
-xresetfontsettings(uint32_t mode, Font **font, int *frcflags)
+xresetfontsettings(ushort mode, Font **font, int *frcflags)
 {
 	*font = &dc.font;
 	if ((mode & ATTR_ITALIC) && (mode & ATTR_BOLD)) {
@@ -1524,7 +1524,7 @@ int
 xmakeglyphfontspecs(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x, int y)
 {
 	float winx = borderpx + x * win.cw, winy = borderpx + y * win.ch, xp, yp;
-	uint32_t mode, prevmode = -1;
+	ushort mode, prevmode = USHRT_MAX;
 	Font *font = &dc.font;
 	int frcflags = FRC_NORMAL;
 	float runewidth = win.cw;
