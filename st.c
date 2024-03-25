@@ -2386,13 +2386,14 @@ strhandle(void)
 			p = strescseq.args[2];
 			/* FALLTHROUGH */
 		case 104: /* color reset */
-			j = (narg > 1) ? atoi(strescseq.args[1]) : -1;
+			j = (narg > 1 && strescseq.args[1][0]) ? atoi(strescseq.args[1]) : -1;
 
 			if (p && !strcmp(p, "?")) {
 				osc_color_response(j, 0, 1);
 			} else if (xsetcolorname(j, p)) {
-				if (par == 104 && narg <= 1) {
+				if (par == 104 && (narg <= 1 || !strescseq.args[1][0])) {
 					xloadcols();
+					tfulldirt();
 					return; /* color reset without parameter */
 				}
 				fprintf(stderr, "erresc: invalid color j=%d, p=%s\n",
