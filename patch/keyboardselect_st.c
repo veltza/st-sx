@@ -271,7 +271,7 @@ kbds_moveforward(KCursor *c, int dx, int wrap)
 void
 kbds_jumptoprompt(int dy)
 {
-	int x = 0, y = kbds_c.y + dy, bot;
+	int x = 0, y = kbds_c.y + dy, bot, prevscr;
 	Line line;
 
 	for (bot = kbds_bot(); bot > kbds_top(); bot--) {
@@ -295,6 +295,13 @@ kbds_jumptoprompt(int dy)
 found:
 	LIMIT(y, kbds_top(), bot);
 	kbds_moveto(x, y);
+
+	/* align the prompt to the top unless select mode is on */
+	if (!kbds_isselectmode()) {
+		prevscr = term.scr;
+		kscrolldown(&((Arg){ .i = kbds_c.y }));
+		kbds_moveto(kbds_c.x, kbds_c.y + term.scr - prevscr);
+	}
 }
 
 int
