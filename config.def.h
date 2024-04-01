@@ -12,6 +12,10 @@ static char *font2[] = {
 /*	"Hack Nerd Font Mono:pixelsize=11:antialias=true:autohint=true", */
 };
 
+/* Disable bold and italic fonts globally */
+unsigned int disable_bold = 0;
+unsigned int disable_italic = 0;
+
 static int borderpx = 2;
 
 /* modkey options: ControlMask, ShiftMask or XK_ANY_MOD */
@@ -188,6 +192,9 @@ unsigned int bgUnfocused = 260;
 /* Foreground and background color of search results */
 unsigned int highlightfg = 15;
 unsigned int highlightbg = 160;
+
+/* Bold text is not rendered in bright color. 0: off, 1: on */
+unsigned int bold_is_not_bright = 1;
 
 /*
  * Dynamic cursor color
@@ -598,6 +605,8 @@ ResourcePref resources[] = {
 		{ "font_fallback6",      STRING,  &font2_xresources[5] },
 		{ "font_fallback7",      STRING,  &font2_xresources[6] },
 		{ "font_fallback8",      STRING,  &font2_xresources[7] },
+		{ "disable_bold",        INTEGER, &disable_bold },
+		{ "disable_italic",      INTEGER, &disable_italic },
 		{ "color0",              STRING,  &colorname[0] },
 		{ "color1",              STRING,  &colorname[1] },
 		{ "color2",              STRING,  &colorname[2] },
@@ -621,6 +630,7 @@ ResourcePref resources[] = {
 		{ "reverseCursor",       STRING,  &colorname[257] },
 		{ "highlightfg",         INTEGER, &highlightfg },
 		{ "highlightbg",         INTEGER, &highlightbg },
+		{ "bold_is_not_bright",  INTEGER, &bold_is_not_bright },
 		{ "dynamic_cursor_color",INTEGER, &dynamic_cursor_color },
 		{ "alpha",               FLOAT,   &alpha },
 		{ "alphaUnfocused",      FLOAT,   &alphaUnfocused },
