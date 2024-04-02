@@ -2209,8 +2209,8 @@ xfinishdraw(void)
 			continue;
 
 		/* scale the image */
-		width = im->width * win.cw / im->cw;
-		height = im->height * win.ch / im->ch;
+		width = MAX(im->width * win.cw / im->cw, 1);
+		height = MAX(im->height * win.ch / im->ch, 1);
 		if (!im->pixmap) {
 			im->pixmap = (void *)XCreatePixmap(xw.dpy, xw.win, width, height, xw.depth);
 			if (win.cw == im->cw && win.ch == im->ch) {
