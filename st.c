@@ -2442,14 +2442,18 @@ strhandle(void)
 			y1 = newimages->y;
 			x2 = x1 + newimages->cols;
 			y2 = y1 + numimages;
-			for (tail = NULL, im = term.images; im; im = next) {
-				next = im->next;
-				if (im->x >= x1 && im->x + im->cols <= x2 &&
-					im->y >= y1 && im->y <= y2) {
-					delete_image(im);
-					continue;
+			if (newimages->transparent) {
+				for (tail = term.images; tail && tail->next; tail = tail->next);
+			} else {
+				for (tail = NULL, im = term.images; im; im = next) {
+					next = im->next;
+					if (im->x >= x1 && im->x + im->cols <= x2 &&
+					    im->y >= y1 && im->y <= y2) {
+						delete_image(im);
+						continue;
+					}
+					tail = im;
 				}
-				tail = im;
 			}
 			if (tail) {
 				tail->next = newimages;
@@ -2472,8 +2476,7 @@ strhandle(void)
 					line = term.line[term.c.y];
 				}
 				for (x = im->x; x < x2; x++) {
-					line[x].u = ' ';
-					line[x].mode = ATTR_SIXEL;
+					line[x].mode |= ATTR_SIXEL;
 				}
 				term.dirty[MIN(im->y, term.row-1)] = 1;
 				if (!IS_SET(MODE_SIXEL_SDM) && i < numimages-1) {
@@ -2804,7 +2807,7 @@ tcontrolcode(uchar ascii)
 void
 dcshandle(void)
 {
-	int bgcolor;
+	int bgcolor, transparent;
 	unsigned char r, g, b, a = 255;
 
 	switch (csiescseq.mode[0]) {
@@ -2824,6 +2827,7 @@ dcshandle(void)
 			goto unknown;
 		break;
 	case 'q': /* DECSIXEL */
+		transparent = (csiescseq.narg >= 2 && csiescseq.arg[1] == 1);
 		if (IS_TRUECOL(term.c.attr.bg)) {
 			r = term.c.attr.bg >> 16 & 255;
 			g = term.c.attr.bg >> 8 & 255;
@@ -2834,7 +2838,7 @@ dcshandle(void)
 				a = dc.col[defaultbg].pixel >> 24 & 255;
 		}
 		bgcolor = a << 24 | r << 16 | g << 8 | b;
-		if (sixel_parser_init(&sixel_st, (255 << 24), bgcolor, 1, win.cw, win.ch) != 0)
+		if (sixel_parser_init(&sixel_st, transparent, (255 << 24), bgcolor, 1, win.cw, win.ch) != 0)
 			perror("sixel_parser_init() failed");
 		term.mode |= MODE_SIXEL;
 		break;
@@ -3161,7 +3165,7 @@ treflow(int col, int row)
 	int oce, nce, bot, scr;
 	int ox = 0, oy = -term.histf, nx = 0, ny = -1, len;
 	int cy = -1; /* proxy for new y coordinate of cursor */
-	int buflen, nlines, del;
+	int buflen, nlines;
 	Line *buf, bufline, line;
 	ImageList *im, *next;
 
@@ -3290,21 +3294,14 @@ treflow(int col, int row)
 		}
 	}
 
-	/* expand images into new text cells or
-	 * delete images if there is text behind them */
+	/* expand images into new text cells */
 	for (im = term.images; im; im = next) {
 		next = im->next;
 		if (im->x < col) {
 			line = TLINE(im->y);
 			x2 = MIN(im->x + im->cols, col);
-			for (del = 0, x = im->x; x < x2; x++) {
-				if ((del = line[x].mode & ATTR_SET))
-					break;
-				line[x].u = ' ';
-				line[x].mode = ATTR_SIXEL;
-			}
-			if (del)
-				delete_image(im);
+			for (x = im->x; x < x2; x++)
+				line[x].mode |= ATTR_SIXEL;
 		}
 	}
 
