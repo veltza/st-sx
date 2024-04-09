@@ -14,10 +14,10 @@ typedef struct sixel_image_buffer {
 	sixel_color_no_t *data;
 	int width;
 	int height;
-	sixel_color_t palette[DECSIXEL_PALETTE_MAX];
+	sixel_color_t *palette;
 	sixel_color_no_t ncolors;
 	int palette_modified;
-	int use_private_register;
+	int use_private_palette;
 } sixel_image_t;
 
 typedef enum parse_state {
@@ -48,14 +48,17 @@ typedef struct parser_context {
 	int param;
 	int nparams;
 	int params[DECSIXEL_PARAMS_MAX];
+	int use_private_palette;
+	sixel_color_t shared_palette[DECSIXEL_PALETTE_MAX];
+	sixel_color_t private_palette[DECSIXEL_PALETTE_MAX];
 	sixel_image_t image;
 } sixel_state_t;
 
 void scroll_images(int n);
 void delete_image(ImageList *im);
-int sixel_parser_init(sixel_state_t *st, int transparent, sixel_color_t fgcolor, sixel_color_t bgcolor, unsigned char use_private_register, int cell_width, int cell_height);
+int sixel_parser_init(sixel_state_t *st, int transparent, sixel_color_t bgcolor, unsigned char use_private_palette, int cell_width, int cell_height);
 int sixel_parser_parse(sixel_state_t *st, const unsigned char *p, size_t len);
-int sixel_parser_set_default_color(sixel_state_t *st);
+int sixel_parser_set_default_color(sixel_state_t *st, int private_palette);
 int sixel_parser_finalize(sixel_state_t *st, ImageList **newimages, int cx, int cy, int cw, int ch);
 void sixel_parser_deinit(sixel_state_t *st);
 Pixmap sixel_create_clipmask(char *pixels, int width, int height);

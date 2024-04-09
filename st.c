@@ -60,7 +60,8 @@ enum term_mode {
 	MODE_UTF8         = 1 << 6,
 	MODE_SIXEL        = 1 << 7,
 	MODE_SIXEL_CUR_RT = 1 << 8,
-	MODE_SIXEL_SDM    = 1 << 9
+	MODE_SIXEL_SDM    = 1 << 9,
+	MODE_SIXEL_PRIVATE_PALETTE = 1 << 10
 };
 
 enum scroll_mode {
@@ -1134,6 +1135,9 @@ treset(void)
 		tswapscreen();
 	}
 	tfulldirt();
+
+	MODBIT(term.mode, 1, MODE_SIXEL_PRIVATE_PALETTE);
+	sixel_parser_set_default_color(&sixel_st, 0);
 }
 
 void
@@ -1882,6 +1886,9 @@ tsetmode(int priv, int set, const int *args, int narg)
 			case 80: /* DECSDM -- Sixel Display Mode */
 				MODBIT(term.mode, set, MODE_SIXEL_SDM);
 				break;
+			case 1070: /* Use private color registers for each sixel */
+				MODBIT(term.mode, set, MODE_SIXEL_PRIVATE_PALETTE);
+				break;
 			case 8452: /* sixel scrolling leaves cursor to right of graphic */
 				MODBIT(term.mode, set, MODE_SIXEL_CUR_RT);
 				break;
@@ -2175,10 +2182,21 @@ csihandle(void)
 				ttywrite(IS_SET(MODE_SIXEL_SDM) ? "\033[?80;1$y"
 				                                : "\033[?80;2$y", 9, 1);
 				break;
+			} else if (csiescseq.arg[0] == 1070) {
+				/* Use private color registers for each sixel */
+				/* https://invisible-island.net/xterm/ctlseqs/ctlseqs.html */
+				ttywrite(IS_SET(MODE_SIXEL_PRIVATE_PALETTE) ? "\033[?1070;1$y"
+				                                            : "\033[?1070;2$y", 11, 1);
+				break;
 			} else if (csiescseq.arg[0] == 2026) {
 				/* Synchronized Output */
 				/* https://gist.github.com/christianparpart/d8a62cc1ab659194337d73e399004036 */
 				ttywrite(su ? "\033[?2026;1$y" : "\033[?2026;2$y", 11, 1);
+				break;
+			} else if (csiescseq.arg[0] == 8452) {
+				/* sixel scrolling leaves cursor to right of graphic */
+				ttywrite(IS_SET(MODE_SIXEL_CUR_RT) ? "\033[?8452;1$y"
+				                                   : "\033[?8452;2$y", 11, 1);
 				break;
 			}
 		}
@@ -2838,7 +2856,8 @@ dcshandle(void)
 				a = dc.col[defaultbg].pixel >> 24 & 255;
 		}
 		bgcolor = a << 24 | r << 16 | g << 8 | b;
-		if (sixel_parser_init(&sixel_st, transparent, (255 << 24), bgcolor, 1, win.cw, win.ch) != 0)
+		if (sixel_parser_init(&sixel_st, transparent, bgcolor,
+		                      IS_SET(MODE_SIXEL_PRIVATE_PALETTE), win.cw, win.ch) != 0)
 			perror("sixel_parser_init() failed");
 		term.mode |= MODE_SIXEL;
 		break;

@@ -96,9 +96,13 @@ set_default_color(sixel_image_t *image)
 		image->palette[n++] = SIXEL_RGB(i * 11, i * 11, i * 11);
 	}
 
+	/* sixels rarely use more than 256 colors and if they do, they use a custom
+	 * palette, so we don't need to initialize these colors */
+	/*
 	for (; n < DECSIXEL_PALETTE_MAX; n++) {
 		image->palette[n] = SIXEL_RGB(255, 255, 255);
 	}
+	*/
 
 	return (0);
 }
@@ -108,37 +112,31 @@ sixel_image_init(
     sixel_image_t    *image,
     int              width,
     int              height,
-    int              fgcolor,
     int              bgcolor,
-    int              use_private_register)
+    int              use_private_palette,
+    sixel_color_t    *palette)
 {
-	int status = (-1);
 	size_t size;
 
 	size = (size_t)(width * height) * sizeof(sixel_color_no_t);
 	image->width = width;
 	image->height = height;
 	image->data = (sixel_color_no_t *)malloc(size);
-	image->ncolors = 2;
-	image->use_private_register = use_private_register;
-
-	if (image->data == NULL) {
-		status = (-1);
-		goto end;
-	}
-	memset(image->data, 0, size);
-
-	image->palette[0] = bgcolor;
-
-	if (image->use_private_register)
-		image->palette[1] = fgcolor;
-
+	image->ncolors = 16;
+	image->use_private_palette = use_private_palette;
+	image->palette = palette;
 	image->palette_modified = 0;
 
-	status = (0);
+	image->palette[0] = bgcolor;
+	if (use_private_palette)
+		memcpy(&image->palette[1], sixel_default_color_table,
+		       sizeof sixel_default_color_table);
 
-end:
-	return status;
+	if (image->data == NULL)
+		return -1;
+
+	memset(image->data, 0, size);
+	return 0;
 }
 
 
@@ -216,8 +214,8 @@ sixel_image_deinit(sixel_image_t *image)
 int
 sixel_parser_init(sixel_state_t *st,
                   int transparent,
-                  sixel_color_t fgcolor, sixel_color_t bgcolor,
-                  unsigned char use_private_register,
+                  sixel_color_t bgcolor,
+                  unsigned char use_private_palette,
                   int cell_width, int cell_height)
 {
 	int status = (-1);
@@ -238,17 +236,26 @@ sixel_parser_init(sixel_state_t *st,
 	st->grid_height = cell_height;
 	st->nparams = 0;
 	st->param = 0;
+	st->use_private_palette = use_private_palette;
 
 	/* buffer initialization */
-	status = sixel_image_init(&st->image, 1, 1, fgcolor, transparent ? 0 : bgcolor, use_private_register);
-
+	status = sixel_image_init(&st->image, 1, 1, transparent ? 0 : bgcolor,
+	                          st->use_private_palette,
+	                          st->use_private_palette ? st->private_palette : st->shared_palette);
 	return status;
 }
 
 int
-sixel_parser_set_default_color(sixel_state_t *st)
+sixel_parser_set_default_color(sixel_state_t *st, int private_palette)
 {
-	return set_default_color(&st->image);
+	int status;
+	sixel_color_t *current_palette = st->image.palette;
+
+	st->image.palette = private_palette ? st->private_palette : st->shared_palette;
+	status = set_default_color(&st->image);
+	st->image.palette = current_palette;
+
+	return status;
 }
 
 int
@@ -272,7 +279,7 @@ sixel_parser_finalize(sixel_state_t *st, ImageList **newimages, int cx, int cy, 
 	if (++st->max_y < st->attributed_pv)
 		st->max_y = st->attributed_pv;
 
-	if (image->use_private_register && image->ncolors > 2 && !image->palette_modified) {
+	if (image->use_private_palette && image->ncolors > 16 && !image->palette_modified) {
 		if (set_default_color(image) < 0)
 			return -1;
 	}
