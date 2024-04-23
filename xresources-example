@@ -90,7 +90,7 @@ St.undercurl_height_scale:          1.0
 
 ! Misc settings
 St.shell:               /bin/sh
-St.minlatency:          8
+St.minlatency:          2
 St.maxlatency:          33
 St.su_timeout:          200
 St.blinktimeout:        800
