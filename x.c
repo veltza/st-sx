@@ -1842,7 +1842,7 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 				&ugcv);
 
 			// Underline type
-			int utype = base.ustyle >> (24+UNDERLINE_COLOR_NBITS);
+			int utype = base.ustyle >> UNDERLINE_COLOR_BITS;
 			switch (utype) {
 			case UNDERLINE_CURLY:
 				switch (undercurl_style) {

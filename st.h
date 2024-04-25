@@ -31,10 +31,10 @@
 #define IS_TRUECOL(x)		(1 << 24 & (x))
 #define HISTSIZE      2000
 
-#define UNDERLINE_COLOR_PALETTE  (1<<24)
-#define UNDERLINE_COLOR_RGB      (2<<24)
-#define UNDERLINE_COLOR_NBITS    2
-#define UNDERLINE_COLOR_MASK     ((1 << (24+UNDERLINE_COLOR_NBITS)) - 1)
+#define UNDERLINE_COLOR_PALETTE  (1 << 24)
+#define UNDERLINE_COLOR_RGB      (2 << 24)
+#define UNDERLINE_COLOR_BITS     (2 + 24)
+#define UNDERLINE_COLOR_MASK     ((1 << UNDERLINE_COLOR_BITS) - 1)
 
 enum underlinetype {
 	UNDERLINE_SINGLE = 1,

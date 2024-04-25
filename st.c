@@ -37,7 +37,7 @@
 #define UTF_SIZ       4
 #define ESC_BUF_SIZ   (128*UTF_SIZ)
 #define ESC_ARG_SIZ   16
-#define CAR_PER_ARG   4
+#define CAR_PER_ARG   (4+1)
 #define STR_BUF_SIZ   ESC_BUF_SIZ
 #define STR_ARG_SIZ   ESC_ARG_SIZ
 #define STR_TERM_ST   "\033\\"
@@ -152,7 +152,7 @@ static void ttywriteraw(const char *, size_t);
 static void csidump(void);
 static void csihandle(void);
 static void dcshandle(void);
-static void readcolonargs(char **, int, int[][CAR_PER_ARG]);
+static inline void readcolonargs(char **, int, int[][CAR_PER_ARG]);
 static void csiparse(void);
 static void csireset(void);
 static void osc_color_response(int, int, int);
@@ -203,7 +203,7 @@ static int twrite(const char *, int, int);
 static void tcontrolcode(uchar );
 static void tdectest(char );
 static void tdefutf8(char);
-static int32_t tdefcolor(const int *, int *, int);
+static int32_t tdefcolor(int, const int *, int *, int, int *);
 static void tdeftran(char);
 static void tstrsequence(uchar);
 static void selnormalize(void);
@@ -1379,19 +1379,18 @@ void
 readcolonargs(char **p, int cursor, int params[][CAR_PER_ARG])
 {
 	int i;
+	long int v;
 	char *np;
 
-	params[cursor][0] = -1;
-	params[cursor][1] = 0;
-	params[cursor][2] = 0;
-	params[cursor][3] = 0;
-
-	for (np = NULL, i = 0; **p == ':' && i < CAR_PER_ARG; i++, *p = np) {
-		do {
-			(*p)++;
-		} while (**p == ':');
-		params[cursor][i] = strtol(*p, &np, 10);
+	/* read the arguments and discard the rest if too many */
+	for (i = 1; **p == ':'; *p = np) {
+		while (*(++*p) == ':');
+		np = NULL;
+		v = strtol(*p, &np, 10);
+		if (i < CAR_PER_ARG)
+			params[cursor][i++] = v;
 	}
+	params[cursor][0] = i - 1; /* number of arguments */
 }
 
 void
@@ -1585,17 +1584,25 @@ tdeleteline(int n)
 }
 
 int32_t
-tdefcolor(const int *attr, int *npar, int l)
+tdefcolor(int code, const int *attr, int *npar, int l, int *carg)
 {
 	int32_t idx = -1;
 	uint r, g, b;
+	int tmp;
+
+	/* use colon-separated subparameters if present */
+	if (carg[0] > 0) {
+		l = carg[0] + 1;
+		attr = carg;
+		npar = &tmp;
+		tmp = 0;
+	}
 
 	switch (attr[*npar + 1]) {
 	case 2: /* direct color in RGB space */
 		if (*npar + 4 >= l) {
-			fprintf(stderr,
-				"erresc(38): Incorrect number of parameters (%d)\n",
-				*npar);
+			fprintf(stderr, "erresc(%d): Incorrect number of subparameters\n", code);
+			*npar = l;
 			break;
 		}
 		r = attr[*npar + 2];
@@ -1603,21 +1610,19 @@ tdefcolor(const int *attr, int *npar, int l)
 		b = attr[*npar + 4];
 		*npar += 4;
 		if (!BETWEEN(r, 0, 255) || !BETWEEN(g, 0, 255) || !BETWEEN(b, 0, 255))
-			fprintf(stderr, "erresc: bad rgb color (%u,%u,%u)\n",
-				r, g, b);
+			fprintf(stderr, "erresc(%d): bad rgb color (%u,%u,%u)\n", code, r, g, b);
 		else
 			idx = TRUECOLOR(r, g, b);
 		break;
 	case 5: /* indexed color */
 		if (*npar + 2 >= l) {
-			fprintf(stderr,
-				"erresc(38): Incorrect number of parameters (%d)\n",
-				*npar);
+			fprintf(stderr, "erresc(%d): Incorrect number of subparameters\n", code);
+			*npar = l;
 			break;
 		}
 		*npar += 2;
 		if (!BETWEEN(attr[*npar], 0, 255))
-			fprintf(stderr, "erresc: bad fgcolor %d\n", attr[*npar]);
+			fprintf(stderr, "erresc(%d): bad color index %d\n", code, attr[*npar]);
 		else
 			idx = attr[*npar];
 		break;
@@ -1626,8 +1631,7 @@ tdefcolor(const int *attr, int *npar, int l)
 	case 3: /* direct color in CMY space */
 	case 4: /* direct color in CMYK space */
 	default:
-		fprintf(stderr,
-		        "erresc(38): gfx attr %d unknown\n", attr[*npar]);
+		fprintf(stderr, "erresc(%d): unknown color type %d\n", code, attr[*npar + 1]);
 		break;
 	}
 
@@ -1637,8 +1641,7 @@ tdefcolor(const int *attr, int *npar, int l)
 void
 tsetattr(const int *attr, int l)
 {
-	int i, j, t, utype;
-	int cattr[5];
+	int i, utype;
 	int32_t idx;
 
 	for (i = 0; i < l; i++) {
@@ -1667,17 +1670,12 @@ tsetattr(const int *attr, int l)
 			term.c.attr.mode |= ATTR_ITALIC;
 			break;
 		case 4:
-			utype = (csiescseq.carg[i][0] >= 0) ? MIN(csiescseq.carg[i][0], 5) : 1;
-			if (!undercurl_style)
-				utype = (utype >= 3) ? 0 : utype;
-
+			utype = (csiescseq.carg[i][0] > 0) ? csiescseq.carg[i][1] : 1;
+			utype = (!undercurl_style && utype >= 3) ? 0 : utype;
+			LIMIT(utype, 0, 5);
 			term.c.attr.ustyle = (term.c.attr.ustyle & UNDERLINE_COLOR_MASK) |
-				(utype << (24+UNDERLINE_COLOR_NBITS));
-
-			if (utype)
-				term.c.attr.mode |= ATTR_UNDERLINE;
-			else
-				term.c.attr.mode &= ~ATTR_UNDERLINE;
+			                     (utype << UNDERLINE_COLOR_BITS);
+			MODBIT(term.c.attr.mode, utype > 0, ATTR_UNDERLINE);
 			break;
 		case 5: /* slow blink */
 			/* FALLTHROUGH */
@@ -1715,39 +1713,28 @@ tsetattr(const int *attr, int l)
 			term.c.attr.mode &= ~ATTR_STRUCK;
 			break;
 		case 38:
-			if ((idx = tdefcolor(attr, &i, l)) >= 0)
+			if ((idx = tdefcolor(38, attr, &i, l, &csiescseq.carg[i][0])) >= 0)
 				term.c.attr.fg = idx;
 			break;
 		case 39:
 			term.c.attr.fg = defaultfg;
 			break;
 		case 48:
-			if ((idx = tdefcolor(attr, &i, l)) >= 0)
+			if ((idx = tdefcolor(48, attr, &i, l, &csiescseq.carg[i][0])) >= 0)
 				term.c.attr.bg = idx;
 			break;
 		case 49:
 			term.c.attr.bg = defaultbg;
 			break;
 		case 58:
-			if (csiescseq.carg[i][0] >= 0) {
-				cattr[0] = 58;
-				for (t = 0, j = 0; j < 4; j++)
-					cattr[j + 1] = csiescseq.carg[i][j];
-				idx = tdefcolor(cattr, &t, 5);
-			} else {
-				idx = tdefcolor(attr, &i, l);
-			}
-			if (idx >= 0) {
+			if ((idx = tdefcolor(58, attr, &i, l, &csiescseq.carg[i][0])) >= 0) {
 				term.c.attr.ustyle = (term.c.attr.ustyle & ~UNDERLINE_COLOR_MASK) |
 					(IS_TRUECOL(idx) ? UNDERLINE_COLOR_RGB : UNDERLINE_COLOR_PALETTE) |
 					(idx & 0xffffff);
-			} else {
-				fprintf(stderr, "erresc(58): gfx attr unknown\n");
-				csidump();
 			}
 			break;
 		case 59:
-			term.c.attr.ustyle = (term.c.attr.ustyle & ~UNDERLINE_COLOR_MASK);
+			term.c.attr.ustyle &= ~UNDERLINE_COLOR_MASK;
 			break;
 		default:
 			if (BETWEEN(attr[i], 30, 37)) {
