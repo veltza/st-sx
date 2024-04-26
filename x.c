@@ -1799,10 +1799,10 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 
 		/* Render underline and strikethrough. */
 		int url_yoffset = 2;
-		const int undercurl_thickness = (dc.font.height / undercurl_thickness_threshold) + 1;
+		const int underline_thickness = (dc.font.height / undercurl_thickness_threshold) + 1;
 		if (base.mode & ATTR_UNDERLINE) {
 			// Underline Color
-			int wlw = undercurl_thickness; // Wave Line Width (thickness)
+			int wlw = underline_thickness; // Wave Line Width (thickness)
 			int wh = MAX((int)((dc.font.descent - wlw/2 - 1) * undercurl_height_scale + 0.5), 1);
 			int wy = winy + win.cyo + dc.font.ascent + undercurl_yoffset;
 			int linecolor;
@@ -1881,7 +1881,7 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 
 		if (base.mode & ATTR_STRUCK) {
 			XftDrawRect(xw.draw, fg, winx, winy + win.cyo + 2 * dc.font.ascent / 3,
-					width, 1);
+					width, underline_thickness);
 		}
 
 		/* underline url (openurlonclick patch) */
@@ -1894,7 +1894,7 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 				xu = borderpx + xu * win.cw;
 				XftDrawRect(xw.draw, fg, xu,
 					winy + win.cyo + dc.font.ascent + url_yoffset, wu,
-					undercurl_thickness);
+					underline_thickness);
 				url_draw = (y != url_y2 || x + charlen <= x2);
 			}
 		}
