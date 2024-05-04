@@ -1,5 +1,7 @@
 st-mono| simpleterm monocolor,
 	Su,
+	Setulc=\E[58:2:%p1%{65536}%/%d:%p1%{256}%/%{255}%&%d:%p1%{255}%&%d%;m,
+	Smulx=\E[4:%p1%dm,
 	acsc=+C\,D-A.B0E``aaffgghFiGjjkkllmmnnooppqqrrssttuuvvwwxxyyzz{{||}}~~,
 	am,
 	bce,
