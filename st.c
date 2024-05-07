@@ -3080,6 +3080,7 @@ check_control_code:
 
 	if (term.c.x+width > term.col) {
 		if (IS_SET(MODE_WRAP)) {
+			tclearglyph(&term.line[term.c.y][term.col-1], 0);
 			term.line[term.c.y][term.col-2].mode |= ATTR_WRAP;
 			tnewline(1);
 		} else {
