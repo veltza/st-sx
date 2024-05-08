@@ -195,6 +195,7 @@ static void tsetattr(const int *, int);
 static void tsetchar(Rune, const Glyph *, int, int);
 static void tsetdirt(int, int);
 static void tsetscroll(int, int);
+static inline void tsetsixelattr(Line line, int x1, int x2);
 static void tswapscreen(void);
 static void tloaddefscreen(int, int);
 static void tloadaltscreen(int, int);
@@ -1076,6 +1077,13 @@ tsetdirtattr(int attr)
 			}
 		}
 	}
+}
+
+void
+tsetsixelattr(Line line, int x1, int x2)
+{
+	for (; x1 <= x2; x1++)
+		line[x1].mode |= ATTR_SIXEL;
 }
 
 void
@@ -2466,33 +2474,37 @@ strhandle(void)
 			} else {
 				term.images = newimages;
 			}
-			x2 = MIN(x2, term.col);
-			for (i = 0, im = newimages; im; im = next, i++) {
-				next = im->next;
-				if (IS_SET(MODE_SIXEL_SDM)) {
+			x2 = MIN(x2, term.col) - 1;
+			if (IS_SET(MODE_SIXEL_SDM)) {
+				/* Sixel display mode: put the sixel in the upper left corner of
+				 * the screen, disable scrolling (the sixel will be truncated if
+				 * it is too long) and do not change the cursor position. */
+				for (i = 0, im = newimages; im; im = next, i++) {
+					next = im->next;
 					if (i >= term.row) {
 						delete_image(im);
 						continue;
 					}
 					im->y = i + term.scr;
-					line = term.line[i];
-				} else {
+					tsetsixelattr(term.line[i], x1, x2);
+					term.dirty[MIN(im->y, term.row-1)] = 1;
+				}
+			} else {
+				for (i = 0, im = newimages; im; im = next, i++) {
+					next = im->next;
 					im->y = term.c.y + term.scr;
-					line = term.line[term.c.y];
+					tsetsixelattr(term.line[term.c.y], x1, x2);
+					term.dirty[MIN(im->y, term.row-1)] = 1;
+					if (i < numimages-1) {
+						im->next = NULL;
+						tnewline(0);
+						im->next = next;
+					}
 				}
-				for (x = im->x; x < x2; x++) {
-					line[x].mode |= ATTR_SIXEL;
-				}
-				term.dirty[MIN(im->y, term.row-1)] = 1;
-				if (!IS_SET(MODE_SIXEL_SDM) && i < numimages-1) {
-					im->next = NULL;
-					tnewline(0);
-					im->next = next;
-				}
+				/* if mode 8452 is set, sixel scrolling leaves cursor to right of graphic */
+				if (IS_SET(MODE_SIXEL_CUR_RT))
+					term.c.x = MIN(term.c.x + newimages->cols, term.col-1);
 			}
-			/* if mode 8452 is set, sixel scrolling leaves cursor to right of graphic */
-			if (!IS_SET(MODE_SIXEL_SDM) && IS_SET(MODE_SIXEL_CUR_RT))
-				term.c.x = MIN(term.c.x + newimages->cols, term.col-1);
 		}
 		return;
 	case '_': /* APC -- Application Program Command */
@@ -3168,7 +3180,7 @@ treflow_moveimages(int oldy, int newy)
 void
 treflow(int col, int row)
 {
-	int i, j, x, x2;
+	int i, j;
 	int oce, nce, bot, scr;
 	int ox = 0, oy = -term.histf, nx = 0, ny = -1, len;
 	int cy = -1; /* proxy for new y coordinate of cursor */
@@ -3302,14 +3314,9 @@ treflow(int col, int row)
 	}
 
 	/* expand images into new text cells */
-	for (im = term.images; im; im = next) {
-		next = im->next;
-		if (im->x < col) {
-			line = TLINE(im->y);
-			x2 = MIN(im->x + im->cols, col);
-			for (x = im->x; x < x2; x++)
-				line[x].mode |= ATTR_SIXEL;
-		}
+	for (im = term.images; im; im = im->next) {
+		if (im->x < col)
+			tsetsixelattr(TLINE(im->y), im->x, MIN(im->x + im->cols, col) - 1);
 	}
 
 	for (; buflen > 0; ny--, buflen--)
