@@ -29,7 +29,7 @@
 
 #define TRUECOLOR(r,g,b)	(1 << 24 | (r) << 16 | (g) << 8 | (b))
 #define IS_TRUECOL(x)		(1 << 24 & (x))
-#define HISTSIZE      2000
+#define HISTSIZE      2048
 
 #define UNDERLINE_COLOR_PALETTE  (1 << 24)
 #define UNDERLINE_COLOR_RGB      (2 << 24)
