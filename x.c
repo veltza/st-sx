@@ -2205,9 +2205,10 @@ xfinishdraw(void)
 	ImageList *im, *next;
 	Imlib_Image origin, scaled;
 	XGCValues gcvalues;
-	GC gc;
+	GC gc = NULL;
 	int width, height;
-	int x, x2, del, destx, desty;
+	int del, desty, mode, x1, x2, xend;
+	int bw = borderpx, bh = borderpx;
 	Line line;
 
 	for (im = term.images; im; im = next) {
@@ -2279,34 +2280,43 @@ xfinishdraw(void)
 			}
 		}
 
-		/* clip the image so it does not go over to borders */
-		x2 = MIN(im->x + im->cols, term.col);
-		width = MIN(width, (x2 - im->x) * win.cw);
-
-		/* delete the image if the text cells behind it have been changed */
-		line = TLINE(im->y);
-		for (del = 0, x = im->x; x < x2; x++) {
-			if ((del = !(line[x].mode & ATTR_SIXEL)))
-				break;
-		}
-		if (del) {
-			delete_image(im);
-			continue;
+		if (!gc) {
+			memset(&gcvalues, 0, sizeof(gcvalues));
+			gcvalues.graphics_exposures = False;
+			gc = XCreateGC(xw.dpy, xw.win, GCGraphicsExposures, &gcvalues);
 		}
 
-		/* draw the image */
-		memset(&gcvalues, 0, sizeof(gcvalues));
-		gcvalues.graphics_exposures = False;
-		gc = XCreateGC(xw.dpy, xw.win, GCGraphicsExposures, &gcvalues);
-		destx = borderpx + im->x * win.cw;
-		desty = borderpx + im->y * win.ch;
+		/* draw only the parts of the image that are not erased */
+		line = TLINE(im->y) + im->x;
+		xend = MIN(im->x + im->cols, term.col);
+		desty = bh + im->y * win.ch;
 		if (im->clipmask) {
 			XSetClipMask(xw.dpy, gc, (Drawable)im->clipmask);
-			XSetClipOrigin(xw.dpy, gc, destx, desty);
+			XSetClipOrigin(xw.dpy, gc, bw + im->x * win.cw, desty);
 		}
-		XCopyArea(xw.dpy, (Drawable)im->pixmap, xw.buf, gc, 0, 0, width, height, destx, desty);
-		XFreeGC(xw.dpy, gc);
+		for (del = 1, x1 = im->x; x1 < xend; x1 = x2) {
+			mode = line->mode & ATTR_SIXEL;
+			for (x2 = x1 + 1; x2 < xend; x2++) {
+				if (((++line)->mode & ATTR_SIXEL) != mode)
+					break;
+			}
+			if (mode) {
+				XCopyArea(xw.dpy, (Drawable)im->pixmap, xw.buf, gc,
+				    (x1 - im->x) * win.cw, 0,
+				    MIN((x2 - x1) * win.cw, width - (x1 - im->x) * win.cw), height,
+				    bw + x1 * win.cw, desty);
+				del = 0;
+			}
+		}
+		if (im->clipmask)
+			XSetClipMask(xw.dpy, gc, None);
+
+		/* if all the parts are erased, we can delete the entire image */
+		if (del && im->x + im->cols <= term.col)
+			delete_image(im);
 	}
+	if (gc)
+		XFreeGC(xw.dpy, gc);
 
 	XCopyArea(xw.dpy, xw.buf, xw.win, dc.gc, 0, 0, win.w, win.h, 0, 0);
 	XSetForeground(xw.dpy, dc.gc, dc.col[IS_SET(MODE_REVERSE) ? defaultfg : defaultbg].pixel);

@@ -2329,7 +2329,7 @@ strhandle(void)
 	char *p = NULL, *dec;
 	int j, narg, par;
 	ImageList *im, *newimages, *next, *tail;
-	int i, x, y, x1, y1, x2, y2, numimages;
+	int i, x1, y1, x2, y2, numimages;
 	int cx, cy;
 	Line line;
 	const struct { int idx; char *str; } osc_table[] = {
@@ -3315,8 +3315,12 @@ treflow(int col, int row)
 
 	/* expand images into new text cells */
 	for (im = term.images; im; im = im->next) {
-		if (im->x < col)
-			tsetsixelattr(TLINE(im->y), im->x, MIN(im->x + im->cols, col) - 1);
+		j = MIN(im->x + im->cols, col);
+		line = TLINE(im->y);
+		for (i = im->x; i < j; i++) {
+			if (!(line[i].mode & ATTR_SET))
+				line[i].mode |= ATTR_SIXEL;
+		}
 	}
 
 	for (; buflen > 0; ny--, buflen--)
