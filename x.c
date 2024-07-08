@@ -2280,20 +2280,23 @@ xfinishdraw(void)
 			}
 		}
 
+		/* create GC */
 		if (!gc) {
 			memset(&gcvalues, 0, sizeof(gcvalues));
 			gcvalues.graphics_exposures = False;
 			gc = XCreateGC(xw.dpy, xw.win, GCGraphicsExposures, &gcvalues);
 		}
 
-		/* draw only the parts of the image that are not erased */
-		line = TLINE(im->y) + im->x;
-		xend = MIN(im->x + im->cols, term.col);
+		/* set the clip mask */
 		desty = bh + im->y * win.ch;
 		if (im->clipmask) {
 			XSetClipMask(xw.dpy, gc, (Drawable)im->clipmask);
 			XSetClipOrigin(xw.dpy, gc, bw + im->x * win.cw, desty);
 		}
+
+		/* draw only the parts of the image that are not erased */
+		line = TLINE(im->y) + im->x;
+		xend = MIN(im->x + im->cols, term.col);
 		for (del = 1, x1 = im->x; x1 < xend; x1 = x2) {
 			mode = line->mode & ATTR_SIXEL;
 			for (x2 = x1 + 1; x2 < xend; x2++) {
