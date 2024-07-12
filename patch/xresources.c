@@ -52,6 +52,9 @@ config_init(Display *dpy)
 	for (p = resources; p < resources + LEN(resources); p++)
 		resource_load(db, p->name, p->type, p->dst);
 
+	LIMIT(cursorstyle, 1, 8);
+	xsetcursor(cursorstyle);
+
 	/* command line arguments override xresources */
 	cols = (opt_geometry_cols > 0) ? opt_geometry_cols : cols;
 	rows = (opt_geometry_rows > 0) ? opt_geometry_rows : rows;

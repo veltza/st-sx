@@ -12,6 +12,7 @@ Sixels inside a [tmux](https://github.com/tmux/tmux) session (apps: [lsix](https
 
 - Alpha focus highlight
 - Anysize simple
+- Blinking cursor
 - Bold is not bright
 - Boxdraw
 - Clipboard

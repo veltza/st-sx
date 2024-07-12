@@ -204,18 +204,34 @@ unsigned int bold_is_not_bright = 1;
 unsigned int dynamic_cursor_color = 1;
 
 /*
- * Default shape of cursor
- * 2: Block ("█")
- * 4: Underline ("_")
- * 6: Bar ("|")
- * 7: Snowman ("☃")
+ * https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h4-Functions-using-CSI-_-ordered-by-the-final-character-lparen-s-rparen:CSI-Ps-SP-q.1D81
+ * Default style of cursor
+ * 1: blinking block
+ * 2: steady block ("█")
+ * 3: blinking underline
+ * 4: steady underline ("_")
+ * 5: blinking bar
+ * 6: steady bar ("|")
+ * 7: blinking st cursor
+ * 8: steady st cursor
  */
-static unsigned int cursorshape = 2;
+static unsigned int cursorstyle = 2;
+static Rune stcursor = 0x2603; /* snowman ("☃") */
+
+/*
+ * Controls the blinking of the cursor
+ * 0: prevent the cursor from ever blinking
+ * 1: allow blinking
+ * 2: force to always blink
+ */
+static unsigned int cursorblinking = 1;
+
+/* Specifies how fast the blinking cursor blinks */
+static unsigned int cursorblinktimeout = 800;
 
 /*
  * Default columns and rows numbers
  */
-
 static unsigned int cols = 80;
 static unsigned int rows = 24;
 
@@ -632,6 +648,9 @@ ResourcePref resources[] = {
 		{ "highlightbg",         INTEGER, &highlightbg },
 		{ "bold_is_not_bright",  INTEGER, &bold_is_not_bright },
 		{ "dynamic_cursor_color",INTEGER, &dynamic_cursor_color },
+		{ "cursorstyle",         INTEGER, &cursorstyle },
+		{ "cursorblinking",      INTEGER, &cursorblinking },
+		{ "cursorblinktimeout",  INTEGER, &cursorblinktimeout },
 		{ "alpha",               FLOAT,   &alpha },
 		{ "alphaUnfocused",      FLOAT,   &alphaUnfocused },
 		{ "termname",            STRING,  &termname },

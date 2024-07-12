@@ -22,6 +22,7 @@ enum win_mode {
 	MODE_MOUSE       = MODE_MOUSEBTN|MODE_MOUSEMOTION|MODE_MOUSEX10\
 	                  |MODE_MOUSEMANY,
 	MODE_KBDSELECT   = 1 << 18,
+	MODE_CURSORBLINK = 1 << 19,
 };
 
 void xbell(void);

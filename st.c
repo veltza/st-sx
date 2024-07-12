@@ -1035,10 +1035,12 @@ int
 tattrset(int attr)
 {
 	int i, j;
+	Line line;
 
-	for (i = 0; i < term.row-1; i++) {
-		for (j = 0; j < term.col-1; j++) {
-			if (term.line[i][j].mode & attr)
+	for (i = 0; i < term.row; i++) {
+		line = TLINE(i);
+		for (j = 0; j < term.col; j++) {
+			if (line[j].mode & attr)
 				return 1;
 		}
 	}
@@ -1068,10 +1070,12 @@ void
 tsetdirtattr(int attr)
 {
 	int i, j;
+	Line line;
 
-	for (i = 0; i < term.row-1; i++) {
-		for (j = 0; j < term.col-1; j++) {
-			if (term.line[i][j].mode & attr) {
+	for (i = 0; i < term.row; i++) {
+		line = TLINE(i);
+		for (j = 0; j < term.col; j++) {
+			if (line[j].mode & attr) {
 				term.dirty[i] = 1;
 				break;
 			}

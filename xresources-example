@@ -58,6 +58,15 @@ St.highlightbg:     160
 ! 1 = the cursor uses reverse colors based on the colors of the text cell
 St.dynamic_cursor_color: 1
 
+! Default style of cursor
+St.cursorstyle: 2
+
+! Controls the blinking of the cursor
+St.cursorblinking: 1
+
+! Specifies how fast the blinking cursor blinks
+St.cursorblinktimeout: 800
+
 ! Kerning / character bounding-box multipliers
 St.cwscale:         1.0
 St.chscale:         1.0
