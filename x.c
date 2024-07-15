@@ -1924,6 +1924,7 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Glyph og, Line line, int le
 {
 	Color drawcol;
 	XRenderColor colbg;
+	uint32_t tmpcol;
 	static int oldcursor;
 	int blink = IS_SET(MODE_CURSORBLINK);
 	int hidden = IS_SET(MODE_HIDE) && !IS_SET(MODE_KBDSELECT);
@@ -1953,6 +1954,7 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Glyph og, Line line, int le
 
 	if (IS_SET(MODE_REVERSE)) {
 		g.mode |= ATTR_REVERSE;
+		g.mode &= ~ATTR_HIGHLIGHT;
 		g.bg = defaultfg;
 		if (selected(cx, cy)) {
 			drawcol = dc.col[defaultcs];
@@ -1967,20 +1969,27 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Glyph og, Line line, int le
 				g.mode &= ~(ATTR_REVERSE | ATTR_HIGHLIGHT);
 				g.fg = defaultfg;
 				g.bg = defaultrcs;
+				drawcol = dc.col[g.bg];
 			} else {
-				unsigned int tmpcol = g.bg;
+				g.mode ^= (g.mode & ATTR_HIGHLIGHT) ? ATTR_REVERSE : 0;
+				tmpcol = g.bg;
 				g.bg = g.fg;
 				g.fg = tmpcol;
+				if (g.mode & ATTR_HIGHLIGHT)
+					tmpcol = (g.mode & ATTR_REVERSE) ? highlightfg : highlightbg;
+				else
+					tmpcol = (g.mode & ATTR_REVERSE) ? g.fg : g.bg;
+				if (IS_TRUECOL(tmpcol)) {
+					colbg.alpha = 0xffff;
+					colbg.red = TRUERED(tmpcol);
+					colbg.green = TRUEGREEN(tmpcol);
+					colbg.blue = TRUEBLUE(tmpcol);
+					XftColorAllocValue(xw.dpy, xw.vis, xw.cmap, &colbg, &drawcol);
+				} else
+					drawcol = dc.col[tmpcol];
 			}
-			if (IS_TRUECOL(g.bg)) {
-				colbg.alpha = 0xffff;
-				colbg.red = TRUERED(g.bg);
-				colbg.green = TRUEGREEN(g.bg);
-				colbg.blue = TRUEBLUE(g.bg);
-				XftColorAllocValue(xw.dpy, xw.vis, xw.cmap, &colbg, &drawcol);
-			} else
-				drawcol = dc.col[g.bg];
 		} else {
+			g.mode &= ~(ATTR_REVERSE | ATTR_HIGHLIGHT);
 			if (selected(cx, cy)) {
 				g.fg = defaultfg;
 				g.bg = defaultrcs;
@@ -1991,11 +2000,6 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Glyph og, Line line, int le
 			drawcol = dc.col[g.bg];
 		}
 	}
-
-	if (dynamic_cursor_color && !IS_SET(MODE_REVERSE))
-		g.mode ^= (g.mode & ATTR_HIGHLIGHT) ? ATTR_REVERSE : 0;
-	else
-		g.mode &= ~ATTR_HIGHLIGHT;
 
 	/* draw the new one */
 	if (!IS_SET(MODE_FOCUSED)) {
