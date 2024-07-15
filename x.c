@@ -1924,13 +1924,27 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Glyph og, Line line, int le
 {
 	Color drawcol;
 	XRenderColor colbg;
+	static int oldcursor;
+	int blink = IS_SET(MODE_CURSORBLINK);
+	int hidden = IS_SET(MODE_HIDE) && !IS_SET(MODE_KBDSELECT);
+	int cursor = hidden ? -1 : !IS_SET(MODE_FOCUSED) ? -2 : win.cursor;
 
 	/* Redraw the line where cursor was previously.
 	 * It will restore the ligatures broken by the cursor. */
-	xdrawline(line, 0, oy, len);
+	if (term.dirty[oy] || oy != cy || ox != cx || oldcursor != cursor || blink) {
+		xdrawline(line, 0, oy, len);
+		term.dirty[oy] = 0;
+	}
+	oldcursor = cursor;
 
-	if (IS_SET(MODE_HIDE) && !IS_SET(MODE_KBDSELECT))
+	if (hidden)
 		return;
+
+	/* Redraw the current cursor line, if it is dirty */
+	if (term.dirty[cy]) {
+		xdrawline(TLINE(cy), 0, cy, len);
+		term.dirty[cy] = 0;
+	}
 
 	/*
 	 * Select the right color for the right mode.
@@ -1984,47 +1998,7 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Glyph og, Line line, int le
 		g.mode &= ~ATTR_HIGHLIGHT;
 
 	/* draw the new one */
-	if (IS_SET(MODE_FOCUSED)) {
-		switch (win.cursor) {
-		default:
-		case 1: /* blinking block */
-			if (IS_SET(MODE_CURSORBLINK))
-				break;
-			/* FALLTHROUGH */
-		case 2: /* steady block */
-			xdrawglyph(g, cx, cy);
-			break;
-		case 3: /* blinking underline */
-			if (IS_SET(MODE_CURSORBLINK))
-				break;
-			/* FALLTHROUGH */
-		case 4: /* steady underline */
-			XftDrawRect(xw.draw, &drawcol,
-					borderpx + cx * win.cw,
-					borderpx + (cy + 1) * win.ch - \
-						cursorthickness,
-					win.cw, cursorthickness);
-			break;
-		case 5: /* blinking bar */
-			if (IS_SET(MODE_CURSORBLINK))
-				break;
-			/* FALLTHROUGH */
-		case 6: /* steady bar */
-			XftDrawRect(xw.draw, &drawcol,
-					borderpx + cx * win.cw,
-					borderpx + cy * win.ch,
-					cursorthickness, win.ch);
-			break;
-		case 7: /* blinking st cursor */
-			if (IS_SET(MODE_CURSORBLINK))
-				break;
-			/* FALLTHROUGH */
-		case 8: /* steady st cursor */
-			g.u = stcursor;
-			xdrawglyph(g, cx, cy);
-			break;
-		}
-	} else {
+	if (!IS_SET(MODE_FOCUSED)) {
 		XftDrawRect(xw.draw, &drawcol,
 				borderpx + cx * win.cw,
 				borderpx + cy * win.ch,
@@ -2041,6 +2015,34 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Glyph og, Line line, int le
 				borderpx + cx * win.cw,
 				borderpx + (cy + 1) * win.ch - 1,
 				win.cw, 1);
+	} else if (!blink) {
+		switch (win.cursor) {
+		default:
+		case 1: /* blinking block */
+		case 2: /* steady block */
+			xdrawglyph(g, cx, cy);
+			break;
+		case 3: /* blinking underline */
+		case 4: /* steady underline */
+			XftDrawRect(xw.draw, &drawcol,
+					borderpx + cx * win.cw,
+					borderpx + (cy + 1) * win.ch - \
+						cursorthickness,
+					win.cw, cursorthickness);
+			break;
+		case 5: /* blinking bar */
+		case 6: /* steady bar */
+			XftDrawRect(xw.draw, &drawcol,
+					borderpx + cx * win.cw,
+					borderpx + cy * win.ch,
+					cursorthickness, win.ch);
+			break;
+		case 7: /* blinking st cursor */
+		case 8: /* steady st cursor */
+			g.u = stcursor;
+			xdrawglyph(g, cx, cy);
+			break;
+		}
 	}
 }
 
