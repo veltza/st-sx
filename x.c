@@ -1425,10 +1425,22 @@ xmakeglyphfontspecs(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x
 	/* Initial values. */
 	xresetfontsettings(glyphs[0].mode, &font, &frcflags);
 	xp = winx, yp = winy + font->ascent + win.cyo;
-	cluster_xp = xp; cluster_yp = yp;
+
+	/* Handle box-drawing characters */
+	if (glyphs[0].mode & ATTR_BOXDRAW) {
+		for (numspecs = 0; numspecs < len; numspecs++, xp += runewidth) {
+			/* minor shoehorning: boxdraw uses only this ushort */
+			specs[numspecs].font = font->match;
+			specs[numspecs].glyph = boxdrawindex(&glyphs[numspecs]);
+			specs[numspecs].x = xp;
+			specs[numspecs].y = yp;
+		}
+		return numspecs;
+	}
 
 	/* Shape the segment. */
 	hbtransform(&shaped, font->match, glyphs, 0, len);
+	cluster_xp = xp, cluster_yp = yp;
 	for (int code_idx = 0; code_idx < shaped.count; code_idx++) {
 		int idx = shaped.glyphs[code_idx].cluster;
 
@@ -1442,14 +1454,7 @@ xmakeglyphfontspecs(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x
 			cluster_yp = yp;
 		}
 
-		if (glyphs[idx].mode & ATTR_BOXDRAW) {
-			/* minor shoehorning: boxdraw uses only this ushort */
-			specs[numspecs].font = font->match;
-			specs[numspecs].glyph = boxdrawindex(&glyphs[idx]);
-			specs[numspecs].x = xp;
-			specs[numspecs].y = yp;
-			numspecs++;
-		} else if (shaped.glyphs[code_idx].codepoint != 0) {
+		if (shaped.glyphs[code_idx].codepoint != 0) {
 			/* If symbol is found, put it into the specs. */
 			specs[numspecs].font = font->match;
 			specs[numspecs].glyph = shaped.glyphs[code_idx].codepoint;
