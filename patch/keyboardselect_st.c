@@ -271,7 +271,7 @@ kbds_clearhighlights(void)
 	tfulldirt();
 }
 
-int
+void
 kbds_moveto(int x, int y)
 {
 	if (y < 0)

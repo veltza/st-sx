@@ -587,7 +587,7 @@ selnotify(XEvent *e)
 		}
 
 		if (IS_SET(MODE_KBDSELECT) && kbds_issearchmode()) {
-			kbds_pasteintosearch(data, nitems * format / 8, append++);
+			kbds_pasteintosearch((const char *)data, nitems * format / 8, append++);
 		} else {
 			/*
 			 * As seen in getsel:
