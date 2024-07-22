@@ -82,6 +82,9 @@ St.boxdraw_braille: 0
 ! Hide the X cursor whenever a key is pressed: 0 = off, 1 = on
 St.hidecursor:      0
 
+! Ligatures: 0 = off, 1 = on
+St.ligatures:       0
+
 ! Undercurl style: 0 = none, 1 = curly, 2 = spiky, 3 = capped
 St.undercurl_style: 2
 

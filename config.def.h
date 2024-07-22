@@ -102,7 +102,13 @@ static unsigned int cursorthickness = 2;
 int hidecursor = 0;
 
 /* Ligatures. 0: off, 1: on */
-#define LIGATURES 1
+int ligatures = 0;
+
+/*
+ * Permanently disable ligatures so that they won't be compiled in. You should
+ * also edit config.mk file so that the HarfBuzz library won't be linked either.
+ */
+#define DISABLE_LIGATURES 0
 
 /*
  * 1: render most of the lines/blocks characters without using the font for
@@ -668,6 +674,7 @@ ResourcePref resources[] = {
 		{ "boxdraw_bold",        INTEGER, &boxdraw_bold },
 		{ "boxdraw_braille",     INTEGER, &boxdraw_braille },
 		{ "hidecursor",          INTEGER, &hidecursor },
+		{ "ligatures",           INTEGER, &ligatures },
 		{ "vertcenter",          INTEGER, &vertcenter },
 		{ "cols",                INTEGER, &cols },
 		{ "rows",                INTEGER, &rows },

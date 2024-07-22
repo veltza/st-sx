@@ -49,7 +49,7 @@ char *font2_xresources[FONT2_XRESOURCES_SIZE];
 /* config.h for applying patches and the configuration. */
 #include "config.h"
 
-#if LIGATURES
+#if !DISABLE_LIGATURES
 #include "hb.h"
 #endif
 
@@ -67,10 +67,13 @@ char *font2_xresources[FONT2_XRESOURCES_SIZE];
 #define TRUEBLUE(x)		(((x) & 0xff) << 8)
 
 static inline ushort sixd_to_16bit(int);
-#if LIGATURES
+#if !DISABLE_LIGATURES
 static inline void xresetfontsettings(ushort mode, Font **font, int *frcflags);
+static int xmakeglyphfontspecs_ligatures(XftGlyphFontSpec *, const Glyph *, int, int, int);
+static inline void xdrawline_ligatures(Line, int, int, int);
 #endif
-static int xmakeglyphfontspecs(XftGlyphFontSpec *, const Glyph *, int, int, int);
+static int xmakeglyphfontspecs_noligatures(XftGlyphFontSpec *, const Glyph *, int, int, int);
+static inline void xdrawline_noligatures(Line, int, int, int);
 static void xdrawglyphfontspecs(const XftGlyphFontSpec *, Glyph, int, int, int, int, int);
 static inline void xclear(int, int, int, int);
 static int xgeommasktogravity(int);
@@ -804,7 +807,7 @@ xresize(int col, int row)
 	xclear(0, 0, win.w, win.h);
 
 	/* resize to new width */
-	#if LIGATURES
+	#if !DISABLE_LIGATURES
 	xw.specbuf = xrealloc(xw.specbuf, col * sizeof(GlyphFontSpec) * 4);
 	xw.specseq = xrealloc(xw.specseq, col * sizeof(GlyphFontSeq));
 	#else
@@ -1199,7 +1202,7 @@ xunloadfont(Font *f)
 void
 xunloadfonts(void)
 {
-	#if LIGATURES
+	#if !DISABLE_LIGATURES
 	/* Clear Harfbuzz font cache. */
 	hbunloadfonts();
 	#endif
@@ -1284,7 +1287,7 @@ xinit(int cols, int rows)
 	XFillRectangle(xw.dpy, xw.buf, dc.gc, 0, 0, win.w, win.h);
 
 	/* font spec buffer */
-	#if LIGATURES
+	#if !DISABLE_LIGATURES
 	xw.specbuf = xmalloc(cols * sizeof(GlyphFontSpec) * 4);
 	xw.specseq = xmalloc(cols * sizeof(GlyphFontSeq));
 	#else
@@ -1386,7 +1389,7 @@ xinit(int cols, int rows)
 	boxdraw_xinit(xw.dpy, xw.cmap, xw.draw, xw.vis);
 }
 
-#if LIGATURES
+#if !DISABLE_LIGATURES
 void
 xresetfontsettings(ushort mode, Font **font, int *frcflags)
 {
@@ -1402,11 +1405,9 @@ xresetfontsettings(ushort mode, Font **font, int *frcflags)
 		*frcflags = FRC_BOLD;
 	}
 }
-#endif
 
-#if LIGATURES
 int
-xmakeglyphfontspecs(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x, int y)
+xmakeglyphfontspecs_ligatures(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x, int y)
 {
 	float winx = borderpx + x * win.cw, winy = borderpx + y * win.ch, xp, yp;
 	Font *font = &dc.font;
@@ -1535,9 +1536,10 @@ xmakeglyphfontspecs(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x
 
 	return numspecs;
 }
-#else
+#endif
+
 int
-xmakeglyphfontspecs(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x, int y)
+xmakeglyphfontspecs_noligatures(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x, int y)
 {
 	float winx = borderpx + x * win.cw, winy = borderpx + y * win.ch, xp, yp;
 	ushort mode, prevmode = USHRT_MAX;
@@ -1672,7 +1674,6 @@ xmakeglyphfontspecs(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x
 
 	return numspecs;
 }
-#endif
 
 void
 xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, int y, int dmode, int charlen)
@@ -1919,7 +1920,13 @@ xdrawglyph(Glyph g, int x, int y)
 	int numspecs;
 	XftGlyphFontSpec *specs = xw.specbuf;
 
-	numspecs = xmakeglyphfontspecs(specs, &g, 1, x, y);
+	#if !DISABLE_LIGATURES
+	if (ligatures)
+		numspecs = xmakeglyphfontspecs_ligatures(specs, &g, 1, x, y);
+	else
+	#endif
+		numspecs = xmakeglyphfontspecs_noligatures(specs, &g, 1, x, y);
+
 	xdrawglyphfontspecs(specs, g, numspecs, x, y, DRAW_BG | DRAW_FG,
 	                    (g.mode & ATTR_WIDE) ? 2 : 1);
 }
@@ -2131,9 +2138,9 @@ xstartdraw(void)
 	return IS_SET(MODE_VISIBLE);
 }
 
-#if LIGATURES
+#if !DISABLE_LIGATURES
 void
-xdrawline(Line line, int x1, int y1, int x2)
+xdrawline_ligatures(Line line, int x1, int y1, int x2)
 {
 	int i, j, x, ox, numspecs;
 	Glyph new;
@@ -2152,7 +2159,7 @@ xdrawline(Line line, int x1, int y1, int x2)
 		if (selected(x, y1))
 			new.mode ^= ATTR_REVERSE;
 		if ((i > 0) && ATTRCMP(seq[j].base, new)) {
-			numspecs = xmakeglyphfontspecs(specs, &line[ox], x - ox, ox, y1);
+			numspecs = xmakeglyphfontspecs_ligatures(specs, &line[ox], x - ox, ox, y1);
 			xdrawglyphfontspecs(specs, seq[j].base, numspecs, ox, y1, DRAW_BG, x - ox);
 			seq[j].charlen = x - ox;
 			seq[j++].numspecs = numspecs;
@@ -2167,7 +2174,7 @@ xdrawline(Line line, int x1, int y1, int x2)
 		i++;
 	}
 	if (i > 0) {
-		numspecs = xmakeglyphfontspecs(specs, &line[ox], x2 - ox, ox, y1);
+		numspecs = xmakeglyphfontspecs_ligatures(specs, &line[ox], x2 - ox, ox, y1);
 		xdrawglyphfontspecs(specs, seq[j].base, numspecs, ox, y1, DRAW_BG, x2 - ox);
 		seq[j].charlen = x2 - ox;
 		seq[j++].numspecs = numspecs;
@@ -2179,19 +2186,18 @@ xdrawline(Line line, int x1, int y1, int x2)
 		xdrawglyphfontspecs(specs, seq[i].base, seq[i].numspecs, seq[i].ox, y1, DRAW_FG, seq[i].charlen);
 		specs += seq[i].numspecs;
 	}
-
-	kbds_drawstatusbar(y1);
 }
-#else
+#endif
+
 void
-xdrawline(Line line, int x1, int y1, int x2)
+xdrawline_noligatures(Line line, int x1, int y1, int x2)
 {
 	int i, x, ox, numspecs;
 	int numspecs_cached;
 	Glyph base, new;
 	XftGlyphFontSpec *specs;
 
-	numspecs_cached = xmakeglyphfontspecs(xw.specbuf, &line[x1], x2 - x1, x1, y1);
+	numspecs_cached = xmakeglyphfontspecs_noligatures(xw.specbuf, &line[x1], x2 - x1, x1, y1);
 
 	/* Draw line in 2 passes: background and foreground. This way wide glyphs
 	   won't get truncated (#223) */
@@ -2220,10 +2226,20 @@ xdrawline(Line line, int x1, int y1, int x2)
 		if (i > 0)
 			xdrawglyphfontspecs(specs, base, i, ox, y1, dmode, x2 - ox);
 	}
+}
+
+void
+xdrawline(Line line, int x1, int y1, int x2)
+{
+	#if !DISABLE_LIGATURES
+	if (ligatures)
+		xdrawline_ligatures(line, x1, y1, x2);
+	else
+	#endif
+		xdrawline_noligatures(line, x1, y1, x2);
 
 	kbds_drawstatusbar(y1);
 }
-#endif
 
 void
 xfinishdraw(void)
@@ -2861,7 +2877,7 @@ run:
 	if (!(xw.dpy = XOpenDisplay(NULL)))
 		die("Can't open display\n");
 
-	#if LIGATURES
+	#if !DISABLE_LIGATURES
 	hbcreatebuffer();
 	#endif
 	config_init(xw.dpy);
@@ -2875,7 +2891,7 @@ run:
 	if (opt_dir && chdir(opt_dir))
 		die("Can't change to working directory %s\n", opt_dir);
 	run();
-	#if LIGATURES
+	#if !DISABLE_LIGATURES
 	hbdestroybuffer();
 	#endif
 

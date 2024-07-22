@@ -17,8 +17,8 @@ PKG_CONFIG = pkg-config
 # alpha
 XRENDER = -lXrender
 
-# ligatures
-# (you can comment out the four lines below if ligatures are disabled in config.h)
+# ligatures (you can comment out the four lines below if ligatures are
+# permanently disabled in config.h)
 LIGATURES_C = hb.c
 LIGATURES_H = hb.h
 LIGATURES_INC = `$(PKG_CONFIG) --cflags harfbuzz`
