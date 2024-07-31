@@ -3546,8 +3546,7 @@ draw(void)
 
 	if (!kbds_drawcursor()) {
 		xdrawcursor(cx, term.c.y, term.line[term.c.y][cx],
-				term.ocx, term.ocy, term.line[term.ocy][term.ocx],
-				term.line[term.ocy], term.col);
+		            term.ocx, term.ocy, term.line[term.ocy]);
 	}
 	drawregion(0, 0, term.col, term.row);
 

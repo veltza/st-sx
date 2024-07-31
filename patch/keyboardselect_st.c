@@ -210,7 +210,7 @@ kbds_bot(void)
 int
 kbds_iswrapped(KCursor *c)
 {
-    return c->len > 0 && (c->line[c->len-1].mode & ATTR_WRAP);
+	return c->len > 0 && (c->line[c->len-1].mode & ATTR_WRAP);
 }
 
 int
@@ -583,12 +583,22 @@ kbds_drawcursor(void)
 {
 	if (kbds_in_use && (!kbds_issearchmode() || kbds_c.y != term.row-1)) {
 		xdrawcursor(kbds_c.x, kbds_c.y, TLINE(kbds_c.y)[kbds_c.x],
-					kbds_oc.x, kbds_oc.y, TLINE(kbds_oc.y)[kbds_oc.x],
-					TLINE(kbds_oc.y), term.col);
+		            kbds_oc.x, kbds_oc.y, TLINE(kbds_oc.y));
 		kbds_moveto(kbds_c.x, kbds_c.y);
 		kbds_oc = kbds_c;
 	}
 	return term.scr != 0 || kbds_in_use;
+}
+
+int
+kbds_getcursor(int *cx, int *cy)
+{
+	if (kbds_in_use) {
+		*cx = kbds_c.x;
+		*cy = kbds_c.y;
+		return 1;
+	}
+	return 0;
 }
 
 int

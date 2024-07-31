@@ -1932,7 +1932,7 @@ xdrawglyph(Glyph g, int x, int y)
 }
 
 void
-xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Glyph og, Line line, int len)
+xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Line oline)
 {
 	Color drawcol;
 	XRenderColor colbg;
@@ -1944,8 +1944,8 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Glyph og, Line line, int le
 
 	/* Redraw the line where cursor was previously.
 	 * It will restore the ligatures broken by the cursor. */
-	if (term.dirty[oy] || oy != cy || ox != cx || oldcursor != cursor || blink) {
-		xdrawline(line, 0, oy, len);
+	if (oline && (term.dirty[oy] || oy != cy || ox != cx || oldcursor != cursor || blink)) {
+		xdrawline(oline, 0, oy, term.col);
 		term.dirty[oy] = 0;
 	}
 	oldcursor = cursor;
@@ -1955,7 +1955,7 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Glyph og, Line line, int le
 
 	/* Redraw the current cursor line, if it is dirty */
 	if (term.dirty[cy]) {
-		xdrawline(TLINE(cy), 0, cy, len);
+		xdrawline(TLINE(cy), 0, cy, term.col);
 		term.dirty[cy] = 0;
 	}
 
@@ -2249,9 +2249,19 @@ xfinishdraw(void)
 	XGCValues gcvalues;
 	GC gc = NULL;
 	int width, height;
-	int del, desty, mode, x1, x2, xend;
+	int cx, cy, del, desty, mode, x1, x2, xend;
 	int bw = borderpx, bh = borderpx;
 	Line line;
+	Glyph g;
+
+	if (term.images) {
+		if (IS_SET(MODE_FOCUSED) && IS_SET(MODE_CURSORBLINK))
+			cy = -1;
+		else if (IS_SET(MODE_KBDSELECT))
+			kbds_getcursor(&cx, &cy);
+		else
+			cx = term.c.x, cy = (!IS_SET(MODE_HIDE) && term.scr == 0) ? term.c.y : -1;
+	}
 
 	for (im = term.images; im; im = next) {
 		next = im->next;
@@ -2359,6 +2369,12 @@ xfinishdraw(void)
 		/* if all the parts are erased, we can delete the entire image */
 		if (del && im->x + im->cols <= term.col)
 			delete_image(im);
+
+		/* Redraw the cursor if it is behind the image */
+		if (cy == im->y && (line[cx-xend+1].mode & ATTR_SIXEL)) {
+			g = (Glyph){ .u = ' ', mode = 0, .fg = defaultfg, .bg = defaultbg, .ustyle = 0 };
+			xdrawcursor(cx, cy, g, cx, cy, NULL);
+		}
 	}
 	if (gc)
 		XFreeGC(xw.dpy, gc);
