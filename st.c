@@ -1165,6 +1165,7 @@ tnew(int col, int row)
 		tswapscreen();
 	}
 	term.dirty = xmalloc(row * sizeof(*term.dirty));
+	term.dirtyimg = xmalloc(row * sizeof(*term.dirtyimg));
 	term.tabs = xmalloc(col * sizeof(*term.tabs));
 	for (i = 0; i < HISTSIZE; i++)
 		term.hist[i] = xmalloc(col * sizeof(Glyph));
@@ -2491,14 +2492,14 @@ strhandle(void)
 					}
 					im->y = i + term.scr;
 					tsetsixelattr(term.line[i], x1, x2);
-					term.dirty[MIN(im->y, term.row-1)] = 1;
+					term.dirtyimg[MIN(im->y, term.row-1)] = 1;
 				}
 			} else {
 				for (i = 0, im = newimages; im; im = next, i++) {
 					next = im->next;
 					im->y = term.c.y + term.scr;
 					tsetsixelattr(term.line[term.c.y], x1, x2);
-					term.dirty[MIN(im->y, term.row-1)] = 1;
+					term.dirtyimg[MIN(im->y, term.row-1)] = 1;
 					if (i < numimages-1) {
 						im->next = NULL;
 						tnewline(0);
@@ -3383,6 +3384,7 @@ tresize(int col, int row)
 		win.mode ^= kbds_keyboardhandler(XK_Escape, NULL, 0, 1);
 
 	term.dirty = xrealloc(term.dirty, row * sizeof(*term.dirty));
+	term.dirtyimg = xrealloc(term.dirtyimg, row * sizeof(*term.dirtyimg));
 	term.tabs = xrealloc(term.tabs, col * sizeof(*term.tabs));
 	if (col > term.col) {
 		bp = term.tabs + term.col;

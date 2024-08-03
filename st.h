@@ -156,7 +156,8 @@ typedef struct {
 	int histf;           /* nb history available */
 	int scr;             /* scroll back */
 	int wrapcwidth[2];   /* used in updating WRAPNEXT when resizing */
-	int *dirty;   /* dirtyness of lines */
+	int *dirty;     /* dirtyness of lines */
+	char *dirtyimg; /* dirtyness of image lines */
 	TCursor c;    /* cursor */
 	int ocx;      /* old cursor col */
 	int ocy;      /* old cursor row */

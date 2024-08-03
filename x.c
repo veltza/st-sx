@@ -1929,6 +1929,7 @@ xdrawglyph(Glyph g, int x, int y)
 
 	xdrawglyphfontspecs(specs, g, numspecs, x, y, DRAW_BG | DRAW_FG,
 	                    (g.mode & ATTR_WIDE) ? 2 : 1);
+	term.dirtyimg[y] = 1;
 }
 
 void
@@ -2031,6 +2032,7 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Line oline)
 				borderpx + cx * win.cw,
 				borderpx + (cy + 1) * win.ch - 1,
 				win.cw, 1);
+		term.dirtyimg[cy] = 1;
 	} else if (!blink) {
 		switch (win.cursor) {
 		default:
@@ -2059,6 +2061,7 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Line oline)
 			xdrawglyph(g, cx, cy);
 			break;
 		}
+		term.dirtyimg[cy] = 1;
 	}
 }
 
@@ -2238,6 +2241,7 @@ xdrawline(Line line, int x1, int y1, int x2)
 	#endif
 		xdrawline_noligatures(line, x1, y1, x2);
 
+	term.dirtyimg[y1] = 1;
 	kbds_drawstatusbar(y1);
 }
 
@@ -2266,8 +2270,9 @@ xfinishdraw(void)
 	for (im = term.images; im; im = next) {
 		next = im->next;
 
-		/* do not draw or process the image, if it is not visible */
-		if (im->x >= term.col || im->y >= term.row || im->y < 0)
+		/* do not draw or process the image, if it is not visible or
+		 * the image line is not dirty */
+		if (im->x >= term.col || im->y >= term.row || im->y < 0 || !term.dirtyimg[im->y])
 			continue;
 
 		/* do not draw the image on the search bar */
@@ -2376,8 +2381,10 @@ xfinishdraw(void)
 			xdrawcursor(cx, cy, g, cx, cy, NULL);
 		}
 	}
-	if (gc)
+	if (gc) {
 		XFreeGC(xw.dpy, gc);
+		memset(term.dirtyimg, 0, term.row * sizeof(*term.dirtyimg));
+	}
 
 	XCopyArea(xw.dpy, xw.buf, xw.win, dc.gc, 0, 0, win.w, win.h, 0, 0);
 	XSetForeground(xw.dpy, dc.gc, dc.col[IS_SET(MODE_REVERSE) ? defaultfg : defaultbg].pixel);
@@ -2593,7 +2600,7 @@ kpress(XEvent *ev)
 		len = XLookupString(e, buf, sizeof buf, &ksym, NULL);
 	}
 
-	if (IS_SET(MODE_KBDSELECT) ) {
+	if (IS_SET(MODE_KBDSELECT)) {
 		if (kbds_issearchmode()) {
 			for (bp = shortcuts; bp < shortcuts + LEN(shortcuts); bp++) {
 				if (ksym == bp->keysym && match(bp->mod, e->state) &&
