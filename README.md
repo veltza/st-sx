@@ -19,6 +19,7 @@ Sixels inside a [tmux](https://github.com/tmux/tmux) session (apps: [lsix](https
 - CSI 22 23
 - Dynamic cursor color
 - Font2
+- Fullscreen
 - Hidecursor
 - Keyboard select
 - Ligatures

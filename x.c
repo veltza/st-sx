@@ -191,6 +191,7 @@ static char *opt_title = NULL;
 static char *opt_dir   = NULL;
 static int opt_geometry_cols;
 static int opt_geometry_rows;
+static int opt_fullscreen;
 
 static int focused = 0;
 
@@ -1371,6 +1372,9 @@ xinit(int cols, int rows)
 	xw.netwmpid = XInternAtom(xw.dpy, "_NET_WM_PID", False);
 	XChangeProperty(xw.dpy, xw.win, xw.netwmpid, XA_CARDINAL, 32,
 			PropModeReplace, (uchar *)&thispid, 1);
+
+	xw.netwmstate = XInternAtom(xw.dpy, "_NET_WM_STATE", False);
+	xw.netwmfullscreen = XInternAtom(xw.dpy, "_NET_WM_STATE_FULLSCREEN", False);
 
 	win.mode = MODE_NUMLOCK;
 	resettitle();
@@ -2815,13 +2819,13 @@ run(void)
 void
 usage(void)
 {
-	die("usage: %s [-aiv] [-c class]"
+	die("usage: %s [-aivF] [-c class]"
 		" [-d path]"
 		" [-f font] [-g geometry]"
 	    " [-n name] [-o file]\n"
 	    "          [-T title] [-t title] [-w windowid]"
 	    " [[-e] command [args ...]]\n"
-	    "       %s [-aiv] [-c class]"
+	    "       %s [-aivF] [-c class]"
 		" [-d path]"
 		" [-f font] [-g geometry]"
 	    " [-n name] [-o file]\n"
@@ -2854,6 +2858,9 @@ main(int argc, char *argv[])
 		goto run;
 	case 'f':
 		opt_font = EARGF(usage());
+		break;
+	case 'F':
+		opt_fullscreen = 1;
 		break;
 	case 'g':
 		xw.gm = XParseGeometry(EARGF(usage()),
@@ -2913,6 +2920,8 @@ run:
 	selinit();
 	if (opt_dir && chdir(opt_dir))
 		die("Can't change to working directory %s\n", opt_dir);
+	if (opt_fullscreen)
+		fullscreen(&((Arg) { .i = 0 }));
 	run();
 	#if !DISABLE_LIGATURES
 	hbdestroybuffer();
