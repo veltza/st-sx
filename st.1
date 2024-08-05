@@ -3,9 +3,13 @@
 st \- simple terminal
 .SH SYNOPSIS
 .B st
-.RB [ \-aiv ]
+.RB [ \-aivF ]
+.RB [ \-A
+.IR alpha ]
 .RB [ \-c
 .IR class ]
+.RB [ \-d
+.IR path ]
 .RB [ \-f
 .IR font ]
 .RB [ \-g
@@ -27,9 +31,13 @@ st \- simple terminal
 .RI [ arguments ...]]
 .PP
 .B st
-.RB [ \-aiv ]
+.RB [ \-aivF ]
+.RB [ \-A
+.IR alpha ]
 .RB [ \-c
 .IR class ]
+.RB [ \-d
+.IR path ]
 .RB [ \-f
 .IR font ]
 .RB [ \-g
@@ -55,13 +63,23 @@ is a simple terminal emulator.
 .B \-a
 disable alternate screens in terminal
 .TP
+.BI \-A " alpha"
+defines the alpha value of the default background color.
+.TP
 .BI \-c " class"
 defines the window class (default $TERM).
+.TP
+.BI \-d " path"
+changes the working directory to
+.IR path .
 .TP
 .BI \-f " font"
 defines the
 .I font
 to use when st is run.
+.TP
+.B \-F
+opens the window in fullscreen mode on startup.
 .TP
 .BI \-g " geometry"
 defines the X11 geometry string.

@@ -2819,13 +2819,13 @@ run(void)
 void
 usage(void)
 {
-	die("usage: %s [-aivF] [-c class]"
+	die("usage: %s [-aivF] [-A alpha] [-c class]"
 		" [-d path]"
 		" [-f font] [-g geometry]"
 	    " [-n name] [-o file]\n"
 	    "          [-T title] [-t title] [-w windowid]"
 	    " [[-e] command [args ...]]\n"
-	    "       %s [-aivF] [-c class]"
+	    "       %s [-aivF] [-A alpha] [-c class]"
 		" [-d path]"
 		" [-f font] [-g geometry]"
 	    " [-n name] [-o file]\n"
