@@ -1831,12 +1831,13 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 				}
 				// RGB
 				else {
-					XColor lcolor;
-					lcolor.red = ((base.ustyle >> 16) & 255) * 257;
-					lcolor.green = ((base.ustyle >> 8) & 255) * 257;
-					lcolor.blue = (base.ustyle & 255) * 257;
-					lcolor.flags = DoRed | DoGreen | DoBlue;
-					XAllocColor(xw.dpy, xw.cmap, &lcolor);
+					Color lcolor;
+					XRenderColor lcol;
+					lcol.alpha = 0xffff;
+					lcol.red = TRUERED(base.ustyle);
+					lcol.green = TRUEGREEN(base.ustyle);
+					lcol.blue = TRUEBLUE(base.ustyle);
+					XftColorAllocValue(xw.dpy, xw.vis, xw.cmap, &lcol, &lcolor);
 					linecolor = lcolor.pixel;
 				}
 			} else {
