@@ -1,12 +1,13 @@
-! Example of Xresource options
-! - These are default values (except fonts), so you dont have to copy them all
-!   into your .Xresource file
+! Example of Xresources options
+! - These are default values (except fonts), so you don't have to copy them all
+!   into your .Xresources file
 ! - You can also reload the settings by using the USR1 signal when the terminals
-!   are running: xrdb merge .Xresources && killall -USR1 st
+!   are running. Just merge the settings first and then send the signal:
+!   xrdb merge .Xresources && killall -USR1 st
 ! - See config.def.h for more information about these options
 
 ! Font
-St.font:            JetBrainsMono Nerd Font:size=10:antialias=true:autohint=true
+St.font:            JetBrainsMono Nerd Font:style=Medium:size=10:antialias=true:autohint=true
 
 ! Fallback fonts (max 8)
 St.font_fallback1:  JoyPixels:size=10.0:antialias=true:autohint=true
@@ -19,7 +20,7 @@ St.rows:            24
 ! Border
 St.borderpx:        2
 
-/* Allow resizing the window to any pixel size: 0 = off, 1 = on */
+! Allow resizing the window to any pixel size: 0 = off, 1 = on
 St.anysize:         1
 
 ! Background opacity
@@ -59,10 +60,10 @@ St.highlightbg:     160
 St.dynamic_cursor_color: 1
 
 ! Default style of cursor
-St.cursorstyle: 2
+St.cursorstyle:     2
 
 ! Controls the blinking of the cursor
-St.cursorblinking: 1
+St.cursorblinking:  1
 
 ! Specifies how fast the blinking cursor blinks
 St.cursorblinktimeout: 800
