@@ -1223,15 +1223,16 @@ xinit(int cols, int rows)
 {
 	XGCValues gcvalues;
 	Pixmap blankpm;
-	Window parent;
+	Window parent, root;
 	pid_t thispid = getpid();
 	XWindowAttributes attr;
 	XVisualInfo vis;
 
 	xw.scr = XDefaultScreen(xw.dpy);
 
+	root = XRootWindow(xw.dpy, xw.scr);
 	if (!(opt_embed && (parent = strtol(opt_embed, NULL, 0)))) {
-		parent = XRootWindow(xw.dpy, xw.scr);
+		parent = root;
 		xw.depth = 32;
 	} else {
 		XGetWindowAttributes(xw.dpy, parent, &attr);
@@ -1274,10 +1275,12 @@ xinit(int cols, int rows)
 	xw.attrs.colormap = xw.cmap;
 	xw.attrs.event_mask |= PointerMotionMask;
 
-	xw.win = XCreateWindow(xw.dpy, parent, xw.l, xw.t,
+	xw.win = XCreateWindow(xw.dpy, root, xw.l, xw.t,
 			win.w, win.h, 0, xw.depth, InputOutput,
 			xw.vis, CWBackPixel | CWBorderPixel | CWBitGravity
 			| CWEventMask | CWColormap, &xw.attrs);
+	if (parent != root)
+		XReparentWindow(xw.dpy, xw.win, parent, xw.l, xw.t);
 
 	memset(&gcvalues, 0, sizeof(gcvalues));
 	gcvalues.graphics_exposures = False;
