@@ -172,6 +172,7 @@ typedef struct {
 	ImageList *images;     /* sixel images */
 	ImageList *images_alt; /* sixel images for alternate screen */
 	Rune lastc;   /* last printed char outside of sequence, 0 if control */
+	char *cwd;    /* current working directory */
 } Term;
 
 typedef union {

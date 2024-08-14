@@ -14,7 +14,15 @@ newterm(const Arg* a)
 			_exit(1);
 			break;
 		case 0:
-			chdir_by_pid(pid);
+			if (term.cwd) {
+				if (chdir(term.cwd) == 0) {
+					/* We need to put the working directory also in PWD, so that e.g. bash
+					 * starts in the right directory if @directory is a symlink. */
+					setenv("PWD", term.cwd, 1);
+				}
+			} else {
+				chdir_by_pid(pid);
+			}
 			execl("/proc/self/exe", argv0, NULL);
 			_exit(1);
 			break;

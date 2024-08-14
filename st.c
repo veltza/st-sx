@@ -2375,6 +2375,9 @@ strhandle(void)
 				}
 			}
 			return;
+		case 7:
+			osc7parsecwd((const char *)strescseq.args[1]);
+			return;
 		case 8: /* Clear Hyperlinks */
 			return;
 		case 10:
@@ -2533,8 +2536,8 @@ strparse(void)
 	if (*p == '\0')
 		return;
 
-	/* preserve semicolons in window titles and icon names */
-	if(strescseq.type == ']' && p[0] <= '2' && p[1] == ';') {
+	/* preserve semicolons in window titles, icon names and OSC 7 sequences */
+	if (strescseq.type == ']' && (p[0] <= '2' || p[0] == '7') && p[1] == ';') {
 		strescseq.args[strescseq.narg++] = p;
 		strescseq.args[strescseq.narg++] = p + 2;
 		p[1] = '\0';
