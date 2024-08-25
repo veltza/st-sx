@@ -2279,7 +2279,7 @@ csidump(void)
 	size_t i;
 	uint c;
 
-	fprintf(stderr, "ESC[");
+	fprintf(stderr, (term.esc & ESC_DCS) ? "ESCP" : "ESC[");
 	for (i = 0; i < csiescseq.len; i++) {
 		c = csiescseq.buf[i] & 0xff;
 		if (isprint(c)) {
@@ -2832,8 +2832,9 @@ tcontrolcode(uchar ascii)
 void
 dcshandle(void)
 {
-	int bgcolor, transparent;
+	int n, bgcolor, transparent;
 	unsigned char r, g, b, a = 255;
+	char buf[16];
 
 	switch (csiescseq.mode[0]) {
 	default:
@@ -2850,6 +2851,19 @@ dcshandle(void)
 			tsync_end();  /* ESU */
 		else
 			goto unknown;
+		break;
+	case '$': /* DECRQSS */
+		if (csiescseq.buf[1] != 'q') {
+			goto unknown;
+		} else if (csiescseq.buf[2] == ' ' && csiescseq.buf[3] == 'q') {
+			/* DECSCUSR - cursor style */
+			n = snprintf(buf, sizeof buf, "\033P1$r%d q\033\\", win.cursor);
+			ttywrite(buf, n, 0);
+		} else {
+			/* invalid request */
+			ttywrite("\033P0$r\033\\", 7, 0);
+			goto unknown;
+		}
 		break;
 	case 'q': /* DECSIXEL */
 		transparent = (csiescseq.narg >= 2 && csiescseq.arg[1] == 1);
@@ -3057,6 +3071,8 @@ check_control_code:
 			return;
 		} else if (term.esc & ESC_DCS) {
 			csiescseq.buf[csiescseq.len++] = u;
+			if (csiescseq.len == 2 && csiescseq.buf[0] == '$' && csiescseq.buf[1] == 'q')
+				return; /* workaround for DECRQSS */
 			if (BETWEEN(u, 0x40, 0x7E)
 					|| csiescseq.len >= \
 					sizeof(csiescseq.buf)-1) {
