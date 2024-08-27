@@ -88,6 +88,12 @@ static float maxlatency = 33;
 static unsigned int su_timeout = 200;
 
 /*
+ * auto scroll timeout for the auto scroll when use mouse to select
+ * attribute.
+ */
+static unsigned int autoscrolltimeout = 200;
+
+/*
  * blinking timeout (set to 0 to disable blinking) for the terminal blinking
  * attribute.
  */

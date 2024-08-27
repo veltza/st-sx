@@ -165,14 +165,27 @@ enum {
 	FRC_ITALICBOLD
 };
 
+typedef enum {
+	SCROLL_UP,
+	SCROLL_DOWN,
+} ScroolDirection;
+
 typedef struct {
 	XftFont *font;
 	int flags;
 	Rune unicodep;
 } Fontcache;
 
+typedef struct {
+	int speed;
+	int iscontinue;
+	int isscrolling;
+	ScroolDirection dir;
+} Autoscroller;
+
 /* Fontcache is an array now. A new font will be appended to the array. */
 static Fontcache *frc = NULL;
+static Autoscroller *asr = NULL;
 static int frclen = 0;
 static int frccap = 0;
 static char *usedfont = NULL;
@@ -394,6 +407,14 @@ mousesel(XEvent *e, int done)
 			break;
 		}
 	}
+
+	if (e->xbutton.y < 0 || e->xbutton.y > win.h) {
+		if (asr->isscrolling == 0) {asr->iscontinue = 1;}
+		asr->dir = e->xbutton.y < 0 ? SCROLL_UP : SCROLL_DOWN;
+		asr->speed = e->xbutton.y < 0 ? abs(e->xbutton.y) : e->xbutton.y - win.h;
+	} else
+		asr->iscontinue = 0;
+		
 	selextend(evcol(e), evrow(e), seltype, done);
 	if (done)
 		setsel(getsel(), e->xbutton.time);
@@ -731,6 +752,10 @@ brelease(XEvent *e)
 
 	if (1 <= btn && btn <= 11)
 		buttons &= ~(1 << (btn-1));
+
+	if (btn == Button1) {
+		asr->iscontinue = 0;
+	}
 
 	if (IS_SET(MODE_MOUSE) && !(e->xbutton.state & forcemousemod)) {
 		mousereport(e);
@@ -2697,8 +2722,9 @@ run(void)
 	int w = win.w, h = win.h;
 	fd_set rfd;
 	int xfd = XConnectionNumber(xw.dpy), ttyfd, xev, drawing;
-	struct timespec seltv, *tv, now, lastblink, cursorlastblink, trigger;
+	struct timespec seltv, *tv, now, lastblink, cursorlastblink, trigger,lastscroll;
 	double timeout, cursortimeout;
+	int target_scrolltimeout = 0;
 
 	/* Waiting for window mapping */
 	do {
@@ -2721,6 +2747,7 @@ run(void)
 
 	lastblink = (struct timespec){0};
 	cursorlastblink = (struct timespec){0};
+	lastscroll = (struct timespec){0};
 
 	for (timeout = -1, drawing = 0;;) {
 		FD_ZERO(&rfd);
@@ -2791,6 +2818,32 @@ run(void)
 			continue;
 		}
 
+		/*
+		 * The distance between the mouse and the window is x.
+		 * The next scroll time is reduced by y.
+		 * y = x^2 - 2*x.
+		 * target_scrolltimeout is the final timeout value which minimum value is 1.
+		*/
+		target_scrolltimeout = MAX(autoscrolltimeout - (asr->speed)*(asr->speed) - (asr->speed)*2,1);
+		if (asr->iscontinue == 1 && asr->dir == SCROLL_UP) {
+			Arg arg = {.i = 1};
+			if (target_scrolltimeout - TIMEDIFF(now, lastscroll) <= 0) {
+				kscrollup(&arg);
+				lastscroll = now;
+			}
+			asr->isscrolling = 1;
+		} else if (asr->iscontinue == 1 && asr->dir == SCROLL_DOWN)
+		{
+			Arg arg = {.i = 1};
+			if (target_scrolltimeout - TIMEDIFF(now, lastscroll) <= 0) {
+				kscrolldown(&arg);
+				lastscroll = now;
+			}
+			asr->isscrolling = 1;
+		} else {
+			asr->isscrolling = 0;
+		}
+
 		/* idle detected or maxlatency exhausted -> draw */
 		timeout = -1;
 		if (blinktimeout && tattrset(ATTR_BLINK)) {
@@ -2842,6 +2895,11 @@ main(int argc, char *argv[])
 {
 	xw.l = xw.t = 0;
 	xw.isfixed = False;
+	asr = xmalloc(sizeof(Autoscroller));
+	asr->speed = 0;
+	asr->iscontinue = 0;
+	asr->dir = SCROLL_UP;
+	asr->isscrolling = 0;
 
 	ARGBEGIN {
 	case 'a':
@@ -2931,5 +2989,6 @@ run:
 	hbdestroybuffer();
 	#endif
 
+	XFree(asr);
 	return 0;
 }
