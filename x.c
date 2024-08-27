@@ -180,6 +180,7 @@ typedef struct {
 	int speed;
 	int iscontinue;
 	int isscrolling;
+	int isbutton1press;
 	ScroolDirection dir;
 } Autoscroller;
 
@@ -408,7 +409,7 @@ mousesel(XEvent *e, int done)
 		}
 	}
 
-	if (e->xbutton.y < 0 || e->xbutton.y > win.h) {
+	if ((e->xbutton.y < 0 || e->xbutton.y > win.h) && asr->isbutton1press) {
 		if (asr->isscrolling == 0) {asr->iscontinue = 1;}
 		asr->dir = e->xbutton.y < 0 ? SCROLL_UP : SCROLL_DOWN;
 		asr->speed = e->xbutton.y < 0 ? abs(e->xbutton.y) : e->xbutton.y - win.h;
@@ -502,6 +503,10 @@ bpress(XEvent *e)
 
 	if (1 <= btn && btn <= 11)
 		buttons |= 1 << (btn-1);
+
+	if (btn == Button1) {
+		asr->isbutton1press = 1;
+	}
 
 	if (IS_SET(MODE_MOUSE) && !(e->xbutton.state & forcemousemod)) {
 		mousereport(e);
@@ -754,6 +759,7 @@ brelease(XEvent *e)
 		buttons &= ~(1 << (btn-1));
 
 	if (btn == Button1) {
+		asr->isbutton1press = 0;
 		asr->iscontinue = 0;
 	}
 
@@ -2900,6 +2906,7 @@ main(int argc, char *argv[])
 	asr->iscontinue = 0;
 	asr->dir = SCROLL_UP;
 	asr->isscrolling = 0;
+	asr->isbutton1press = 0;
 
 	ARGBEGIN {
 	case 'a':
