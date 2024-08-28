@@ -2850,7 +2850,7 @@ run(void)
 		 * y = x^2 - 2*x.
 		 * target_scrolltimeout is the final timeout value which minimum value is 1.
 		*/
-		target_scrolltimeout = MAX(autoscrolltimeout - (asr->speed)*(asr->speed) - (asr->speed)*2,1);
+		target_scrolltimeout = disable_autoscroll_accelerate ? autoscrolltimeout : MAX(autoscrolltimeout - (asr->speed)*(asr->speed) - (asr->speed)*2,1);
 		if (asr->iscontinue == 1 && asr->dir == SCROLL_UP) {
 			Arg arg = {.i = 1};
 			if (target_scrolltimeout - TIMEDIFF(now, lastscroll) <= 0) {

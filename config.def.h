@@ -94,6 +94,12 @@ static unsigned int su_timeout = 200;
 static unsigned int autoscrolltimeout = 200;
 
 /*
+ * after enable it, the scroll speend is not be affected by the distance 
+ * betwen cursor and window.
+ */
+static unsigned int disable_autoscroll_accelerate = 0;
+
+/*
  * blinking timeout (set to 0 to disable blinking) for the terminal blinking
  * attribute.
  */
