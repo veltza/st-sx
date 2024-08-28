@@ -426,10 +426,10 @@ mousesel(XEvent *e, int done)
 		}
 	}
 
-	if ((e->xbutton.y < 0 || e->xbutton.y > win.h) && asr->isbutton1press) {
+	if ((e->xbutton.y < 0 + borderpx || e->xbutton.y > win.h - borderpx) && asr->isbutton1press) {
 		if (asr->isscrolling == 0) {asr->iscontinue = 1;}
-		asr->dir = e->xbutton.y < 0 ? SCROLL_UP : SCROLL_DOWN;
-		asr->speed = e->xbutton.y < 0 ? abs(e->xbutton.y) : e->xbutton.y - win.h;
+		asr->dir = e->xbutton.y < 0 + borderpx ? SCROLL_UP : SCROLL_DOWN;
+		asr->speed = e->xbutton.y < 0 + borderpx ? abs(e->xbutton.y) : e->xbutton.y - win.h;
 		asr->buttonx = e->xbutton.x;
 		asr->buttony = e->xbutton.y;
 		asr->seltype = seltype;
