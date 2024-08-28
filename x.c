@@ -181,6 +181,8 @@ typedef struct {
 	int iscontinue;
 	int isscrolling;
 	int isbutton1press;
+	int buttonx,buttony;
+	int seltype;
 	ScroolDirection dir;
 } Autoscroller;
 
@@ -393,6 +395,21 @@ mouseaction(XEvent *e, uint release)
 	return 0;
 }
 
+void 
+autoselextend(int bx,int by,int seltype) {
+
+	int x = bx - borderpx;
+	LIMIT(x, 0, win.tw - 1);
+	x = x / win.cw;
+
+
+	int y = by - borderpx;
+	LIMIT(y, 0, win.th - 1);
+	y = y / win.ch;
+
+	selextend(x, y, seltype, 0);
+}
+
 void
 mousesel(XEvent *e, int done)
 {
@@ -413,6 +430,9 @@ mousesel(XEvent *e, int done)
 		if (asr->isscrolling == 0) {asr->iscontinue = 1;}
 		asr->dir = e->xbutton.y < 0 ? SCROLL_UP : SCROLL_DOWN;
 		asr->speed = e->xbutton.y < 0 ? abs(e->xbutton.y) : e->xbutton.y - win.h;
+		asr->buttonx = e->xbutton.x;
+		asr->buttony = e->xbutton.y;
+		asr->seltype = seltype;
 	} else
 		asr->iscontinue = 0;
 		
@@ -2835,6 +2855,7 @@ run(void)
 			Arg arg = {.i = 1};
 			if (target_scrolltimeout - TIMEDIFF(now, lastscroll) <= 0) {
 				kscrollup(&arg);
+				autoselextend(asr->buttonx,asr->buttony,asr->seltype);
 				lastscroll = now;
 			}
 			asr->isscrolling = 1;
@@ -2843,6 +2864,7 @@ run(void)
 			Arg arg = {.i = 1};
 			if (target_scrolltimeout - TIMEDIFF(now, lastscroll) <= 0) {
 				kscrolldown(&arg);
+				autoselextend(asr->buttonx,asr->buttony,asr->seltype);
 				lastscroll = now;
 			}
 			asr->isscrolling = 1;
@@ -2850,7 +2872,7 @@ run(void)
 			asr->isscrolling = 0;
 		}
 
-		/* idle detected or maxlatency exhausted -> draw */
+		// /* idle detected or maxlatency exhausted -> draw */
 		timeout = asr->iscontinue ? timeout : -1;
 		if (blinktimeout && tattrset(ATTR_BLINK)) {
 			timeout = blinktimeout - TIMEDIFF(now, lastblink);
