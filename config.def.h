@@ -88,13 +88,12 @@ static float maxlatency = 33;
 static unsigned int su_timeout = 200;
 
 /*
- * auto scroll timeout for the auto scroll when use mouse to select
- * attribute.
+ * Autoscroll interval when use mouse to select
  */
 static unsigned int autoscrolltimeout = 200;
 
 /*
- * after enable it, the scroll speend is not be affected by the distance 
+ * After enable it, the speed of autoscroll is not be affected by the distance 
  * betwen cursor and window.
  */
 static unsigned int disable_autoscroll_accelerate = 0;

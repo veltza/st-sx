@@ -312,7 +312,7 @@ void selclear(void);
 void selinit(void);
 void selstart(int, int, int);
 void selextend(int, int, int, int);
-void autoselextend(int, int, int);
+void xyselextend(int, int, int);
 int selected(int, int);
 char *getsel(void);
 
