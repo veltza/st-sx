@@ -88,15 +88,16 @@ static float maxlatency = 33;
 static unsigned int su_timeout = 200;
 
 /*
- * Autoscroll interval when use mouse to select
+ * Specifies how fast the screen scrolls when you select text and drag the
+ * mouse to the top or bottom of the screen.
  */
 static unsigned int autoscrolltimeout = 200;
 
 /*
- * After enable it, the speed of autoscroll is not be affected by the distance 
- * betwen cursor and window.
+ * When enabled, the speed of autoscroll is affected by the distance between
+ * the mouse pointer and the window.
  */
-static unsigned int disable_autoscroll_accelerate = 0;
+static unsigned int autoscrollacceleration = 1;
 
 /*
  * blinking timeout (set to 0 to disable blinking) for the terminal blinking

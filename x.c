@@ -423,6 +423,7 @@ mousesel(XEvent *e, int done)
 {
 	int type, seltype = SEL_REGULAR;
 	uint state = e->xbutton.state & ~(Button1Mask | forcemousemod);
+	int bot = term.row * win.ch + borderpx - 1;
 
 	if (kbds_isselectmode())
 		return;
@@ -434,12 +435,12 @@ mousesel(XEvent *e, int done)
 		}
 	}
 
-	if ((e->xbutton.y < borderpx || e->xbutton.y > win.h - borderpx) && asr.isbutton1press) {
+	if ((e->xbutton.y < borderpx || e->xbutton.y > bot) && asr.isbutton1press) {
 		if (asr.isscrolling == 0) {
 			asr.iscontinue = 1;
 		}
 		asr.dir = e->xbutton.y < borderpx ? SCROLL_UP : SCROLL_DOWN;
-		asr.speed = e->xbutton.y < borderpx ? abs(e->xbutton.y - borderpx) : e->xbutton.y - win.h + borderpx;
+		asr.speed = e->xbutton.y < borderpx ? abs(e->xbutton.y - borderpx) : e->xbutton.y - bot;
 		asr.buttonx = e->xbutton.x;
 		asr.buttony = e->xbutton.y;
 		asr.seltype = seltype;
@@ -2884,7 +2885,7 @@ run(void)
 		 * target_scrolltimeout is the final timeout value which minimum value is 1.
 		*/
 		if (asr.iscontinue == 1) {
-			target_scrolltimeout = disable_autoscroll_accelerate
+			target_scrolltimeout = !autoscrollacceleration
 				? autoscrolltimeout
 				: MAX((double)autoscrolltimeout - (asr.speed) * (asr.speed) + (asr.speed) * 2, 1.0);
 			
