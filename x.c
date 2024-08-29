@@ -2883,9 +2883,10 @@ run(void)
 		 * y = x^2 - 2*x.
 		 * target_scrolltimeout is the final timeout value which minimum value is 1.
 		*/
-		timeout = asr.iscontinue ? minlatency : timeout;
-		target_scrolltimeout = disable_autoscroll_accelerate ? autoscrolltimeout : MAX(autoscrolltimeout - (asr.speed) * (asr.speed) - (asr.speed) * 2, 1);
-		if (asr.iscontinue == 1 && (asr.dir == SCROLL_UP || asr.dir == SCROLL_DOWN)) {
+		if (asr.iscontinue == 1) {
+			target_scrolltimeout = disable_autoscroll_accelerate
+				? autoscrolltimeout
+				: MAX((double)autoscrolltimeout - (asr.speed) * (asr.speed) - (asr.speed) * 2, 1.0);
 			if (target_scrolltimeout - TIMEDIFF(now, lastscroll) <= 0) {
 				if (asr.dir == SCROLL_UP)
 					kscrollup(&(Arg){.i = 1});
@@ -2894,6 +2895,7 @@ run(void)
 				xyselextend(asr.buttonx, asr.buttony, asr.seltype);
 				lastscroll = now;
 			}
+			timeout = target_scrolltimeout - TIMEDIFF(now, lastscroll);
 			asr.isscrolling = 1;
 		}
 		else {
