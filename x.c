@@ -2760,7 +2760,7 @@ run(void)
 	int xfd = XConnectionNumber(xw.dpy), ttyfd, xev, drawing;
 	struct timespec seltv, *tv, now, lastblink, cursorlastblink, trigger,lastscroll;
 	double timeout, cursortimeout;
-	int target_scrolltimeout = 0;
+	double target_scrolltimeout;
 
 	/* Waiting for window mapping */
 	do {
