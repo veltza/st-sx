@@ -2886,16 +2886,18 @@ run(void)
 		if (asr.iscontinue == 1) {
 			target_scrolltimeout = disable_autoscroll_accelerate
 				? autoscrolltimeout
-				: MAX((double)autoscrolltimeout - (asr.speed) * (asr.speed) - (asr.speed) * 2, 1.0);
-			if (target_scrolltimeout - TIMEDIFF(now, lastscroll) <= 0) {
+				: MAX((double)autoscrolltimeout - (asr.speed) * (asr.speed) + (asr.speed) * 2, 1.0);
+			
+			timeout = target_scrolltimeout - TIMEDIFF(now, lastscroll);
+			if (timeout <= 0) {
 				if (asr.dir == SCROLL_UP)
 					kscrollup(&(Arg){.i = 1});
 				else
 					kscrolldown(&(Arg){.i = 1});
 				xyselextend(asr.buttonx, asr.buttony, asr.seltype);
 				lastscroll = now;
+				timeout = 1;
 			}
-			timeout = target_scrolltimeout - TIMEDIFF(now, lastscroll);
 			asr.isscrolling = 1;
 		}
 		else {
