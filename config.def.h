@@ -93,10 +93,7 @@ static unsigned int su_timeout = 200;
  */
 static unsigned int autoscrolltimeout = 200;
 
-/*
- * Autoscroll acceleration, when the distance is unchanged, 
- * the larger the value, the greater the change in scroll speed.
- */
+/* Specifies how fast the autoscroll accelerates. */
 static float autoscrollacceleration = 1.0;
 
 /*
