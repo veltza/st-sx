@@ -698,4 +698,6 @@ ResourcePref resources[] = {
 		{ "undercurl_extra_thickness",     INTEGER, &undercurl_extra_thickness },
 		{ "undercurl_yoffset",             INTEGER, &undercurl_yoffset },
 		{ "undercurl_height_scale",        FLOAT,   &undercurl_height_scale },
+		{ "autoscrolltimeout",             INTEGER, &autoscrolltimeout },
+		{ "autoscrollacceleration",        INTEGER, &autoscrollacceleration },
 };
