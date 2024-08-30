@@ -88,6 +88,15 @@ static float maxlatency = 33;
 static unsigned int su_timeout = 200;
 
 /*
+ * Specifies how fast the screen scrolls when you select text and drag the
+ * mouse to the top or bottom of the screen.
+ */
+static unsigned int autoscrolltimeout = 200;
+
+/* Specifies how fast the autoscroll accelerates. */
+static float autoscrollacceleration = 1.0;
+
+/*
  * blinking timeout (set to 0 to disable blinking) for the terminal blinking
  * attribute.
  */
@@ -686,4 +695,6 @@ ResourcePref resources[] = {
 		{ "undercurl_extra_thickness",     INTEGER, &undercurl_extra_thickness },
 		{ "undercurl_yoffset",             INTEGER, &undercurl_yoffset },
 		{ "undercurl_height_scale",        FLOAT,   &undercurl_height_scale },
+		{ "autoscrolltimeout",             INTEGER, &autoscrolltimeout },
+		{ "autoscrollacceleration",        FLOAT, &autoscrollacceleration },
 };

@@ -165,11 +165,26 @@ enum {
 	FRC_ITALICBOLD
 };
 
+typedef enum {
+	SCROLL_UP,
+	SCROLL_DOWN,
+} ScrollDirection;
+
 typedef struct {
 	XftFont *font;
 	int flags;
 	Rune unicodep;
 } Fontcache;
+
+typedef struct {
+	int speed;
+	int iscontinue;
+	int isscrolling;
+	int isbutton1press;
+	int buttonx,buttony;
+	int seltype;
+	ScrollDirection dir;
+} Autoscroller;
 
 /* Fontcache is an array now. A new font will be appended to the array. */
 static Fontcache *frc = NULL;
@@ -199,6 +214,16 @@ static uint buttons; /* bit field of pressed buttons */
 static Cursor cursor;
 static XColor xmousefg, xmousebg;
 static int cursorblinks;
+static Autoscroller asr = {
+	.speed = 0,
+	.iscontinue = 0,
+	.isscrolling = 0,
+	.isbutton1press = 0,
+	.buttonx = 0,
+	.buttony = 0,
+	.seltype = 0,
+	.dir = SCROLL_UP
+};
 
 extern int tinsync(uint);
 extern int ttyread_pending();
@@ -379,11 +404,26 @@ mouseaction(XEvent *e, uint release)
 	return 0;
 }
 
+void 
+xyselextend(int bx,int by,int seltype) {
+
+	int x = bx - borderpx;
+	LIMIT(x, 0, win.tw - 1);
+	x = x / win.cw;
+
+	int y = by - borderpx;
+	LIMIT(y, 0, win.th - 1);
+	y = y / win.ch;
+
+	selextend(x, y, seltype, 0);
+}
+
 void
 mousesel(XEvent *e, int done)
 {
 	int type, seltype = SEL_REGULAR;
 	uint state = e->xbutton.state & ~(Button1Mask | forcemousemod);
+	int bot = term.row * win.ch + borderpx - 1;
 
 	if (kbds_isselectmode())
 		return;
@@ -394,6 +434,19 @@ mousesel(XEvent *e, int done)
 			break;
 		}
 	}
+
+	if ((e->xbutton.y < borderpx || e->xbutton.y > bot) && asr.isbutton1press) {
+		if (asr.isscrolling == 0) {
+			asr.iscontinue = 1;
+		}
+		asr.dir = e->xbutton.y < borderpx ? SCROLL_UP : SCROLL_DOWN;
+		asr.speed = e->xbutton.y < borderpx ? abs(e->xbutton.y - borderpx) : e->xbutton.y - bot;
+		asr.buttonx = e->xbutton.x;
+		asr.buttony = e->xbutton.y;
+		asr.seltype = seltype;
+	} else
+		asr.iscontinue = 0;
+
 	selextend(evcol(e), evrow(e), seltype, done);
 	if (done)
 		setsel(getsel(), e->xbutton.time);
@@ -481,6 +534,10 @@ bpress(XEvent *e)
 
 	if (1 <= btn && btn <= 11)
 		buttons |= 1 << (btn-1);
+
+	if (btn == Button1) {
+		asr.isbutton1press = 1;
+	}
 
 	if (IS_SET(MODE_MOUSE) && !(e->xbutton.state & forcemousemod)) {
 		mousereport(e);
@@ -731,6 +788,11 @@ brelease(XEvent *e)
 
 	if (1 <= btn && btn <= 11)
 		buttons &= ~(1 << (btn-1));
+
+	if (btn == Button1) {
+		asr.isbutton1press = 0;
+		asr.iscontinue = 0;
+	}
 
 	if (IS_SET(MODE_MOUSE) && !(e->xbutton.state & forcemousemod)) {
 		mousereport(e);
@@ -2697,8 +2759,9 @@ run(void)
 	int w = win.w, h = win.h;
 	fd_set rfd;
 	int xfd = XConnectionNumber(xw.dpy), ttyfd, xev, drawing;
-	struct timespec seltv, *tv, now, lastblink, cursorlastblink, trigger;
+	struct timespec seltv, *tv, now, lastblink, cursorlastblink, trigger,lastscroll;
 	double timeout, cursortimeout;
+	double target_scrolltimeout;
 
 	/* Waiting for window mapping */
 	do {
@@ -2721,6 +2784,7 @@ run(void)
 
 	lastblink = (struct timespec){0};
 	cursorlastblink = (struct timespec){0};
+	lastscroll = (struct timespec){0};
 
 	for (timeout = -1, drawing = 0;;) {
 		FD_ZERO(&rfd);
@@ -2812,6 +2876,34 @@ run(void)
 				cursortimeout = cursorblinktimeout;
 			}
 			timeout = (timeout >= 0) ? MIN(timeout, cursortimeout) : cursortimeout;
+		}
+
+		/*
+		 * The distance between the mouse and the window is x.
+		 * The next scroll time is reduced by y.
+		 * y = x^2 - 2*x.
+		 * target_scrolltimeout is the final timeout value which minimum value is 1.
+		*/
+		if (asr.iscontinue == 1) {
+			target_scrolltimeout =
+				MAX((double)autoscrolltimeout -
+						autoscrollacceleration * ((asr.speed) * (asr.speed) - (asr.speed) * 2 + 1),
+					1.0);
+
+			timeout = target_scrolltimeout - TIMEDIFF(now, lastscroll);
+			if (timeout <= 0) {
+				if (asr.dir == SCROLL_UP)
+					kscrollup(&(Arg){.i = 1});
+				else
+					kscrolldown(&(Arg){.i = 1});
+				xyselextend(asr.buttonx, asr.buttony, asr.seltype);
+				lastscroll = now;
+				timeout = 1;
+			}
+			asr.isscrolling = 1;
+		}
+		else {
+			asr.isscrolling = 0;
 		}
 
 		draw();
