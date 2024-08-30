@@ -113,4 +113,4 @@ St.disable_bold:            0
 St.disable_italic:          0
 St.bold_is_not_bright:      1
 St.autoscrolltimeout:       200
-St.autoscrollacceleration:  1
+St.autoscrollacceleration:  1.0

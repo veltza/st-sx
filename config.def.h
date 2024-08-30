@@ -94,10 +94,10 @@ static unsigned int su_timeout = 200;
 static unsigned int autoscrolltimeout = 200;
 
 /*
- * When enabled, the speed of autoscroll is affected by the distance between
- * the mouse pointer and the window.
+ * Autoscroll acceleration, when the distance is unchanged, 
+ * the larger the value, the greater the change in scroll speed.
  */
-static unsigned int autoscrollacceleration = 1;
+static float autoscrollacceleration = 1.0;
 
 /*
  * blinking timeout (set to 0 to disable blinking) for the terminal blinking
@@ -699,5 +699,5 @@ ResourcePref resources[] = {
 		{ "undercurl_yoffset",             INTEGER, &undercurl_yoffset },
 		{ "undercurl_height_scale",        FLOAT,   &undercurl_height_scale },
 		{ "autoscrolltimeout",             INTEGER, &autoscrolltimeout },
-		{ "autoscrollacceleration",        INTEGER, &autoscrollacceleration },
+		{ "autoscrollacceleration",        FLOAT, &autoscrollacceleration },
 };

@@ -2885,10 +2885,11 @@ run(void)
 		 * target_scrolltimeout is the final timeout value which minimum value is 1.
 		*/
 		if (asr.iscontinue == 1) {
-			target_scrolltimeout = !autoscrollacceleration
-				? autoscrolltimeout
-				: MAX((double)autoscrolltimeout - (asr.speed) * (asr.speed) + (asr.speed) * 2, 1.0);
-			
+			target_scrolltimeout =
+				MAX((double)autoscrolltimeout -
+						autoscrollacceleration * ((asr.speed) * (asr.speed) + (asr.speed) * 2),
+					1.0);
+
 			timeout = target_scrolltimeout - TIMEDIFF(now, lastscroll);
 			if (timeout <= 0) {
 				if (asr.dir == SCROLL_UP)
