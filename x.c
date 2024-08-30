@@ -2887,7 +2887,7 @@ run(void)
 		if (asr.iscontinue == 1) {
 			target_scrolltimeout =
 				MAX((double)autoscrolltimeout -
-						autoscrollacceleration * ((asr.speed) * (asr.speed) + (asr.speed) * 2),
+						autoscrollacceleration * ((asr.speed) * (asr.speed) - (asr.speed) * 2 + 1),
 					1.0);
 
 			timeout = target_scrolltimeout - TIMEDIFF(now, lastscroll);
