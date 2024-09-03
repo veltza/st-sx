@@ -93,7 +93,10 @@ static unsigned int su_timeout = 200;
  */
 static unsigned int autoscrolltimeout = 200;
 
-/* Specifies how fast the autoscroll accelerates. */
+/*
+ * Specifies how fast the autoscroll accelerates. Set to 0 to disable the
+ * acceleration.
+ */
 static float autoscrollacceleration = 1.0;
 
 /*
@@ -696,5 +699,5 @@ ResourcePref resources[] = {
 		{ "undercurl_yoffset",             INTEGER, &undercurl_yoffset },
 		{ "undercurl_height_scale",        FLOAT,   &undercurl_height_scale },
 		{ "autoscrolltimeout",             INTEGER, &autoscrolltimeout },
-		{ "autoscrollacceleration",        FLOAT, &autoscrollacceleration },
+		{ "autoscrollacceleration",        FLOAT,   &autoscrollacceleration },
 };
