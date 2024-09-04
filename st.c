@@ -152,6 +152,8 @@ static void ttywriteraw(const char *, size_t);
 static void csidump(void);
 static void csihandle(void);
 static void dcshandle(void);
+static void initsixel(void);
+static void createsixel(void);
 static inline void readcolonargs(char **, int, int[][CAR_PER_ARG]);
 static void csiparse(void);
 static void csireset(void);
@@ -2333,10 +2335,6 @@ strhandle(void)
 {
 	char *p = NULL, *dec;
 	int j, narg, par;
-	ImageList *im, *newimages, *next, *tail;
-	int i, x1, y1, x2, y2, numimages;
-	int cx, cy;
-	Line line;
 	const struct { int idx; char *str; } osc_table[] = {
 		{ defaultfg, "foreground" },
 		{ defaultbg, "background" },
@@ -2444,76 +2442,7 @@ strhandle(void)
 		xsettitle(strescseq.buf, 0);
 		return;
 	case 'P': /* DCS -- Device Control String */
-		if (IS_SET(MODE_SIXEL)) {
-			term.mode &= ~MODE_SIXEL;
-			if (!sixel_st.image.data) {
-				sixel_parser_deinit(&sixel_st);
-				return;
-			}
-			cx = IS_SET(MODE_SIXEL_SDM) ? 0 : term.c.x;
-			cy = IS_SET(MODE_SIXEL_SDM) ? 0 : term.c.y;
-			if ((numimages = sixel_parser_finalize(&sixel_st, &newimages,
-					cx, cy + term.scr, win.cw, win.ch)) <= 0) {
-				sixel_parser_deinit(&sixel_st);
-				perror("sixel_parser_finalize() failed");
-				return;
-			}
-			sixel_parser_deinit(&sixel_st);
-			x1 = newimages->x;
-			y1 = newimages->y;
-			x2 = x1 + newimages->cols;
-			y2 = y1 + numimages;
-			if (newimages->transparent) {
-				for (tail = term.images; tail && tail->next; tail = tail->next);
-			} else {
-				for (tail = NULL, im = term.images; im; im = next) {
-					next = im->next;
-					if (im->x >= x1 && im->x + im->cols <= x2 &&
-					    im->y >= y1 && im->y <= y2) {
-						delete_image(im);
-						continue;
-					}
-					tail = im;
-				}
-			}
-			if (tail) {
-				tail->next = newimages;
-				newimages->prev = tail;
-			} else {
-				term.images = newimages;
-			}
-			x2 = MIN(x2, term.col) - 1;
-			if (IS_SET(MODE_SIXEL_SDM)) {
-				/* Sixel display mode: put the sixel in the upper left corner of
-				 * the screen, disable scrolling (the sixel will be truncated if
-				 * it is too long) and do not change the cursor position. */
-				for (i = 0, im = newimages; im; im = next, i++) {
-					next = im->next;
-					if (i >= term.row) {
-						delete_image(im);
-						continue;
-					}
-					im->y = i + term.scr;
-					tsetsixelattr(term.line[i], x1, x2);
-					term.dirtyimg[MIN(im->y, term.row-1)] = 1;
-				}
-			} else {
-				for (i = 0, im = newimages; im; im = next, i++) {
-					next = im->next;
-					im->y = term.c.y + term.scr;
-					tsetsixelattr(term.line[term.c.y], x1, x2);
-					term.dirtyimg[MIN(im->y, term.row-1)] = 1;
-					if (i < numimages-1) {
-						im->next = NULL;
-						tnewline(0);
-						im->next = next;
-					}
-				}
-				/* if mode 8452 is set, sixel scrolling leaves cursor to right of graphic */
-				if (IS_SET(MODE_SIXEL_CUR_RT))
-					term.c.x = MIN(term.c.x + newimages->cols, term.col-1);
-			}
-		}
+		dcshandle();
 		return;
 	case '_': /* APC -- Application Program Command */
 	case '^': /* PM -- Privacy Message */
@@ -2832,56 +2761,147 @@ tcontrolcode(uchar ascii)
 void
 dcshandle(void)
 {
-	int n, bgcolor, transparent;
-	unsigned char r, g, b, a = 255;
+	int n;
 	char buf[16];
 
-	switch (csiescseq.mode[0]) {
-	default:
-	unknown:
-		fprintf(stderr, "erresc: unknown csi ");
-		csidump();
-		/* die(""); */
-		break;
-	case '=':
-		/* https://gitlab.com/gnachman/iterm2/-/wikis/synchronized-updates-spec */
-		if (csiescseq.buf[2] == 's' && csiescseq.buf[1] == '1')
-			tsync_begin();  /* BSU */
-		else if (csiescseq.buf[2] == 's' && csiescseq.buf[1] == '2')
-			tsync_end();  /* ESU */
-		else
-			goto unknown;
-		break;
-	case '$': /* DECRQSS */
-		if (csiescseq.buf[1] != 'q') {
-			goto unknown;
-		} else if (csiescseq.buf[2] == ' ' && csiescseq.buf[3] == 'q') {
+	/* DECSIXEL */
+	if (IS_SET(MODE_SIXEL)) {
+		createsixel();
+		term.mode &= ~MODE_SIXEL;
+		return;
+	}
+
+	strescseq.buf[strescseq.len] = '\0';
+
+	/* DECRQSS */
+	if (strescseq.buf[0] == '$' && strescseq.buf[1] == 'q') {
+		if (strescseq.buf[2] == ' ' && strescseq.buf[3] == 'q') {
 			/* DECSCUSR - cursor style */
 			n = snprintf(buf, sizeof buf, "\033P1$r%d q\033\\", win.cursor);
 			ttywrite(buf, n, 0);
+			return;
 		} else {
 			/* invalid request */
 			ttywrite("\033P0$r\033\\", 7, 0);
-			goto unknown;
 		}
-		break;
-	case 'q': /* DECSIXEL */
-		transparent = (csiescseq.narg >= 2 && csiescseq.arg[1] == 1);
-		if (IS_TRUECOL(term.c.attr.bg)) {
-			r = term.c.attr.bg >> 16 & 255;
-			g = term.c.attr.bg >> 8 & 255;
-			b = term.c.attr.bg >> 0 & 255;
-		} else {
-			xgetcolor(term.c.attr.bg, &r, &g, &b);
-			if (term.c.attr.bg == defaultbg)
-				a = dc.col[defaultbg].pixel >> 24 & 255;
+	}
+
+	/* Synchronized updates */
+	/* https://gitlab.com/gnachman/iterm2/-/wikis/synchronized-updates-spec */
+	if (strescseq.buf[0] == '=') {
+		if (strescseq.buf[1] == '1' && strescseq.buf[2] == 's') {
+			tsync_begin();  /* BSU */
+			return;
+		} else if (strescseq.buf[1] == '2' && strescseq.buf[2] == 's') {
+			tsync_end();  /* ESU */
+			return;
 		}
-		bgcolor = a << 24 | r << 16 | g << 8 | b;
-		if (sixel_parser_init(&sixel_st, transparent, bgcolor,
-		                      IS_SET(MODE_SIXEL_PRIVATE_PALETTE), win.cw, win.ch) != 0)
-			perror("sixel_parser_init() failed");
-		term.mode |= MODE_SIXEL;
-		break;
+	}
+
+	fprintf(stderr, "erresc: unknown dcs ");
+	strdump();
+}
+
+void
+initsixel(void)
+{
+	int bgcolor, transparent;
+	unsigned char r, g, b, a = 255;
+
+	transparent = (csiescseq.narg >= 2 && csiescseq.arg[1] == 1);
+	if (IS_TRUECOL(term.c.attr.bg)) {
+		r = term.c.attr.bg >> 16 & 255;
+		g = term.c.attr.bg >> 8 & 255;
+		b = term.c.attr.bg >> 0 & 255;
+	} else {
+		xgetcolor(term.c.attr.bg, &r, &g, &b);
+		if (term.c.attr.bg == defaultbg)
+			a = dc.col[defaultbg].pixel >> 24 & 255;
+	}
+	bgcolor = a << 24 | r << 16 | g << 8 | b;
+	if (sixel_parser_init(&sixel_st, transparent, bgcolor,
+	                      IS_SET(MODE_SIXEL_PRIVATE_PALETTE), win.cw, win.ch) != 0)
+		perror("sixel_parser_init() failed");
+	term.mode |= MODE_SIXEL;
+}
+
+void
+createsixel(void)
+{
+	int cx, cy;
+	ImageList *im, *newimages, *next, *tail;
+	int i, x1, y1, x2, y2, numimages;
+	Line line;
+
+	if (!sixel_st.image.data) {
+		sixel_parser_deinit(&sixel_st);
+		return;
+	}
+
+	cx = IS_SET(MODE_SIXEL_SDM) ? 0 : term.c.x;
+	cy = IS_SET(MODE_SIXEL_SDM) ? 0 : term.c.y;
+	if ((numimages = sixel_parser_finalize(&sixel_st, &newimages,
+			cx, cy + term.scr, win.cw, win.ch)) <= 0) {
+		sixel_parser_deinit(&sixel_st);
+		perror("sixel_parser_finalize() failed");
+		return;
+	}
+	sixel_parser_deinit(&sixel_st);
+
+	x1 = newimages->x;
+	y1 = newimages->y;
+	x2 = x1 + newimages->cols;
+	y2 = y1 + numimages;
+	if (newimages->transparent) {
+		for (tail = term.images; tail && tail->next; tail = tail->next);
+	} else {
+		for (tail = NULL, im = term.images; im; im = next) {
+			next = im->next;
+			if (im->x >= x1 && im->x + im->cols <= x2 &&
+			    im->y >= y1 && im->y <= y2) {
+				delete_image(im);
+				continue;
+			}
+			tail = im;
+		}
+	}
+	if (tail) {
+		tail->next = newimages;
+		newimages->prev = tail;
+	} else {
+		term.images = newimages;
+	}
+
+	x2 = MIN(x2, term.col) - 1;
+	if (IS_SET(MODE_SIXEL_SDM)) {
+		/* Sixel display mode: put the sixel in the upper left corner of
+		 * the screen, disable scrolling (the sixel will be truncated if
+		 * it is too long) and do not change the cursor position. */
+		for (i = 0, im = newimages; im; im = next, i++) {
+			next = im->next;
+			if (i >= term.row) {
+				delete_image(im);
+				continue;
+			}
+			im->y = i + term.scr;
+			tsetsixelattr(term.line[i], x1, x2);
+			term.dirtyimg[MIN(im->y, term.row-1)] = 1;
+		}
+	} else {
+		for (i = 0, im = newimages; im; im = next, i++) {
+			next = im->next;
+			im->y = term.c.y + term.scr;
+			tsetsixelattr(term.line[term.c.y], x1, x2);
+			term.dirtyimg[MIN(im->y, term.row-1)] = 1;
+			if (i < numimages-1) {
+				im->next = NULL;
+				tnewline(0);
+				im->next = next;
+			}
+		}
+		/* if mode 8452 is set, sixel scrolling leaves cursor to right of graphic */
+		if (IS_SET(MODE_SIXEL_CUR_RT))
+			term.c.x = MIN(term.c.x + newimages->cols, term.col-1);
 	}
 }
 
@@ -3070,14 +3090,16 @@ check_control_code:
 			}
 			return;
 		} else if (term.esc & ESC_DCS) {
-			csiescseq.buf[csiescseq.len++] = u;
-			if (csiescseq.len == 2 && csiescseq.buf[0] == '$' && csiescseq.buf[1] == 'q')
-				return; /* workaround for DECRQSS */
-			if (BETWEEN(u, 0x40, 0x7E)
-					|| csiescseq.len >= \
-					sizeof(csiescseq.buf)-1) {
-				csiparse();
-				dcshandle();
+			if (strescseq.len < STR_BUF_SIZ-1 && strescseq.len < sizeof(csiescseq.buf)-1) {
+				strescseq.buf[strescseq.len++] = u;
+				csiescseq.buf[csiescseq.len++] = u;
+				if (u == 'q') {
+					/* DCS sequences are processed after the ST arrives, but the sixel
+					 * mode must be turned on as soon as the sixel header is detected. */
+					csiparse();
+					if (csiescseq.mode[0] == 'q')
+						initsixel();
+				}
 			}
 			return;
 		} else if (term.esc & ESC_UTF8) {
