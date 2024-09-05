@@ -1198,6 +1198,8 @@ tloaddefscreen(int clear, int loadcursor)
 {
 	int col, row, alt = IS_SET(MODE_ALTSCREEN);
 
+	restoremousecursor();
+
 	if (alt) {
 		if (clear) {
 			tclearregion(0, 0, term.col-1, term.row-1, 1);
@@ -1216,6 +1218,8 @@ void
 tloadaltscreen(int clear, int savecursor)
 {
 	int col, row, def = !IS_SET(MODE_ALTSCREEN);
+
+	restoremousecursor();
 
 	if (savecursor)
 		tcursor(CURSOR_SAVE);
@@ -3414,6 +3418,8 @@ void
 tresize(int col, int row)
 {
 	int *bp;
+
+	restoremousecursor();
 
 	/* col and row are always MAX(_, n)
 	if (col < 2 || row < 1) {

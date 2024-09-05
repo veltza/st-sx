@@ -549,7 +549,7 @@ bpress(XEvent *e)
 		selstart(evcol(e), evrow(e), snap);
 
 		clearurl();
-		url_click = 1;
+		activeurl.click = 1;
 	}
 }
 
@@ -783,7 +783,7 @@ brelease(XEvent *e)
 		return;
 	if (btn == Button1) {
 		mousesel(e, 1);
-		if (url_click && e->xkey.state & url_opener_modkey)
+		if (activeurl.click && e->xkey.state & url_opener_modkey)
 			openUrlOnClick(evcol(e), evrow(e), url_opener);
 	}
 }
@@ -806,7 +806,7 @@ bmotion(XEvent *e)
 		else
 			XDefineCursor(xw.dpy, xw.win, xw.vpointer);
 	}
-	url_click = 0;
+	activeurl.click = 0;
 
 	if (IS_SET(MODE_MOUSE) && !(e->xbutton.state & forcemousemod)) {
 		mousereport(e);
@@ -1945,9 +1945,9 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 		}
 
 		/* underline url (openurlonclick patch) */
-		if (url_draw && y >= url_y1 && y <= url_y2) {
-			int x1 = (y == url_y1) ? url_x1 : 0;
-			int x2 = (y == url_y2) ? MIN(url_x2, term.col-1) : url_maxcol;
+		if (activeurl.draw && y >= activeurl.y1 && y <= activeurl.y2) {
+			int x1 = (y == activeurl.y1) ? activeurl.x1 : 0;
+			int x2 = (y == activeurl.y2) ? MIN(activeurl.x2, term.col-1) : term.col-1;
 			if (x + charlen > x1 && x <= x2) {
 				int xu = MAX(x, x1);
 				int wu = (x2 - xu + 1) * win.cw;
@@ -1955,7 +1955,6 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 				XftDrawRect(xw.draw, fg, xu,
 					winy + win.cyo + dc.font.ascent + url_yoffset, wu,
 					underline_thickness);
-				url_draw = (y != url_y2 || x + charlen <= x2);
 			}
 		}
 	}
@@ -2873,6 +2872,7 @@ run(void)
 		draw();
 		XFlush(xw.dpy);
 		drawing = 0;
+		activeurl.draw = 0;
 	}
 }
 
