@@ -37,7 +37,7 @@
 #define UTF_SIZ       4
 #define ESC_BUF_SIZ   (128*UTF_SIZ)
 #define ESC_ARG_SIZ   16
-#define CAR_PER_ARG   (4+1)
+#define SUB_ARG_SIZ   5
 #define STR_BUF_SIZ   ESC_BUF_SIZ
 #define STR_ARG_SIZ   ESC_ARG_SIZ
 #define STR_TERM_ST   "\033\\"
@@ -120,6 +120,11 @@ typedef struct {
 	int alt;
 } Selection;
 
+typedef struct {
+	int count;
+	int value[SUB_ARG_SIZ];
+} Subarg;
+
 /* CSI Escape sequence structs */
 /* ESC '[' [[ [<priv>] <arg> [;]] <mode> [<mode>]] */
 typedef struct {
@@ -129,7 +134,7 @@ typedef struct {
 	int arg[ESC_ARG_SIZ];
 	int narg;              /* nb of args */
 	char mode[2];
-	int carg[ESC_ARG_SIZ][CAR_PER_ARG]; /* colon args */
+	Subarg subarg[ESC_ARG_SIZ]; /* colon-separated subarguments */
 } CSIEscape;
 
 /* STR Escape sequence structs */
@@ -154,7 +159,7 @@ static void csihandle(void);
 static void dcshandle(void);
 static void initsixel(void);
 static void createsixel(void);
-static inline void readcolonargs(char **, int, int[][CAR_PER_ARG]);
+static inline void readsubargs(char **, int);
 static void csiparse(void);
 static void csireset(void);
 static void osc_color_response(int, int, int);
@@ -206,7 +211,7 @@ static int twrite(const char *, int, int);
 static void tcontrolcode(uchar );
 static void tdectest(char );
 static void tdefutf8(char);
-static int32_t tdefcolor(int, const int *, int *, int, int *);
+static int32_t tdefcolor(const int *, int *, int);
 static void tdeftran(char);
 static void tstrsequence(uchar);
 static void selnormalize(void);
@@ -1395,21 +1400,24 @@ tnewline(int first_col)
 }
 
 void
-readcolonargs(char **p, int cursor, int params[][CAR_PER_ARG])
+readsubargs(char **p, int argidx)
 {
 	int i;
 	long int v;
 	char *np;
 
-	/* read the arguments and discard the rest if too many */
-	for (i = 1; **p == ':'; *p = np) {
-		while (*(++*p) == ':');
+	for (i = 0; **p == ':'; *p = np) {
+		++*p;
 		np = NULL;
 		v = strtol(*p, &np, 10);
-		if (i < CAR_PER_ARG)
-			params[cursor][i++] = v;
+		if (np == *p)
+			v = 0;
+		if (v == LONG_MAX || v == LONG_MIN)
+			v = -1;
+		if (i < SUB_ARG_SIZ)
+			csiescseq.subarg[argidx].value[i++] = v;
 	}
-	params[cursor][0] = i - 1; /* number of arguments */
+	csiescseq.subarg[argidx].count = i;
 }
 
 void
@@ -1434,7 +1442,7 @@ csiparse(void)
 			v = -1;
 		csiescseq.arg[csiescseq.narg++] = v;
 		p = np;
-		readcolonargs(&p, csiescseq.narg-1, csiescseq.carg);
+		readsubargs(&p, csiescseq.narg-1);
 		if (*p != ';' || csiescseq.narg == ESC_ARG_SIZ)
 			break;
 		p++;
@@ -1603,24 +1611,31 @@ tdeleteline(int n)
 }
 
 int32_t
-tdefcolor(int code, const int *attr, int *npar, int l, int *carg)
+tdefcolor(const int *attr, int *npar, int l)
 {
-	int32_t idx = -1;
+	Subarg *subarg = &csiescseq.subarg[*npar];
+	int32_t color = -1;
+	int code = attr[*npar];
+	int subidx;
 	uint r, g, b;
-	int tmp;
 
-	/* use colon-separated subparameters if present */
-	if (carg[0] > 0) {
-		l = carg[0] + 1;
-		attr = carg;
-		npar = &tmp;
-		tmp = 0;
+	/* use colon-separated subarguments if present */
+	if (subarg->count > 0) {
+		subidx = -1;
+		if (subarg->count > 4 && subarg->value[0] == 2) {
+			/* ignore colorspace-id */
+			subarg->value[1] = 2;
+			subidx = 0;
+		}
+		l = subarg->count;
+		attr = subarg->value;
+		npar = &subidx;
 	}
 
 	switch (attr[*npar + 1]) {
 	case 2: /* direct color in RGB space */
 		if (*npar + 4 >= l) {
-			fprintf(stderr, "erresc(%d): Incorrect number of subparameters\n", code);
+			fprintf(stderr, "erresc(%d): incorrect number of arguments\n", code);
 			*npar = l;
 			break;
 		}
@@ -1631,11 +1646,11 @@ tdefcolor(int code, const int *attr, int *npar, int l, int *carg)
 		if (!BETWEEN(r, 0, 255) || !BETWEEN(g, 0, 255) || !BETWEEN(b, 0, 255))
 			fprintf(stderr, "erresc(%d): bad rgb color (%u,%u,%u)\n", code, r, g, b);
 		else
-			idx = TRUECOLOR(r, g, b);
+			color = TRUECOLOR(r, g, b);
 		break;
 	case 5: /* indexed color */
 		if (*npar + 2 >= l) {
-			fprintf(stderr, "erresc(%d): Incorrect number of subparameters\n", code);
+			fprintf(stderr, "erresc(%d): incorrect number of arguments\n", code);
 			*npar = l;
 			break;
 		}
@@ -1643,7 +1658,7 @@ tdefcolor(int code, const int *attr, int *npar, int l, int *carg)
 		if (!BETWEEN(attr[*npar], 0, 255))
 			fprintf(stderr, "erresc(%d): bad color index %d\n", code, attr[*npar]);
 		else
-			idx = attr[*npar];
+			color = attr[*npar];
 		break;
 	case 0: /* implemented defined (only foreground) */
 	case 1: /* transparent */
@@ -1654,14 +1669,14 @@ tdefcolor(int code, const int *attr, int *npar, int l, int *carg)
 		break;
 	}
 
-	return idx;
+	return color;
 }
 
 void
 tsetattr(const int *attr, int l)
 {
 	int i, utype;
-	int32_t idx;
+	int32_t color;
 
 	for (i = 0; i < l; i++) {
 		switch (attr[i]) {
@@ -1689,7 +1704,7 @@ tsetattr(const int *attr, int l)
 			term.c.attr.mode |= ATTR_ITALIC;
 			break;
 		case 4:
-			utype = (csiescseq.carg[i][0] > 0) ? csiescseq.carg[i][1] : 1;
+			utype = (csiescseq.subarg[i].count > 0) ? csiescseq.subarg[i].value[0] : 1;
 			utype = (!undercurl_style && utype >= 3) ? 0 : utype;
 			LIMIT(utype, 0, 5);
 			term.c.attr.ustyle = (term.c.attr.ustyle & UNDERLINE_COLOR_MASK) |
@@ -1732,24 +1747,24 @@ tsetattr(const int *attr, int l)
 			term.c.attr.mode &= ~ATTR_STRUCK;
 			break;
 		case 38:
-			if ((idx = tdefcolor(38, attr, &i, l, &csiescseq.carg[i][0])) >= 0)
-				term.c.attr.fg = idx;
+			if ((color = tdefcolor(attr, &i, l)) >= 0)
+				term.c.attr.fg = color;
 			break;
 		case 39:
 			term.c.attr.fg = defaultfg;
 			break;
 		case 48:
-			if ((idx = tdefcolor(48, attr, &i, l, &csiescseq.carg[i][0])) >= 0)
-				term.c.attr.bg = idx;
+			if ((color = tdefcolor(attr, &i, l)) >= 0)
+				term.c.attr.bg = color;
 			break;
 		case 49:
 			term.c.attr.bg = defaultbg;
 			break;
 		case 58:
-			if ((idx = tdefcolor(58, attr, &i, l, &csiescseq.carg[i][0])) >= 0) {
+			if ((color = tdefcolor(attr, &i, l)) >= 0) {
 				term.c.attr.ustyle = (term.c.attr.ustyle & ~UNDERLINE_COLOR_MASK) |
-					(IS_TRUECOL(idx) ? UNDERLINE_COLOR_RGB : UNDERLINE_COLOR_PALETTE) |
-					(idx & 0xffffff);
+					(IS_TRUECOL(color) ? UNDERLINE_COLOR_RGB : UNDERLINE_COLOR_PALETTE) |
+					(color & 0xffffff);
 			}
 			break;
 		case 59:
