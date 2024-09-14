@@ -2848,8 +2848,9 @@ void
 createsixel(void)
 {
 	int cx, cy;
-	ImageList *im, *newimages, *next, *tail;
-	int i, x1, y1, x2, y2, numimages;
+	ImageList *im, *newimages, *next, *tail = NULL;
+	int scr = IS_SET(MODE_ALTSCREEN) ? 0 : term.scr;
+	int i, j, x1, y1, x2, y2, y, numimages;
 	Line line;
 
 	if (!sixel_st.image.data) {
@@ -2860,7 +2861,7 @@ createsixel(void)
 	cx = IS_SET(MODE_SIXEL_SDM) ? 0 : term.c.x;
 	cy = IS_SET(MODE_SIXEL_SDM) ? 0 : term.c.y;
 	if ((numimages = sixel_parser_finalize(&sixel_st, &newimages,
-			cx, cy + term.scr, win.cw, win.ch)) <= 0) {
+			cx, cy + scr, win.cw, win.ch)) <= 0) {
 		sixel_parser_deinit(&sixel_st);
 		perror("sixel_parser_finalize() failed");
 		return;
@@ -2871,15 +2872,34 @@ createsixel(void)
 	y1 = newimages->y;
 	x2 = x1 + newimages->cols;
 	y2 = y1 + numimages;
-	if (newimages->transparent) {
-		for (tail = term.images; tail && tail->next; tail = tail->next);
-	} else {
-		for (tail = NULL, im = term.images; im; im = next) {
+
+	/* Delete the old images that are covered by the new image(s). We also need
+	 * to check if they have already been deleted before adding the new ones. */
+	if (term.images) {
+		char transparent[numimages];
+		for (i = 0, im = newimages; im; im = im->next, i++) {
+			transparent[i] = im->transparent;
+		}
+		for (im = term.images; im; im = next) {
 			next = im->next;
-			if (im->x >= x1 && im->x + im->cols <= x2 &&
-			    im->y >= y1 && im->y <= y2) {
-				delete_image(im);
-				continue;
+			if (im->y >= y1 && im->y < y2) {
+				y = im->y - scr;
+				if (y >= 0 && y < term.row && term.dirty[y]) {
+					line = term.line[y];
+					j = MIN(im->x + im->cols, term.col);
+					for (i = im->x; i < j; i++) {
+						if (line[i].mode & ATTR_SIXEL)
+							break;
+					}
+					if (i == j) {
+						delete_image(im);
+						continue;
+					}
+				}
+				if (im->x >= x1 && im->x + im->cols <= x2 && !transparent[im->y - y1]) {
+					delete_image(im);
+					continue;
+				}
 			}
 			tail = im;
 		}
@@ -2902,15 +2922,17 @@ createsixel(void)
 				delete_image(im);
 				continue;
 			}
-			im->y = i + term.scr;
+			im->y = i + scr;
 			tsetsixelattr(term.line[i], x1, x2);
+			term.dirty[MIN(im->y, term.row-1)] = 1;
 			term.dirtyimg[MIN(im->y, term.row-1)] = 1;
 		}
 	} else {
 		for (i = 0, im = newimages; im; im = next, i++) {
 			next = im->next;
-			im->y = term.c.y + term.scr;
+			im->y = term.c.y + scr;
 			tsetsixelattr(term.line[term.c.y], x1, x2);
+			term.dirty[MIN(im->y, term.row-1)] = 1;
 			term.dirtyimg[MIN(im->y, term.row-1)] = 1;
 			if (i < numimages-1) {
 				im->next = NULL;
