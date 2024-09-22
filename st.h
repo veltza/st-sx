@@ -22,7 +22,7 @@
 #define ATTRCMP(a, b)		(((a).mode & (~ATTR_WRAP)) != ((b).mode & (~ATTR_WRAP)) || \
 				(a).fg != (b).fg || \
 				(a).bg != (b).bg || \
-				(((a).mode & ATTR_UNDERLINE) && (a).ustyle != (b).ustyle))
+				(((a).mode & ATTR_UNDERLINE) && (a).extra != (b).extra))
 #define TIMEDIFF(t1, t2)	((t1.tv_sec-t2.tv_sec)*1000 + \
 				(t1.tv_nsec-t2.tv_nsec)/1E6)
 #define MODBIT(x, set, bit)	((set) ? ((x) |= (bit)) : ((x) &= ~(bit)))
@@ -31,10 +31,11 @@
 #define IS_TRUECOL(x)		(1 << 24 & (x))
 #define HISTSIZE      2048
 
-#define UNDERLINE_COLOR_PALETTE  (1 << 24)
-#define UNDERLINE_COLOR_RGB      (2 << 24)
 #define UNDERLINE_COLOR_BITS     (2 + 24)
 #define UNDERLINE_COLOR_MASK     ((1 << UNDERLINE_COLOR_BITS) - 1)
+#define UNDERLINE_TYPE_BITS      3
+#define UNDERLINE_TYPE_SHIFT     UNDERLINE_COLOR_BITS
+#define UNDERLINE_TYPE_MASK      (((1 << UNDERLINE_TYPE_BITS) - 1) << UNDERLINE_TYPE_SHIFT)
 
 enum underlinetype {
 	UNDERLINE_SINGLE = 1,
@@ -60,9 +61,17 @@ enum glyph_attribute {
 	ATTR_WDUMMY         = 1 << 11,
 	ATTR_BOXDRAW        = 1 << 12,
 	ATTR_HIGHLIGHT      = 1 << 13,
-	ATTR_FTCS_PROMPT    = 1 << 14,  /* OSC "133;A" - start of shell prompt */
 	ATTR_BOLD_FAINT = ATTR_BOLD | ATTR_FAINT,
 	ATTR_SIXEL          = 1 << 15,
+};
+
+enum extra_attribute {
+	/* bits 0 to 23 are reserved for underline color */
+	EXT_UNDERLINE_COLOR_RGB     = 1 << 24,
+	EXT_UNDERLINE_COLOR_PALETTE = 1 << 25,
+	/* bits 26 to 28 are reserved for underline type */
+	EXT_FTCS_PROMPT_PS1         = 1 << 30, /* OSC "133;A"     - start of initial shell prompt */
+	EXT_FTCS_PROMPT_PS2         = 1 << 31, /* OSC "133;A;k=s" - start of secondary shell prompt */
 };
 
 typedef struct _ImageList {
@@ -127,7 +136,7 @@ typedef struct {
 	ushort mode;      /* attribute flags */
 	uint32_t fg;      /* foreground  */
 	uint32_t bg;      /* background  */
-	uint32_t ustyle;  /* underline style and color */
+	uint32_t extra;   /* underline style and color + semantic prompts */
 } Glyph;
 
 typedef Glyph *Line;

@@ -1528,6 +1528,7 @@ tclearglyph(Glyph *gp, int usecurattr)
 		gp->bg = defaultbg;
 	}
 	gp->mode = ATTR_NULL;
+	gp->extra = 0;
 	gp->u = ' ';
 }
 
@@ -1692,7 +1693,7 @@ tsetattr(const int *attr, int l)
 				ATTR_STRUCK     );
 			term.c.attr.fg = defaultfg;
 			term.c.attr.bg = defaultbg;
-			term.c.attr.ustyle = 0;
+			term.c.attr.extra &= (EXT_FTCS_PROMPT_PS1 | EXT_FTCS_PROMPT_PS2);
 			break;
 		case 1:
 			term.c.attr.mode |= ATTR_BOLD;
@@ -1707,8 +1708,8 @@ tsetattr(const int *attr, int l)
 			utype = (csiescseq.subarg[i].count > 0) ? csiescseq.subarg[i].value[0] : 1;
 			utype = (!undercurl_style && utype >= 3) ? 0 : utype;
 			LIMIT(utype, 0, 5);
-			term.c.attr.ustyle = (term.c.attr.ustyle & UNDERLINE_COLOR_MASK) |
-			                     (utype << UNDERLINE_COLOR_BITS);
+			term.c.attr.extra = (term.c.attr.extra & ~UNDERLINE_TYPE_MASK) |
+			                     (utype << UNDERLINE_TYPE_SHIFT);
 			MODBIT(term.c.attr.mode, utype > 0, ATTR_UNDERLINE);
 			break;
 		case 5: /* slow blink */
@@ -1762,13 +1763,13 @@ tsetattr(const int *attr, int l)
 			break;
 		case 58:
 			if ((color = tdefcolor(attr, &i, l)) >= 0) {
-				term.c.attr.ustyle = (term.c.attr.ustyle & ~UNDERLINE_COLOR_MASK) |
-					(IS_TRUECOL(color) ? UNDERLINE_COLOR_RGB : UNDERLINE_COLOR_PALETTE) |
+				term.c.attr.extra = (term.c.attr.extra & ~UNDERLINE_COLOR_MASK) |
+					(IS_TRUECOL(color) ? EXT_UNDERLINE_COLOR_RGB : EXT_UNDERLINE_COLOR_PALETTE) |
 					(color & 0xffffff);
 			}
 			break;
 		case 59:
-			term.c.attr.ustyle &= ~UNDERLINE_COLOR_MASK;
+			term.c.attr.extra &= ~UNDERLINE_COLOR_MASK;
 			break;
 		default:
 			if (BETWEEN(attr[i], 30, 37)) {
@@ -2353,7 +2354,7 @@ void
 strhandle(void)
 {
 	char *p = NULL, *dec;
-	int j, narg, par;
+	int i, j, narg, par;
 	const struct { int idx; char *str; } osc_table[] = {
 		{ defaultfg, "foreground" },
 		{ defaultbg, "background" },
@@ -2447,7 +2448,15 @@ strhandle(void)
 			switch (*strescseq.args[1]) {
 			case 'A':
 				/* start of shell prompt */
-				term.c.attr.mode |= ATTR_FTCS_PROMPT;
+				term.c.attr.extra |= EXT_FTCS_PROMPT_PS1;
+				for (i = 2; i < narg; i++) {
+					p = strescseq.args[i];
+					if (!strcmp(p, "k=s") || !strcmp(p, "k=c")) {
+						term.c.attr.extra &= ~EXT_FTCS_PROMPT_PS1;
+						term.c.attr.extra |= EXT_FTCS_PROMPT_PS2;
+						break;
+					}
+				}
 				break;
 			default:
 				/* fprintf(stderr, "erresc: unknown OSC 133 argument: %c\n", *strescseq.args[1]); */
@@ -3189,7 +3198,7 @@ check_control_code:
 	}
 
 	tsetchar(u, &term.c.attr, term.c.x, term.c.y);
-	term.c.attr.mode &= ~ATTR_FTCS_PROMPT;
+	term.c.attr.extra &= ~(EXT_FTCS_PROMPT_PS1 | EXT_FTCS_PROMPT_PS2);
 	term.lastc = u;
 
 	if (width == 2) {

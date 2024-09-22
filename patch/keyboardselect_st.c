@@ -356,7 +356,7 @@ kbds_jumptoprompt(int dy)
 
 	for (; y >= kbds_top() && y <= bot; y += dy) {
 		for (line = TLINE(y), x = 0; x < term.col; x++) {
-			if (line[x].mode & ATTR_FTCS_PROMPT)
+			if (line[x].extra & EXT_FTCS_PROMPT_PS1)
 				goto found;
 		}
 		x = 0;

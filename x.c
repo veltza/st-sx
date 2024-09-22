@@ -333,7 +333,7 @@ scrolltoprompt(const Arg *arg)
 
 	for (y = dy; y >= top && y <= bot; y += dy) {
 		for (line = TLINE(y), x = 0; x < term.col; x++) {
-			if (line[x].mode & ATTR_FTCS_PROMPT)
+			if (line[x].extra & EXT_FTCS_PROMPT_PS1)
 				goto scroll;
 		}
 	}
@@ -1860,33 +1860,32 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 		int url_yoffset = 2;
 		const int underline_thickness = (dc.font.height / undercurl_thickness_threshold) + 1;
 		if (base.mode & ATTR_UNDERLINE) {
-			// Underline Color
-			int wlw = underline_thickness; // Wave Line Width (thickness)
+			/* Underline Color */
+			int wlw = underline_thickness; /* Wave Line Width (thickness) */
 			int wh = MAX((int)((dc.font.descent - wlw/2 - 1) * undercurl_height_scale + 0.5), 1);
 			int wy = winy + win.cyo + dc.font.ascent + undercurl_yoffset;
 			int linecolor;
-			if ((base.ustyle & (UNDERLINE_COLOR_PALETTE | UNDERLINE_COLOR_RGB)) &&
+			if ((base.extra & (EXT_UNDERLINE_COLOR_PALETTE | EXT_UNDERLINE_COLOR_RGB)) &&
 				!(base.mode & ATTR_BLINK && win.mode & MODE_BLINK) &&
 				!(base.mode & ATTR_INVISIBLE)
 			) {
-				// Special color for underline
-				// Index
-				if (base.ustyle & UNDERLINE_COLOR_PALETTE) {
-					linecolor = dc.col[base.ustyle & 255].pixel;
-				}
-				// RGB
-				else {
+				/* Special color for underline */
+				if (base.extra & EXT_UNDERLINE_COLOR_PALETTE) {
+					/* Index */
+					linecolor = dc.col[base.extra & 255].pixel;
+				} else {
+					/* RGB */
 					Color lcolor;
 					XRenderColor lcol;
 					lcol.alpha = 0xffff;
-					lcol.red = TRUERED(base.ustyle);
-					lcol.green = TRUEGREEN(base.ustyle);
-					lcol.blue = TRUEBLUE(base.ustyle);
+					lcol.red = TRUERED(base.extra);
+					lcol.green = TRUEGREEN(base.extra);
+					lcol.blue = TRUEBLUE(base.extra);
 					XftColorAllocValue(xw.dpy, xw.vis, xw.cmap, &lcol, &lcolor);
 					linecolor = lcolor.pixel;
 				}
 			} else {
-				// Foreground color for underline
+				/* Foreground color for underline */
 				linecolor = fg->pixel;
 			}
 
@@ -1901,8 +1900,8 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 				GCForeground | GCLineWidth | GCLineStyle | GCCapStyle,
 				&ugcv);
 
-			// Underline type
-			int utype = base.ustyle >> UNDERLINE_COLOR_BITS;
+			/* Underline type */
+			int utype = (base.extra & UNDERLINE_TYPE_MASK) >> UNDERLINE_TYPE_SHIFT;
 			switch (utype) {
 			case UNDERLINE_CURLY:
 				switch (undercurl_style) {
@@ -2426,7 +2425,7 @@ xfinishdraw(void)
 
 		/* Redraw the cursor if it is behind the image */
 		if (cy == im->y && (line[cx-xend+1].mode & ATTR_SIXEL)) {
-			g = (Glyph){ .u = ' ', mode = 0, .fg = defaultfg, .bg = defaultbg, .ustyle = 0 };
+			g = (Glyph){ .u = ' ', mode = 0, .fg = defaultfg, .bg = defaultbg, .extra = 0 };
 			xdrawcursor(cx, cy, g, cx, cy, NULL);
 		}
 	}
