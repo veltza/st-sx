@@ -81,10 +81,11 @@ detecturl(int col, int row, int draw)
 
 	/* find the protocol and confirm this is the url */
 	for (b = sizeof(url)/2; b >= i; b--) {
-		if (url[b] != 'h')
-			continue;
-		if (strncmp("https://", &url[b], 8) == 0 || strncmp("http://", &url[b], 7) == 0)
+		if ((url[b] == 'f' && !strncmp("file:/", &url[b], 6)) ||
+		    (url[b] == 'h' && (!strncmp("https://", &url[b], 8) ||
+		                       !strncmp("http://", &url[b], 7)))) {
 			break;
+		}
 	}
 	if (b < i)
 		return NULL;
@@ -134,11 +135,32 @@ detecturl(int col, int row, int draw)
 void
 openUrlOnClick(int col, int row, char* url_opener)
 {
+	extern char **environ;
+	pid_t junk;
 	char *url = detecturl(col, row, 1);
-	if (url) {
-		extern char **environ;
-		pid_t junk;
-		char *argv[] = { url_opener, url, NULL };
-		posix_spawnp(&junk, argv[0], NULL, NULL, argv, environ);
+	char *argv[] = { url_opener, url, NULL };
+	char fileurl[1024];
+	char thishost[_POSIX_HOST_NAME_MAX];
+	int hostlen;
+
+	if (!url)
+		return;
+
+	/* Don't try to open file urls that point to a different machine.
+	 * We also remove the localhost from file urls, because some openers like
+	 * kde-open don't work with the hostname. */
+	if (!strncmp("file://", url, 7) && url[7] != '/') {
+		if (gethostname(thishost, sizeof(thishost)) < 0)
+			thishost[0] = '\0';
+		if ((hostlen = strlen(thishost)) < sizeof(thishost)-1) {
+			thishost[hostlen++] = '/';
+			thishost[hostlen] = '\0';
+		}
+		if (strncmp("localhost/", &url[7], 10) && strncmp(thishost, &url[7], hostlen))
+			return;
+		snprintf(fileurl, sizeof(fileurl), "file://%s", strchr(&url[7], '/'));
+		argv[1] = fileurl;
 	}
+
+	posix_spawnp(&junk, argv[0], NULL, NULL, argv, environ);
 }
