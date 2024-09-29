@@ -1,15 +1,21 @@
+#include <wchar.h>
+
 struct {
 	int x1, y1;
 	int x2, y2;
 	int draw;
 	int click;
-} activeurl = { .y2 = -1 };
+	int hlink;
+	int hinty;
+	int mousey;
+	int cursory;
+} activeurl = { .y2 = -1, .hlink = -1 };
 
-static char urlchars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+static char validurlchars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	"abcdefghijklmnopqrstuvwxyz"
 	"0123456789-._~:/?#@!$&'*+,;=%()[]";
 
-#define ISVALIDURLCHAR(c)    ((c) < 128 && strchr(urlchars, (int)(c)) != NULL)
+#define ISVALIDURLCHAR(c)    ((c) < 128 && strchr(validurlchars, (int)(c)) != NULL)
 
 /* find the end of the wrapped line */
 static int
@@ -25,12 +31,76 @@ findeowl(Line line)
 	return -1;
 }
 
+static inline int
+isprotocolsupported(char *url)
+{
+	if (url[0] == 'f')
+		return !strncmp(url, "file:/", 6);
+	else if (url[0] == 'h')
+		return !strncmp(url, "https://", 8) || !strncmp(url, "http://", 7);
+	else if (url[0] == 'm')
+		return !strncmp(url, "mailto:", 7);
+	return 0;
+}
+
 void
-clearurl(void)
+clearurl(int clearhyperlinkhint)
 {
 	while (activeurl.y1 <= activeurl.y2 && activeurl.y1 < term.row)
 		term.dirty[activeurl.y1++] = 1;
+
+	if (clearhyperlinkhint && activeurl.hlink >= 0) {
+		if (activeurl.hinty >= 0 && activeurl.hinty < term.row)
+			term.dirty[activeurl.hinty] = 1;
+		activeurl.hlink = -1;
+	}
+
 	activeurl.y2 = -1;
+}
+
+char *
+detecthyperlink(int col, int row, int draw)
+{
+	Line line;
+	int i, x, y, y1 = row, y2 = row;
+	Hyperlinks *links = term.hyperlinks;
+	int hlink = TLINE(row)[col].hlink;
+	char *url = (hlink < links->capacity) ? links->urls[hlink] : NULL;
+
+	if (!draw || !url)
+		return url;
+
+	/* If the url spans more than one line, find the first and last lines.
+	 * For performance reasons, only consecutive lines are checked. But if
+	 * this becomes an issue, then the algorithm needs to be changed so
+	 * that it checks the entire screen buffer. */
+	for (i = 0; i < 2; i++) {
+		y = i ? y1 - 1 : y2 + 1;
+		for (; y >= 0 && y < term.row; y += i ? -1 : 1) {
+			line = TLINE(y);
+			for (x = 0; x < term.col; x++) {
+				if (line[x].mode & ATTR_HYPERLINK && line[x].hlink == hlink)
+					break;
+			}
+			if (x == term.col)
+				break;
+			if (i)
+				y1 = y;
+			else
+				y2 = y;
+			term.dirty[y] = 1;
+		}
+	}
+	term.dirty[row] = 1;
+
+	activeurl.y1 = y1;
+	activeurl.y2 = y2;
+	activeurl.hlink = hlink;
+	activeurl.hinty = -1;
+	activeurl.mousey = row;
+	activeurl.cursory = -1;
+	activeurl.draw = 1;
+	return url;
 }
 
 char *
@@ -47,9 +117,13 @@ detecturl(int col, int row, int draw)
 
 	/* clear previously underlined url */
 	if (draw)
-		clearurl();
+		clearurl(1);
 
 	line = TLINE(row);
+
+	if ((line[col].mode & ATTR_HYPERLINK) ||
+	    (line[col].mode & ATTR_WDUMMY && col > 0 && line[col-1].mode & ATTR_HYPERLINK))
+		return detecthyperlink((line[col].mode & ATTR_WDUMMY) ? col-1 : col, row, draw);
 
 	if (!ISVALIDURLCHAR(line[col].u))
 		return NULL;
@@ -81,11 +155,8 @@ detecturl(int col, int row, int draw)
 
 	/* find the protocol and confirm this is the url */
 	for (b = sizeof(url)/2; b >= i; b--) {
-		if ((url[b] == 'f' && !strncmp("file:/", &url[b], 6)) ||
-		    (url[b] == 'h' && (!strncmp("https://", &url[b], 8) ||
-		                       !strncmp("http://", &url[b], 7)))) {
+		if (isprotocolsupported(&url[b]))
 			break;
-		}
 	}
 	if (b < i)
 		return NULL;
@@ -112,7 +183,6 @@ detecturl(int col, int row, int draw)
 	if (e <= sizeof(url)/2)
 		return NULL;
 
-	/* underline the url (see xdrawglyphfontspecs() in x.c) */
 	if (draw) {
 		x1 += b - i;
 		y1 += x1 / term.col;
@@ -124,6 +194,7 @@ detecturl(int col, int row, int draw)
 		activeurl.x2 = (y2 < term.row) ? x2 : term.col-1;
 		activeurl.y1 = MAX(y1, 0);
 		activeurl.y2 = MIN(y2, term.row-1);
+		activeurl.hlink = -1;
 		activeurl.draw = 1;
 		for (y1 = activeurl.y1; y1 <= activeurl.y2; y1++)
 			term.dirty[y1] = 1;
@@ -133,18 +204,112 @@ detecturl(int col, int row, int draw)
 }
 
 void
+drawurl(Color *fg, ushort basemode, int x, int y, int charlen, int yoff, int thickness)
+{
+	Line line;
+	int i, j, x1, x2, xu, yu, wu, hlink;
+
+	/* underline hyperlink */
+	if (activeurl.hlink >= 0) {
+		if (!(basemode & ATTR_HYPERLINK))
+			return;
+		line = TLINE(y);
+		x2 = x + charlen;
+		for (i = x; i < x2; i = j) {
+			hlink = line[i].hlink;
+			for (j = i + 1; j < x2; j++) {
+				if (hlink != line[j].hlink && !(line[j].mode & ATTR_WDUMMY))
+					break;
+			}
+			if (hlink == activeurl.hlink) {
+				wu = (j - i) * win.cw;
+				xu = borderpx + i * win.cw;
+				yu = borderpx + y * win.ch;
+				XftDrawRect(xw.draw, fg, xu,
+					yu + win.cyo + dc.font.ascent + yoff, wu, thickness);
+			}
+		}
+		return;
+	}
+
+	/* underline regular url */
+	x1 = (y == activeurl.y1) ? activeurl.x1 : 0;
+	x2 = (y == activeurl.y2) ? MIN(activeurl.x2, term.col-1) : term.col-1;
+	if (x + charlen > x1 && x <= x2) {
+		x1 = MAX(x, x1);
+		wu = (x2 - x1 + 1) * win.cw;
+		xu = borderpx + x1 * win.cw;
+		yu = borderpx + y * win.ch;
+		XftDrawRect(xw.draw, fg, xu,
+			yu + win.cyo + dc.font.ascent + yoff, wu, thickness);
+	}
+}
+
+void
+drawhyperlinkhint(void)
+{
+	static Glyph g;
+	char *url;
+	int charsize;
+	int i, x, y, w, ulen;
+	int bot = term.row - 1;
+
+	if (!showhyperlinkhint || !activeurl.draw || activeurl.hlink < 0 ||
+	    !(url = term.hyperlinks->urls[activeurl.hlink]))
+		return;
+
+	y = (activeurl.mousey == bot || activeurl.cursory == bot) ? bot - 1 : bot;
+	y = (activeurl.mousey == y || activeurl.cursory == y) ? y - 1 : y;
+	if ((activeurl.hinty = y) < 0)
+		return;
+
+	g.mode = 0;
+	g.fg = hyperlinkhintfg;
+	g.bg = hyperlinkhintbg;
+
+	ulen = strlen(url);
+	for (i = 0, x = 0; i < ulen && x < term.col; i += charsize, x += w) {
+		charsize = utf8decode(url + i, &g.u, ulen - i);
+		if (charsize == 0)
+			break;
+		w = wcwidth(g.u);
+		MODBIT(g.mode, (w > 1), ATTR_WIDE);
+		xdrawglyph(g, x, y);
+	}
+
+	if (x >= term.col && i < ulen) {
+		/* ellipsis */
+		g.u = 0x2026;
+		g.mode &= ~ATTR_WIDE;
+		xdrawglyph(g, term.col - 1, y);
+	} else if (x < term.col) {
+		/* right padding and separator */
+		w = MAX(win.cw/2, 1);
+		XftDrawRect(xw.draw, &dc.col[hyperlinkhintbg],
+			borderpx + x * win.cw, borderpx + y * win.ch, w, win.ch);
+		XftDrawRect(xw.draw, &dc.col[defaultbg],
+			borderpx + x * win.cw + w, borderpx + y * win.ch, 1, win.ch);
+	}
+}
+
+void
 openUrlOnClick(int col, int row, char* url_opener)
 {
 	extern char **environ;
 	pid_t junk;
 	char *url = detecturl(col, row, 1);
 	char *argv[] = { url_opener, url, NULL };
-	char fileurl[1024];
+	char fileurl[2048];
 	char thishost[_POSIX_HOST_NAME_MAX];
 	int hostlen;
 
 	if (!url)
 		return;
+
+	if (!isprotocolsupported(url)) {
+		fprintf(stderr, "error: protocol is not supported: '%s'\n", url);
+		return;
+	}
 
 	/* Don't try to open file urls that point to a different machine.
 	 * We also remove the localhost from file urls, because some openers like

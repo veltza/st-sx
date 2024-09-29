@@ -368,19 +368,23 @@ undercurlcurly(GC gc, int wx, int wy, int ww, int wh, int charlen)
 }
 
 static void
-undercurldotted(GC gc, int wx, int wy, int ww, int wlw, int charlen)
+undercurldotted(GC gc, int wx, int wy, int ww, int wlw, int charlen, int hyperlink)
 {
-	unsigned int i, x;
+	unsigned int i, x, hw = MAX((ww + 4)/8, wlw);
 	unsigned int numrects = charlen * 2;
 	XRectangle *rects = xmalloc(sizeof(XRectangle) * numrects);
 
-	wx += MAX(ww/8, 1); /* center the dots */
+	/* center the dots */
+	if (hyperlink)
+		wx += MAX(ww/2 - hw, 0) / 2;
+	else
+		wx += MAX((ww + 4)/8, 1);
 
 	for (x = 4*wx, i = 0; i < numrects; i++, x += 2*ww) {
 		rects[i] = (XRectangle) {
 			.x = x/4,
 			.y = wy,
-			.width = (x + ww)/4 - x/4,
+			.width = hyperlink ? hw : (x + ww)/4 - x/4,
 			.height = wlw
 		};
 	}

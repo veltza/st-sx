@@ -61,6 +61,7 @@ enum glyph_attribute {
 	ATTR_WDUMMY         = 1 << 11,
 	ATTR_BOXDRAW        = 1 << 12,
 	ATTR_HIGHLIGHT      = 1 << 13,
+	ATTR_HYPERLINK      = 1 << 14,
 	ATTR_BOLD_FAINT = ATTR_BOLD | ATTR_FAINT,
 	ATTR_SIXEL          = 1 << 15,
 };
@@ -134,6 +135,7 @@ typedef XftGlyphFontSpec GlyphFontSpec;
 typedef struct {
 	Rune u;           /* character code */
 	ushort mode;      /* attribute flags */
+	ushort hlink;     /* hyperlink index */
 	uint32_t fg;      /* foreground  */
 	uint32_t bg;      /* background  */
 	uint32_t extra;   /* underline style and color + semantic prompts */
@@ -154,6 +156,14 @@ typedef struct {
 	int y;
 	char state;
 } TCursor;
+
+typedef struct {
+	char **urls;
+	char lastid[256];
+	int head;
+	int count;
+	int capacity;
+} Hyperlinks;
 
 /* Internal representation of the screen */
 typedef struct {
@@ -180,6 +190,8 @@ typedef struct {
 	int *tabs;
 	ImageList *images;     /* sixel images */
 	ImageList *images_alt; /* sixel images for alternate screen */
+	Hyperlinks *hyperlinks;
+	Hyperlinks *hyperlinks_alt;
 	Rune lastc;   /* last printed char outside of sequence, 0 if control */
 	char *cwd;    /* current working directory */
 } Term;
@@ -325,6 +337,7 @@ void xyselextend(int, int, int);
 int selected(int, int);
 char *getsel(void);
 
+size_t utf8decode(const char *, Rune *, size_t);
 size_t utf8encode(Rune, char *);
 
 void *xmalloc(size_t);
@@ -366,4 +379,5 @@ extern XWindow xw;
 extern XSelection xsel;
 extern TermWindow win;
 extern Term term;
+extern unsigned int disablehyperlinks;
 extern int undercurl_style;

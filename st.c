@@ -221,7 +221,6 @@ static void selremove(void);
 static inline int regionselected(int, int, int, int);
 static void selsnap(int *, int *, int);
 
-static size_t utf8decode(const char *, Rune *, size_t);
 static inline char utf8encodebyte(Rune, size_t);
 static inline size_t utf8validate(Rune *, size_t);
 
@@ -1151,6 +1150,7 @@ treset(void)
 			for (x = 0; x < term.col; x++)
 				tclearglyph(&term.line[y][x], 0);
 		tdeleteimages();
+		deletehyperlinks(0);
 		tswapscreen();
 	}
 	tfulldirt();
@@ -1187,6 +1187,7 @@ tswapscreen(void)
 	Line *tmpline = term.line;
 	int tmpcol = term.col, tmprow = term.row;
 	ImageList *im = term.images;
+	Hyperlinks *tmplinks = term.hyperlinks;
 
 	term.line = altline;
 	term.col = altcol, term.row = altrow;
@@ -1196,6 +1197,9 @@ tswapscreen(void)
 
 	term.images = term.images_alt;
 	term.images_alt = im;
+
+	term.hyperlinks = term.hyperlinks_alt;
+	term.hyperlinks_alt = tmplinks;
 }
 
 void
@@ -1209,6 +1213,7 @@ tloaddefscreen(int clear, int loadcursor)
 		if (clear) {
 			tclearregion(0, 0, term.col-1, term.row-1, 1);
 			tdeleteimages();
+			deletehyperlinks(0);
 		}
 		col = term.col, row = term.row;
 		tswapscreen();
@@ -1237,6 +1242,7 @@ tloadaltscreen(int clear, int savecursor)
 	if (clear) {
 		tclearregion(0, 0, term.col-1, term.row-1, 1);
 		tdeleteimages();
+		deletehyperlinks(0);
 	}
 }
 
@@ -2063,6 +2069,7 @@ csihandle(void)
 			if (IS_SET(MODE_ALTSCREEN)) {
 				tclearregion(0, 0, term.col-1, term.row-1, 1);
 				tdeleteimages();
+				deletehyperlinks(0);
 				break;
 			}
 			/* vte does this:
@@ -2088,6 +2095,7 @@ csihandle(void)
 				if (im->y < 0)
 					delete_image(im);
 			}
+			deletehyperlinks(1);
 			break;
 		case 6: /* sixels */
 			tdeleteimages();
@@ -2396,7 +2404,9 @@ strhandle(void)
 		case 7:
 			osc7parsecwd((const char *)strescseq.args[1]);
 			return;
-		case 8: /* Clear Hyperlinks */
+		case 8:
+			if (!disablehyperlinks && term.hyperlinks->capacity > 0)
+				parsehyperlink(narg-1, strescseq.args[1], strescseq.args[2]);
 			return;
 		case 10:
 		case 11:
@@ -2493,12 +2503,26 @@ strparse(void)
 	if (*p == '\0')
 		return;
 
-	/* preserve semicolons in window titles, icon names and OSC 7 sequences */
-	if (strescseq.type == ']' && (p[0] <= '2' || p[0] == '7') && p[1] == ';') {
-		strescseq.args[strescseq.narg++] = p;
-		strescseq.args[strescseq.narg++] = p + 2;
-		p[1] = '\0';
-		return;
+	if (strescseq.type == ']' && p[1] == ';') {
+		if (p[0] <= '2' || p[0] == '7') {
+			/* preserve semicolons in window titles, icon names and OSC 7 sequences */
+			strescseq.args[strescseq.narg++] = p;
+			strescseq.args[strescseq.narg++] = p + 2;
+			p[1] = '\0';
+			return;
+		} else if (p[0] == '8') {
+			/* preserve semicolons in hyperlinks (OSC 8) */
+			strescseq.args[strescseq.narg++] = p;
+			*(++p) = '\0';
+			if (*(++p)) {
+				strescseq.args[strescseq.narg++] = p;
+				if ((p = strchr(p, ';')) != NULL) {
+					strescseq.args[strescseq.narg++] = p + 1;
+					p[0] = '\0';
+				}
+			}
+			return;
+		}
 	}
 
 	while (strescseq.narg < STR_ARG_SIZ) {
@@ -3644,6 +3668,7 @@ draw(void)
 		            term.ocx, term.ocy, term.line[term.ocy]);
 	}
 	drawregion(0, 0, term.col, term.row);
+	drawhyperlinkhint();
 
 	term.ocx = cx;
 	term.ocy = term.c.y;

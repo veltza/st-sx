@@ -548,7 +548,7 @@ bpress(XEvent *e)
 
 		selstart(evcol(e), evrow(e), snap);
 
-		clearurl();
+		clearurl(0);
 		activeurl.click = 1;
 	}
 }
@@ -779,12 +779,15 @@ brelease(XEvent *e)
 		return;
 	}
 
-	if (mouseaction(e, 1))
+	if (mouseaction(e, 1)) {
+		activeurl.click = 0;
 		return;
+	}
 	if (btn == Button1) {
 		mousesel(e, 1);
 		if (activeurl.click && e->xkey.state & url_opener_modkey)
 			openUrlOnClick(evcol(e), evrow(e), url_opener);
+		activeurl.click = 0;
 	}
 }
 
@@ -800,12 +803,12 @@ bmotion(XEvent *e)
 		if (!IS_SET(MODE_MOUSEMANY))
 			xsetpointermotion(0);
 	}
-	if (!IS_SET(MODE_MOUSE)) {
-		if (!(e->xbutton.state & Button1Mask) && detecturl(evcol(e), evrow(e), 1))
-			XDefineCursor(xw.dpy, xw.win, xw.upointer);
-		else
-			XDefineCursor(xw.dpy, xw.win, xw.vpointer);
-	}
+	if (!(e->xbutton.state & Button1Mask) && detecturl(evcol(e), evrow(e), 1))
+		XDefineCursor(xw.dpy, xw.win, xw.upointer);
+	else if (win.mode & MODE_MOUSE)
+		XUndefineCursor(xw.dpy, xw.win);
+	else
+		XDefineCursor(xw.dpy, xw.win, xw.vpointer);
 	activeurl.click = 0;
 
 	if (IS_SET(MODE_MOUSE) && !(e->xbutton.state & forcemousemod)) {
@@ -1858,12 +1861,13 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 
 		/* Render underline and strikethrough. */
 		int url_yoffset = 2;
+		int url_ascent = winy + win.cyo + dc.font.ascent;
 		const int underline_thickness = (dc.font.height / undercurl_thickness_threshold) + 1;
-		if (base.mode & ATTR_UNDERLINE) {
+		if (base.mode & ATTR_UNDERLINE || base.mode & ATTR_HYPERLINK) {
 			/* Underline Color */
 			int wlw = underline_thickness; /* Wave Line Width (thickness) */
 			int wh = MAX((int)((dc.font.descent - wlw/2 - 1) * undercurl_height_scale + 0.5), 1);
-			int wy = winy + win.cyo + dc.font.ascent + undercurl_yoffset;
+			int wy = url_ascent + undercurl_yoffset;
 			int linecolor;
 			if ((base.extra & (EXT_UNDERLINE_COLOR_PALETTE | EXT_UNDERLINE_COLOR_RGB)) &&
 				!(base.mode & ATTR_BLINK && win.mode & MODE_BLINK) &&
@@ -1902,6 +1906,16 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 
 			/* Underline type */
 			int utype = (base.extra & UNDERLINE_TYPE_MASK) >> UNDERLINE_TYPE_SHIFT;
+			int hyperlink = 0;
+			if (base.mode & ATTR_HYPERLINK) {
+				if (!(base.mode & ATTR_UNDERLINE) ||
+				    (utype == UNDERLINE_DOTTED && (fg->pixel | 0xff000000) == (linecolor | 0xff000000))) {
+					utype = UNDERLINE_DOTTED;
+					hyperlink = 1;
+					wy = url_ascent + url_yoffset;
+					XSetForeground(xw.dpy, ugc, fg->pixel | 0xff000000);
+				}
+			}
 			switch (utype) {
 			case UNDERLINE_CURLY:
 				switch (undercurl_style) {
@@ -1917,7 +1931,8 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 				}
 				break;
 			case UNDERLINE_DOTTED:
-				undercurldotted(ugc, winx, wy, win.cw, wlw, charlen);
+				if (!hyperlink || hyperlinkstyle)
+					undercurldotted(ugc, winx, wy, win.cw, wlw, charlen, hyperlink);
 				break;
 			case UNDERLINE_DASHED:
 				undercurldashed(ugc, winx, wy, win.cw, wlw, charlen);
@@ -1944,18 +1959,8 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 		}
 
 		/* underline url (openurlonclick patch) */
-		if (activeurl.draw && y >= activeurl.y1 && y <= activeurl.y2) {
-			int x1 = (y == activeurl.y1) ? activeurl.x1 : 0;
-			int x2 = (y == activeurl.y2) ? MIN(activeurl.x2, term.col-1) : term.col-1;
-			if (x + charlen > x1 && x <= x2) {
-				int xu = MAX(x, x1);
-				int wu = (x2 - xu + 1) * win.cw;
-				xu = borderpx + xu * win.cw;
-				XftDrawRect(xw.draw, fg, xu,
-					winy + win.cyo + dc.font.ascent + url_yoffset, wu,
-					underline_thickness);
-			}
-		}
+		if (activeurl.draw && y >= activeurl.y1 && y <= activeurl.y2)
+			drawurl(fg, base.mode, x, y, charlen, url_yoffset, underline_thickness);
 	}
 
 	/* Reset clip to none. */
@@ -1998,6 +2003,7 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Line oline)
 		term.dirty[oy] = 0;
 	}
 	oldcursor = cursor;
+	activeurl.cursory = !hidden ? cy : -1;
 
 	if (hidden)
 		return;
@@ -2981,6 +2987,7 @@ run:
 		die("Can't change to working directory %s\n", opt_dir);
 	if (opt_fullscreen)
 		fullscreen(&((Arg) { .i = 0 }));
+	inithyperlinks();
 	run();
 	#if !DISABLE_LIGATURES
 	hbdestroybuffer();

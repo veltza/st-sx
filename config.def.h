@@ -211,6 +211,10 @@ unsigned int bgUnfocused = 260;
 unsigned int highlightfg = 15;
 unsigned int highlightbg = 160;
 
+/* Foreground and background color of the hyperlink hint */
+unsigned int hyperlinkhintfg = 0;
+unsigned int hyperlinkhintbg = 258;
+
 /* Bold text is not rendered in bright color. 0: off, 1: on */
 unsigned int bold_is_not_bright = 1;
 
@@ -255,6 +259,24 @@ static unsigned int rows = 24;
 
 /* Allow resizing the window to any pixel size: 0 = off, 1 = on */
 unsigned int anysize = 1;
+
+/* Disable hyperlinks (OSC 8) */
+unsigned int disablehyperlinks = 0;
+
+/* Hyperlink style: 0 = none, 1 = dotted underline */
+unsigned int hyperlinkstyle = 1;
+
+/* Show a hyperlink hint at the bottom of the screen */
+unsigned int showhyperlinkhint = 1;
+
+/* Specifies how many hyperlinks can be cached on the primary screen and the
+ * scrollback. When the cache is full, the oldest hyperlinks will be thrown
+ * away. Default value is 8192, maximum value is 65536. */
+unsigned int hyperlinkcache_pri = 8192;
+
+/* Specifies how many hyperlinks can be cached on the alternate screen.
+ * Default value is 1024, maximum value is 65536. */
+unsigned int hyperlinkcache_alt = 1024;
 
 /*
  * Default colour and shape of the mouse cursor
@@ -666,6 +688,8 @@ ResourcePref resources[] = {
 		{ "reverseCursor",       STRING,  &colorname[257] },
 		{ "highlightfg",         INTEGER, &highlightfg },
 		{ "highlightbg",         INTEGER, &highlightbg },
+		{ "hyperlinkhintfg",     INTEGER, &hyperlinkhintfg },
+		{ "hyperlinkhintbg",     INTEGER, &hyperlinkhintbg },
 		{ "bold_is_not_bright",  INTEGER, &bold_is_not_bright },
 		{ "dynamic_cursor_color",INTEGER, &dynamic_cursor_color },
 		{ "cursorstyle",         INTEGER, &cursorstyle },
@@ -693,6 +717,9 @@ ResourcePref resources[] = {
 		{ "cols",                INTEGER, &cols },
 		{ "rows",                INTEGER, &rows },
 		{ "anysize",             INTEGER, &anysize },
+		{ "disablehyperlinks",   INTEGER, &disablehyperlinks },
+		{ "hyperlinkstyle",      INTEGER, &hyperlinkstyle },
+		{ "showhyperlinkhint",   INTEGER, &showhyperlinkhint },
 		{ "undercurl_style",               INTEGER, &undercurl_style },
 		{ "undercurl_thickness_threshold", INTEGER, &undercurl_thickness_threshold },
 		{ "undercurl_extra_thickness",     INTEGER, &undercurl_extra_thickness },

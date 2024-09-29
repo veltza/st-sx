@@ -54,6 +54,10 @@ St.color15:         white
 St.highlightfg:     15
 St.highlightbg:     160
 
+! Foreground and background color of the hyperlink hint
+St.hyperlinkhintfg: 0
+St.hyperlinkhintbg: 258
+
 ! Dynamic cursor color:
 ! 0 = the cursor color is fixed (default st behavior)
 ! 1 = the cursor uses reverse colors based on the colors of the text cell
@@ -112,5 +116,8 @@ St.tabspaces:               8
 St.disable_bold:            0
 St.disable_italic:          0
 St.bold_is_not_bright:      1
+St.hyperlinkstyle:          1
+St.showhyperlinkhint:       1
+St.disablehyperlinks:       0
 St.autoscrolltimeout:       200
 St.autoscrollacceleration:  1.0
