@@ -27,6 +27,8 @@ V:                       toggle line selection mode
 s:                       toggle regular/rectangular selection type
 y:                       yank (copy) selected text
 Z, X:                    jump to previous/next shell prompt that contains the OSC "133;A" sequence
+u:                       open hyperlink under the cursor
+U:                       copy hyperlink under the cursor to the clipboard
 0 - 9:                   set the quantifier
 Return:                  quit keyboard_select, yank and keep the highlight of the selection
 Escape, q:               quit keyboard_select/exit input mode/exit selection mode/reset quantifier

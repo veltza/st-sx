@@ -2,7 +2,8 @@
 
 void clearurl(int clearhyperlinkhint);
 void drawhyperlinkhint(void);
-static void openUrlOnClick(int col, int row, char* url_opener);
+char *detecturl(int col, int row, int draw);
+void openUrlOnClick(int col, int row, char* url_opener);
 
 static inline void restoremousecursor(void)
 {

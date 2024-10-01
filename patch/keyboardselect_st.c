@@ -284,6 +284,7 @@ kbds_moveto(int x, int y)
 	kbds_c.len = tlinelen(kbds_c.line);
 	if (kbds_c.x > 0 && (kbds_c.line[kbds_c.x].mode & ATTR_WDUMMY))
 		kbds_c.x--;
+	detecturl(kbds_c.x, kbds_c.y, 1);
 }
 
 int
@@ -584,7 +585,6 @@ kbds_drawcursor(void)
 	if (kbds_in_use && (!kbds_issearchmode() || kbds_c.y != term.row-1)) {
 		xdrawcursor(kbds_c.x, kbds_c.y, TLINE(kbds_c.y)[kbds_c.x],
 		            kbds_oc.x, kbds_oc.y, TLINE(kbds_oc.y));
-		kbds_moveto(kbds_c.x, kbds_c.y);
 		kbds_oc = kbds_c;
 	}
 	return term.scr != 0 || kbds_in_use;
@@ -606,6 +606,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 {
 	int i, q, dy, ox, oy, eol, islast, prevscr, count, wrap;
 	int alt = IS_SET(MODE_ALTSCREEN);
+	char *url;
 	Line line;
 	Rune u;
 
@@ -913,6 +914,13 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		break;
 	case XK_X:
 		kbds_jumptoprompt(1);
+		break;
+	case XK_u:
+		openUrlOnClick(kbds_c.x, kbds_c.y, url_opener);
+		break;
+	case XK_U:
+		if ((url = detecturl(kbds_c.x, kbds_c.y, 1)) != NULL)
+			xsetsel(strdup(url));
 		break;
 	case XK_0:
 	case XK_KP_0:
