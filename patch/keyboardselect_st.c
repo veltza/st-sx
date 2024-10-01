@@ -52,9 +52,9 @@ kbds_drawstatusbar(int y)
 	if (!kbds_in_use)
 		return;
 
-	g.mode = ATTR_REVERSE;
-	g.fg = defaultfg;
-	g.bg = defaultbg;
+	g.mode = 0;
+	g.fg = kbselectfg;
+	g.bg = kbselectbg;
 
 	/* draw the mode */
 	if (y == 0) {
@@ -96,20 +96,20 @@ kbds_drawstatusbar(int y)
 			if (g.mode & ATTR_WDUMMY)
 				continue;
 			if (g.mode & ATTR_WIDE) {
-				MODBIT(g.mode, i != kbds_searchobj.cx, ATTR_REVERSE);
+				MODBIT(g.mode, i == kbds_searchobj.cx, ATTR_REVERSE);
 				xdrawglyph(g, i + 1, y);
 			} else if (i == kbds_searchobj.cx) {
-				g.mode |= ATTR_WIDE | ATTR_REVERSE;
+				g.mode = ATTR_WIDE;
 				xdrawglyph(g, i + 1, y);
-				g.mode &= ~(ATTR_WIDE | ATTR_REVERSE);
+				g.mode = ATTR_REVERSE;
 				xdrawglyph(g, i + 1, y);
 			} else if (g.u != ' ') {
-				g.mode |= ATTR_WIDE | ATTR_REVERSE;
+				g.mode = ATTR_WIDE;
 				xdrawglyph(g, i + 1, y);
 			}
 		}
 		g.u = ' ';
-		g.mode = (i != kbds_searchobj.cx) ? ATTR_REVERSE : ATTR_NULL;
+		g.mode = (i == kbds_searchobj.cx) ? ATTR_REVERSE : 0;
 		xdrawglyph(g, i + 1, y);
 	}
 }

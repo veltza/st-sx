@@ -215,6 +215,10 @@ unsigned int highlightbg = 160;
 unsigned int hyperlinkhintfg = 0;
 unsigned int hyperlinkhintbg = 258;
 
+/* Foreground and background colors for keyboard selection mode bars */
+unsigned int kbselectfg = 0;
+unsigned int kbselectbg = 258;
+
 /* Bold text is not rendered in bright color. 0: off, 1: on */
 unsigned int bold_is_not_bright = 1;
 
@@ -690,6 +694,8 @@ ResourcePref resources[] = {
 		{ "highlightbg",         INTEGER, &highlightbg },
 		{ "hyperlinkhintfg",     INTEGER, &hyperlinkhintfg },
 		{ "hyperlinkhintbg",     INTEGER, &hyperlinkhintbg },
+		{ "kbselectfg",          INTEGER, &kbselectfg },
+		{ "kbselectbg",          INTEGER, &kbselectbg },
 		{ "bold_is_not_bright",  INTEGER, &bold_is_not_bright },
 		{ "dynamic_cursor_color",INTEGER, &dynamic_cursor_color },
 		{ "cursorstyle",         INTEGER, &cursorstyle },

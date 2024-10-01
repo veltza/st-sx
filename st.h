@@ -369,6 +369,8 @@ extern unsigned int tabspaces;
 extern unsigned int defaultfg;
 extern unsigned int defaultbg;
 extern unsigned int defaultcs;
+extern unsigned int kbselectfg;
+extern unsigned int kbselectbg;
 
 extern int boxdraw, boxdraw_bold, boxdraw_braille;
 extern float alpha;

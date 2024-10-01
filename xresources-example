@@ -58,6 +58,10 @@ St.highlightbg:     160
 St.hyperlinkhintfg: 0
 St.hyperlinkhintbg: 258
 
+! Foreground and background colors for keyboard selection mode bars
+St.kbselectfg: 0
+St.kbselectbg: 258
+
 ! Dynamic cursor color:
 ! 0 = the cursor color is fixed (default st behavior)
 ! 1 = the cursor uses reverse colors based on the colors of the text cell
