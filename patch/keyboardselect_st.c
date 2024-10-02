@@ -919,8 +919,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		openUrlOnClick(kbds_c.x, kbds_c.y, url_opener);
 		break;
 	case XK_U:
-		if ((url = detecturl(kbds_c.x, kbds_c.y, 1)) != NULL)
-			xsetsel(strdup(url));
+		copyUrlOnClick(kbds_c.x, kbds_c.y);
 		break;
 	case XK_0:
 	case XK_KP_0:

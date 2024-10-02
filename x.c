@@ -40,6 +40,7 @@ static void zoom(const Arg *);
 static void zoomabs(const Arg *);
 static void zoomreset(const Arg *);
 static void scrolltoprompt(const Arg *);
+static void copylinktoclipboard(const Arg *arg) { /* proxy for copyUrlOnClick() */ }
 
 char *font2_xresources[FONT2_XRESOURCES_SIZE];
 
@@ -387,7 +388,10 @@ mouseaction(XEvent *e, uint release)
 				(!ms->screen || (ms->screen == screen)) &&
 				(match(ms->mod, state) ||  /* exact or forced */
 				 match(ms->mod, state & ~forcemousemod))) {
-			ms->func(&(ms->arg));
+			if (ms->func == copylinktoclipboard)
+				copyUrlOnClick(evcol(e), evrow(e));
+			else
+				ms->func(&(ms->arg));
 			return 1;
 		}
 	}

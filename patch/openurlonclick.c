@@ -329,3 +329,33 @@ openUrlOnClick(int col, int row, char* url_opener)
 
 	posix_spawnp(&junk, argv[0], NULL, NULL, argv, environ);
 }
+
+void
+copyUrlOnClick(int col, int row)
+{
+	char thishost[_POSIX_HOST_NAME_MAX];
+	int hostlen;
+	char *url;
+
+	if ((url = detecturl(col, row, 1)) == NULL)
+		return;
+
+	/* remove the file protocol and hostname from local files */
+	if (!strncmp(url, "file:/", 6)) {
+		if (url[6] != '/') {           /* file:/ */
+			url += 5;
+		} else if (url[7] == '/') {    /* file:/// */
+			url += 7;
+		} else if (!strncmp(&url[7], "localhost/", 10)) {
+			url += 16;
+		} else {
+			if (gethostname(thishost, sizeof(thishost)) < 0)
+				thishost[0] = '\0';
+			hostlen = strlen(thishost);
+			if (hostlen > 0 && !strncmp(&url[7], thishost, hostlen) && url[7+hostlen] == '/')
+				url += 7 + hostlen;
+		}
+	}
+
+	xsetsel(strdup(url));
+}
