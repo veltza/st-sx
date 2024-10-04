@@ -1856,6 +1856,16 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 	}
 
 	if (dmode & DRAW_FG) {
+		/* If dmode is set to DRAW_FG only, it means that we are in wide glyph mode
+		 * and we need to set the entire terminal row as the clipping region. */
+		if (!(dmode & DRAW_BG)) {
+			r.x = 0;
+			r.y = 0;
+			r.height = win.ch;
+			r.width = win.cw * term.col;
+			XftDrawSetClipRectangles(xw.draw, borderpx, winy, &r, 1);
+		}
+
 		if (base.mode & ATTR_BOXDRAW) {
 			drawboxes(winx, winy, width / len, win.ch, fg, bg, specs, len);
 		} else {
