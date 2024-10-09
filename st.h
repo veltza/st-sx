@@ -29,6 +29,10 @@
 
 #define TRUECOLOR(r,g,b)	(1 << 24 | (r) << 16 | (g) << 8 | (b))
 #define IS_TRUECOL(x)		(1 << 24 & (x))
+
+/* linear interpolation for integers */
+#define ILERP(a, b, t, s) ((a) + ((b) - (a)) * (t) / (s))
+
 #define HISTSIZE      2048
 
 #define UNDERLINE_COLOR_BITS     (2 + 24)
@@ -118,6 +122,12 @@ enum selection_type {
 enum selection_snap {
 	SNAP_WORD = 1,
 	SNAP_LINE = 2
+};
+
+enum visualbell_style {
+	VISUALBELL_NONE = 0,
+	VISUALBELL_COLOR = 1,
+	VISUALBELL_INVERT = 2
 };
 
 typedef unsigned char uchar;

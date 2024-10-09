@@ -140,6 +140,25 @@ int boxdraw_braille = 0;
  */
 static int bellvolume = 0;
 
+/*
+ * Visual bell style: 0 = none, 1 = custom bell color, 2 = inverted colors
+ */
+static unsigned int visualbellstyle = 0;
+
+/*
+ * Duration of the visual bell flash in milliseconds
+ */
+static unsigned int visualbellduration = 100;
+
+/*
+ * Specifies how often the visual bell animation is updated. Set to 0 to disable
+ * the animation. Note that:
+ * - The animation only works with the custom bell color
+ * - This is just a target speed as render time may vary
+ * - Don't set this too high as it will increase CPU usage
+ */
+static unsigned int visualbellanimfps = 60;
+
 /* default TERM value */
 char *termname = "st-256color";
 
@@ -194,11 +213,12 @@ static const char *colorname[] = {
 	"gray90",  /* 258 -> foreground */
 	"black",   /* 259 -> background */
 	"black",   /* 260 -> background unfocused */
+	"gray90",  /* 261 -> visual bell */
 };
 
 /*
  * Default colors (colorname index)
- * foreground, background, cursor, reverse cursor
+ * foreground, background, cursor, reverse cursor, visual bell
  */
 unsigned int defaultfg = 258;
 unsigned int defaultbg = 259;
@@ -206,6 +226,7 @@ unsigned int defaultcs = 256;
 static unsigned int defaultrcs = 257;
 unsigned int bg = 259;
 unsigned int bgUnfocused = 260;
+unsigned int visualbellcolor = 261;
 
 /* Foreground and background color of search results */
 unsigned int highlightfg = 15;
@@ -691,6 +712,7 @@ ResourcePref resources[] = {
 		{ "bgUnfocused",         STRING,  &colorname[260] },
 		{ "cursorColor",         STRING,  &colorname[256] },
 		{ "reverseCursor",       STRING,  &colorname[257] },
+		{ "visualbellcolor",     STRING,  &colorname[261] },
 		{ "highlightfg",         INTEGER, &highlightfg },
 		{ "highlightbg",         INTEGER, &highlightbg },
 		{ "hyperlinkhintfg",     INTEGER, &hyperlinkhintfg },
@@ -710,6 +732,9 @@ ResourcePref resources[] = {
 		{ "maxlatency",          FLOAT,   &maxlatency },
 		{ "su_timeout",          INTEGER, &su_timeout },
 		{ "blinktimeout",        INTEGER, &blinktimeout },
+		{ "visualbellstyle",     INTEGER, &visualbellstyle },
+		{ "visualbellduration",  INTEGER, &visualbellduration },
+		{ "visualbellanimfps",   INTEGER, &visualbellanimfps },
 		{ "bellvolume",          INTEGER, &bellvolume },
 		{ "tabspaces",           INTEGER, &tabspaces },
 		{ "borderpx",            INTEGER, &borderpx },

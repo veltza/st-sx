@@ -32,6 +32,7 @@ Sixels inside a [tmux](https://github.com/tmux/tmux) session (apps: [lsix](https
 - Sync
 - Undercurl
 - Vertcenter
+- Visualbell
 - Wide glyphs
 - Workingdir
 - Xresources

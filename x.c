@@ -76,7 +76,7 @@ static inline void xdrawline_ligatures(Line, int, int, int);
 static int xmakeglyphfontspecs_noligatures(XftGlyphFontSpec *, const Glyph *, int, int, int);
 static inline void xdrawline_noligatures(Line, int, int, int);
 static void xdrawglyphfontspecs(const XftGlyphFontSpec *, Glyph, int, int, int, int, int);
-static inline void xclear(int, int, int, int);
+static void xclear(int, int, int, int);
 static int xgeommasktogravity(int);
 static int ximopen(Display *);
 static void ximinstantiate(Display *, XPointer, XPointer);
@@ -93,6 +93,7 @@ static void xunloadfont(Font *);
 static void xunloadfonts(void);
 static void xsetenv(void);
 static void xseturgency(int);
+static inline void lerpvisualbellcolor(Color *, Color *);
 static int evcol(XEvent *);
 static int evrow(XEvent *);
 
@@ -186,6 +187,17 @@ typedef struct {
 	double timeout;
 	ScrollDirection dir;
 } Autoscroller;
+
+struct {
+	int active;
+	int reverse;
+	int frame;
+	int frames;
+	double frametime;
+	double timeout;
+	struct timespec firstbell;
+	struct timespec lastbell;
+} visualbell;
 
 /* Fontcache is an array now. A new font will be appended to the array. */
 static Fontcache *frc = NULL;
@@ -344,6 +356,20 @@ scroll:
 		kscrollup(&((Arg){ .i = -y }));
 	else
 		kscrolldown(&((Arg){ .i = y }));
+}
+
+void
+lerpvisualbellcolor(Color *col, Color *result)
+{
+	XRenderColor tmp;
+	Color *bell = &dc.col[visualbellcolor];
+	int frame = visualbell.frame, frames = visualbell.frames;
+
+	tmp.red =   ILERP(bell->color.red,   col->color.red,   frame, frames);
+	tmp.green = ILERP(bell->color.green, col->color.green, frame, frames);
+	tmp.blue =  ILERP(bell->color.blue,  col->color.blue,  frame, frames);
+	tmp.alpha = ILERP(bell->color.alpha, col->color.alpha, frame, frames);
+	XftColorAllocValue(xw.dpy, xw.vis, xw.cmap, &tmp, result);
 }
 
 int
@@ -976,9 +1002,14 @@ xsetcolorname(int x, const char *name)
 void
 xclear(int x1, int y1, int x2, int y2)
 {
-	XftDrawRect(xw.draw,
-			&dc.col[IS_SET(MODE_REVERSE)? defaultfg : defaultbg],
-			x1, y1, x2-x1, y2-y1);
+	Color bell, *bg = &dc.col[IS_SET(MODE_REVERSE) ? defaultfg : defaultbg];
+
+	if (visualbell.active && visualbellstyle == VISUALBELL_COLOR) {
+		lerpvisualbellcolor(bg, &bell);
+		bg = &bell;
+	}
+
+	XftDrawRect(xw.draw, bg, x1, y1, x2-x1, y2-y1);
 }
 
 void
@@ -1736,7 +1767,7 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 {
 	int winx = borderpx + x * win.cw, winy = borderpx + y * win.ch;
 	int width = charlen * win.cw;
-	Color *fg, *bg, *temp, revfg, revbg, truefg, truebg;
+	Color *fg, *bg, *temp, revfg, revbg, truefg, truebg, bellfg, bellbg;
 	XRenderColor colfg, colbg;
 	XRectangle r;
 
@@ -1826,6 +1857,13 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 	if (base.mode & ATTR_HIGHLIGHT) {
 		fg = &dc.col[(base.mode & ATTR_REVERSE) ? highlightbg : highlightfg];
 		bg = &dc.col[(base.mode & ATTR_REVERSE) ? highlightfg : highlightbg];
+	}
+
+	if (visualbell.active && visualbellstyle == VISUALBELL_COLOR) {
+		lerpvisualbellcolor(fg, &bellfg);
+		lerpvisualbellcolor(bg, &bellbg);
+		fg = &bellfg;
+		bg = &bellbg;
 	}
 
 	if (dmode & DRAW_BG) {
@@ -2555,6 +2593,26 @@ xbell(void)
 		xseturgency(1);
 	if (bellvolume)
 		XkbBell(xw.dpy, xw.win, bellvolume, (Atom)NULL);
+	if (visualbellstyle && visualbellduration) {
+		clock_gettime(CLOCK_MONOTONIC, &visualbell.firstbell);
+		visualbell.lastbell = visualbell.firstbell;
+		visualbell.timeout = 0;
+		if (visualbellstyle == VISUALBELL_COLOR && visualbellanimfps) {
+			visualbell.frames = MAX((visualbellduration * visualbellanimfps + 500) / 1000, 1);
+			visualbell.frametime = 1000.0 / visualbellanimfps;
+			visualbell.active = 1;
+		} else {
+			visualbell.frames = 1;
+			visualbell.frametime = visualbellduration;
+			if (!visualbell.active) {
+				visualbell.reverse = IS_SET(MODE_REVERSE);
+				visualbell.active = 1;
+			} else if (visualbellstyle == VISUALBELL_COLOR) {
+				visualbell.active = 0;
+				tfulldirt();
+			}
+		}
+	}
 }
 
 void
@@ -2754,11 +2812,12 @@ void
 run(void)
 {
 	XEvent ev;
-	int w = win.w, h = win.h;
+	int rev, w = win.w, h = win.h;
 	fd_set rfd;
 	int xfd = XConnectionNumber(xw.dpy), ttyfd, xev, drawing;
-	struct timespec seltv, *tv, now, lastscroll, lastblink, cursorlastblink, trigger;
-	double timeout, cursortimeout, scrolltimeout;
+	struct timespec seltv, *tv, now, trigger;
+	struct timespec lastscroll, lastblink, cursorlastblink;
+	double timeout, cursortimeout, scrolltimeout, vbelltimeout;
 
 	/* Waiting for window mapping */
 	do {
@@ -2888,10 +2947,32 @@ run(void)
 			timeout = (timeout >= 0) ? MIN(timeout, scrolltimeout) : scrolltimeout;
 		}
 
+		if (visualbell.active && visualbell.timeout <= TIMEDIFF(now, visualbell.lastbell)) {
+			visualbell.frame = TIMEDIFF(now, visualbell.firstbell) / visualbell.frametime;
+			if (visualbell.frame >= visualbell.frames)
+				visualbell.active = 0;
+			if (visualbellstyle == VISUALBELL_INVERT) {
+				rev = visualbell.active ? !IS_SET(MODE_REVERSE) : visualbell.reverse;
+				MODBIT(win.mode, rev, MODE_REVERSE);
+			}
+			tfulldirt();
+		}
+
 		draw();
 		XFlush(xw.dpy);
 		drawing = 0;
 		activeurl.draw = 0;
+
+		if (visualbell.active) {
+			clock_gettime(CLOCK_MONOTONIC, &now);
+			vbelltimeout = visualbell.timeout - TIMEDIFF(now, visualbell.lastbell);
+			if (vbelltimeout <= 0) {
+				vbelltimeout = visualbell.frametime + fmod(vbelltimeout, visualbell.frametime);
+				visualbell.timeout = vbelltimeout;
+				visualbell.lastbell = now;
+			}
+			timeout = (timeout >= 0) ? MIN(timeout, vbelltimeout) : vbelltimeout;
+		}
 	}
 }
 

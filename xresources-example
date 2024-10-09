@@ -33,6 +33,7 @@ St.background:      black
 St.bgUnfocused:     black
 St.cursorColor:     #cccccc
 St.reverseCursor:   #555555
+St.visualbellcolor: gray90
 St.color0:          black
 St.color1:          red3
 St.color2:          green3
@@ -116,6 +117,9 @@ St.maxlatency:              33
 St.su_timeout:              200
 St.blinktimeout:            800
 St.bellvolume:              0
+St.visualbellstyle:         0
+St.visualbellduration:      100
+St.visualbellanimfps:       60
 St.tabspaces:               8
 St.disable_bold:            0
 St.disable_italic:          0
