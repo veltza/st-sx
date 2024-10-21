@@ -1,4 +1,5 @@
 #include <wchar.h>
+#include <sys/wait.h>
 
 struct {
 	int x1, y1;
@@ -295,8 +296,6 @@ drawhyperlinkhint(void)
 void
 openUrlOnClick(int col, int row, char* url_opener)
 {
-	extern char **environ;
-	pid_t junk;
 	char *url = detecturl(col, row, 1);
 	char *argv[] = { url_opener, url, NULL };
 	char fileurl[2048];
@@ -327,7 +326,27 @@ openUrlOnClick(int col, int row, char* url_opener)
 		argv[1] = fileurl;
 	}
 
-	posix_spawnp(&junk, argv[0], NULL, NULL, argv, environ);
+	switch (fork()) {
+	case -1:
+		fprintf(stderr, "fork failed: %s\n", strerror(errno));
+		break;
+	case 0:
+		switch (fork()) {
+		case -1:
+			fprintf(stderr, "fork failed: %s\n", strerror(errno));
+			_exit(1);
+			break;
+		case 0:
+			setsid();
+			execvp(argv[0], argv);
+			_exit(1);
+			break;
+		default:
+			_exit(0);
+		}
+	default:
+		wait(NULL);
+	}
 }
 
 void
