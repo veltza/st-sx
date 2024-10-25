@@ -12,6 +12,12 @@ struct {
 	int cursory;
 } activeurl = { .y2 = -1, .hlink = -1 };
 
+struct {
+	char *protocols;
+	int count;
+	int offset;
+} urlprefixes;
+
 static char validurlchars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	"abcdefghijklmnopqrstuvwxyz"
 	"0123456789-._~:/?#@!$&'*+,;=%()[]";
@@ -32,16 +38,60 @@ findeowl(Line line)
 	return -1;
 }
 
-static inline int
+static int
 isprotocolsupported(char *url)
 {
-	if (url[0] == 'f')
-		return !strncmp(url, "file:/", 6);
-	else if (url[0] == 'h')
-		return !strncmp(url, "https://", 8) || !strncmp(url, "http://", 7);
-	else if (url[0] == 'm')
-		return !strncmp(url, "mailto:", 7);
+	int offset = urlprefixes.offset;
+	char *prot = urlprefixes.protocols;
+	char *end = prot + urlprefixes.count * offset;
+	char *p, *u;
+
+	for (; prot < end; prot += offset) {
+		for (p = prot, u = url; *p && *p == *u; p++, u++);
+		if (*p == '\0')
+			return 1;
+	}
 	return 0;
+}
+
+void
+parseurlprotocols(void)
+{
+	int n;
+	char *dst, *end, *next, *prot, *tail;
+
+	if (urlprefixes.protocols)
+		free(urlprefixes.protocols);
+	urlprefixes.protocols = NULL;
+	urlprefixes.count = 0;
+	urlprefixes.offset = 0;
+
+	end = url_protocols + strlen(url_protocols);
+	for (n = 0, prot = url_protocols; prot < end; prot = next+1, n++) {
+		if (!(next = strchr(prot, ',')))
+			next = end;
+		urlprefixes.offset = MAX(urlprefixes.offset, next - prot);
+	}
+	if (n == 0)
+		return;
+
+	urlprefixes.offset++;
+	urlprefixes.protocols = xmalloc(n * urlprefixes.offset);
+
+	for (n = 0, prot = url_protocols; prot < end; prot = next+1) {
+		if (!(next = strchr(prot, ',')))
+			next = end;
+		for (; *prot == ' ' || *prot == '\t'; prot++);
+		for (tail = next-1; tail > prot && (*tail == ' ' || *tail == '\t'); tail--);
+		if (prot <= tail) {
+			dst = urlprefixes.protocols + n * urlprefixes.offset;
+			while (prot <= tail)
+				*dst++ = *prot++;
+			*dst = '\0';
+			n++;
+		}
+	}
+	urlprefixes.count = n;
 }
 
 void

@@ -1,5 +1,6 @@
 #include <spawn.h>
 
+void parseurlprotocols(void);
 void clearurl(int clearhyperlinkhint);
 void drawhyperlinkhint(void);
 char *detecturl(int col, int row, int draw);

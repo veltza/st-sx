@@ -18,9 +18,14 @@ unsigned int disable_italic = 0;
 
 static int borderpx = 2;
 
-/* modkey options: ControlMask, ShiftMask or XK_ANY_MOD */
-static uint url_opener_modkey = XK_ANY_MOD;
+/* Command that is executed when a URL or hyperlink is clicked */
 char *url_opener = "xdg-open";
+
+/* List of URL protocols to search for when detecting a URL under the mouse */
+char *url_protocols = "https://,http://,file:/,ftp://,mailto:";
+
+/* Modkey options for links are ControlMask, ShiftMask or XK_ANY_MOD */
+static uint url_opener_modkey = XK_ANY_MOD;
 
 /*
  * What program is execed by st depends of these precedence rules:
@@ -752,6 +757,8 @@ ResourcePref resources[] = {
 		{ "disablehyperlinks",   INTEGER, &disablehyperlinks },
 		{ "hyperlinkstyle",      INTEGER, &hyperlinkstyle },
 		{ "showhyperlinkhint",   INTEGER, &showhyperlinkhint },
+		{ "url_opener",          STRING,  &url_opener },
+		{ "url_protocols",       STRING,  &url_protocols },
 		{ "undercurl_style",               INTEGER, &undercurl_style },
 		{ "undercurl_thickness_threshold", INTEGER, &undercurl_thickness_threshold },
 		{ "undercurl_extra_thickness",     INTEGER, &undercurl_extra_thickness },

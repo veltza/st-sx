@@ -54,6 +54,7 @@ config_init(Display *dpy)
 
 	LIMIT(cursorstyle, 1, 8);
 	xsetcursor(cursorstyle);
+	parseurlprotocols();
 
 	/* command line arguments override xresources */
 	cols = (opt_geometry_cols > 0) ? opt_geometry_cols : cols;

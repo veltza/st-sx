@@ -95,6 +95,12 @@ St.hidecursor:      0
 ! Ligatures: 0 = off, 1 = on
 St.ligatures:       0
 
+! Command that is executed when a URL or hyperlink is clicked
+St.url_opener: xdg-open
+
+! List of URL protocols to search for when detecting a URL under the mouse
+St.url_protocols: https:\/\/,http:\/\/,file:\/,ftp:\/\/,mailto:
+
 ! Undercurl style: 0 = none, 1 = curly, 2 = spiky, 3 = capped
 St.undercurl_style: 2
 
