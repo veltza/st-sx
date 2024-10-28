@@ -22,7 +22,7 @@ static int borderpx = 2;
 char *url_opener = "xdg-open";
 
 /* List of URL protocols to search for when detecting a URL under the mouse */
-char *url_protocols = "https://,http://,file:/,ftp://,mailto:";
+char *url_protocols = "https://,http://,file:/,ftp://,mailto:,vscode://";
 
 /* Modkey options for links are ControlMask, ShiftMask or XK_ANY_MOD */
 static uint url_opener_modkey = XK_ANY_MOD;
