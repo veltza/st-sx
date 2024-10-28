@@ -12,12 +12,33 @@ hex2int(char c)
 }
 
 int
+urldecode(const char *url, char *decoded, int decodedsize)
+{
+	int i, h1, h2, decodedlen;
+
+	for (decodedlen = 0, i = 0; url[i]; i++) {
+		if (url[i] == '%' &&
+		    (h1 = hex2int(url[i+1])) >= 0 && (h2 = hex2int(url[i+2])) >= 0) {
+			decoded[decodedlen++] = (h1 << 4) | h2;
+			i += 2;
+		} else {
+			decoded[decodedlen++] = url[i];
+		}
+		if (decodedlen == decodedsize) {
+			decoded[decodedlen-1] = '\0';
+			return decodedlen;
+		}
+	}
+	decoded[decodedlen] = '\0';
+	return decodedlen;
+}
+
+int
 osc7parsecwd(const char *uri)
 {
 	const char *auth, *host, *hostend;
 	char *path, decoded[PATH_MAX], thishost[_POSIX_HOST_NAME_MAX];
-	size_t i, decodedlen, hostlen, urilen;
-	int h1, h2;
+	int decodedlen, hostlen;
 
 	if (!term.cwd) {
 		term.cwd = xmalloc(sizeof(decoded));
@@ -25,26 +46,17 @@ osc7parsecwd(const char *uri)
 	}
 
 	/* reset cwd if uri is empty */
-	if ((urilen = strlen(uri)) == 0) {
+	if (strlen(uri) == 0) {
 		term.cwd[0] = '\0';
 		return 1;
 	}
 
 	/* decode uri */
-	for (decodedlen = 0, i = 0; i < urilen; i++) {
-		if (uri[i] == '%' && i <= urilen-3 &&
-		    (h1 = hex2int(uri[i+1])) >= 0 && (h2 = hex2int(uri[i+2])) >= 0) {
-			decoded[decodedlen++] = (h1 << 4) | h2;
-			i += 2;
-		} else {
-			decoded[decodedlen++] = uri[i];
-		}
-		if (decodedlen == sizeof(decoded)) {
-			fprintf(stderr, "erresc (OSC 7): uri is too long\n");
-			return 0;
-		}
+	decodedlen = urldecode(uri, decoded, sizeof(decoded));
+	if (decodedlen == sizeof(decoded)) {
+		fprintf(stderr, "erresc (OSC 7): uri is too long\n");
+		return 0;
 	}
-	decoded[decodedlen] = '\0';
 
 	/* check scheme */
 	if (decodedlen < 5 || strncmp("file:", decoded, 5) != 0) {

@@ -402,29 +402,35 @@ openUrlOnClick(int col, int row, char* url_opener)
 void
 copyUrlOnClick(int col, int row)
 {
-	char thishost[_POSIX_HOST_NAME_MAX];
+	char *dup, *file, *url, thishost[_POSIX_HOST_NAME_MAX];
 	int hostlen;
-	char *url;
 
-	if ((url = detecturl(col, row, 1)) == NULL)
+	if ((url = file = detecturl(col, row, 1)) == NULL)
 		return;
 
-	/* remove the file protocol and hostname from local files */
+	dup = strdup(url);
+
 	if (!strncmp(url, "file:/", 6)) {
+		/* remove the file protocol and hostname from local file */
 		if (url[6] != '/') {           /* file:/ */
-			url += 5;
+			file = url + 5;
 		} else if (url[7] == '/') {    /* file:/// */
-			url += 7;
+			file = url + 7;
 		} else if (!strncmp(&url[7], "localhost/", 10)) {
-			url += 16;
+			file = url + 16;
 		} else {
 			if (gethostname(thishost, sizeof(thishost)) < 0)
 				thishost[0] = '\0';
 			hostlen = strlen(thishost);
 			if (hostlen > 0 && !strncmp(&url[7], thishost, hostlen) && url[7+hostlen] == '/')
-				url += 7 + hostlen;
+				file = url + 7 + hostlen;
 		}
+		if (file != url)
+			urldecode(file, dup, strlen(dup));
+	} else if (!strncmp(url, "vscode://file/", 14)) {
+		/* remove the vscode file protocol from vscode url */
+		urldecode(url+13, dup, strlen(dup));
 	}
 
-	xsetsel(strdup(url));
+	xsetsel(dup);
 }
