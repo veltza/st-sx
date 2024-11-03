@@ -117,16 +117,20 @@ St.undercurl_yoffset:               0
 St.undercurl_height_scale:          1.0
 
 ! Misc settings
+St.termname:                st-256color
 St.shell:                   /bin/sh
-St.minlatency:              2
-St.maxlatency:              33
+St.minlatency:              2.0
+St.maxlatency:              33.0
 St.su_timeout:              200
 St.blinktimeout:            800
+St.doubleclicktimeout:      300
+St.tripleclicktimeout:      600
 St.bellvolume:              0
 St.visualbellstyle:         0
 St.visualbellduration:      100
 St.visualbellanimfps:       60
 St.tabspaces:               8
+St.cursorthickness:         2
 St.disable_bold:            0
 St.disable_italic:          0
 St.bold_is_not_bright:      1

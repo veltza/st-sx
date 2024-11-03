@@ -74,7 +74,7 @@ static unsigned int tripleclicktimeout = 600;
 int allowaltscreen = 1;
 
 /* allow certain non-interactive (insecure) window operations such as:
-   setting the clipboard text */
+   setting the clipboard text using the OSC 52 sequence */
 int allowwindowops = 0;
 
 /*
@@ -737,11 +737,14 @@ ResourcePref resources[] = {
 		{ "maxlatency",          FLOAT,   &maxlatency },
 		{ "su_timeout",          INTEGER, &su_timeout },
 		{ "blinktimeout",        INTEGER, &blinktimeout },
+		{ "doubleclicktimeout",  INTEGER, &doubleclicktimeout },
+		{ "tripleclicktimeout",  INTEGER, &tripleclicktimeout },
 		{ "visualbellstyle",     INTEGER, &visualbellstyle },
 		{ "visualbellduration",  INTEGER, &visualbellduration },
 		{ "visualbellanimfps",   INTEGER, &visualbellanimfps },
 		{ "bellvolume",          INTEGER, &bellvolume },
 		{ "tabspaces",           INTEGER, &tabspaces },
+		{ "cursorthickness",     INTEGER, &cursorthickness },
 		{ "borderpx",            INTEGER, &borderpx },
 		{ "cwscale",             FLOAT,   &cwscale },
 		{ "chscale",             FLOAT,   &chscale },
