@@ -1,6 +1,6 @@
 # st-sx - simple terminal with sixels
 
-st-sx is a fork of suckless' [st terminal](https://st.suckless.org/) that aims to provide the best sixel support for st users. It also includes many useful patches such as ligatures and text reflow.
+st-sx is a fork of suckless' [st terminal](https://st.suckless.org/) that aims to provide the best sixel support for the st users. It also includes many useful patches such as ligatures and text reflow. And it is the only st fork that supports hyperlinks (OSC 8) as well!
 
 ## Screenshot
 
@@ -63,10 +63,10 @@ cd st-sx
 make
 ```
 
-Edit `config.h` and add your favorite fonts, colors etc. and install:
+Edit `config.h` and add your favorite fonts, colors, etc. and install:
 
 ```
-sudo make install
+sudo make clean install
 ```
 
 The executable name is `st`.
@@ -76,11 +76,11 @@ You can also configure st-sx via Xresources. See xresources-example file.
 ## Known issues
 
 - Sixels work inside tmux, but...
-  * ...sixels are not enabled in the release version of tmux. You have to compile it yourself with `./configure --enable-sixel`.
-  * ...some sixels don't show up. The maximum size of sixels in tmux is 1 MB. You can increase the size limit by changing `INPUT_BUF_LIMIT` in `tmux/input.c`.
+  * ...sixels might not be enabled if you install it from the repository. In that case, you have to compile tmux yourself with `./configure --enable-sixel`
+  * ...some sixels don't show up. The maximum size of sixels in tmux is 1 MB. You can increase the size limit by changing `INPUT_BUF_LIMIT` in `tmux/input.c`. Or after the commit [c26d71d](https://github.com/tmux/tmux/commit/c26d71d3e9425fd5a5f3075888b5425fe6219462), you can change the limit via tmux.conf: `set -g input-buffer-size 1048576`
   * ...sixels may disappear or get stuck. The reason is that the sixel implementation in tmux is not robust yet.
 
 ## Thanks
 
 - [suckless.org](https://suckless.org/) and [st](https://st.suckless.org/) contributors
-- Bakkeby's [st-flexipatch](https://github.com/bakkeby/st-flexipatch)
+- Bakkeby and his [st-flexipatch](https://github.com/bakkeby/st-flexipatch)
