@@ -1,5 +1,4 @@
 #include <wchar.h>
-#include <sys/wait.h>
 
 struct {
 	int x1, y1;
@@ -395,7 +394,7 @@ openUrlOnClick(int col, int row, char* url_opener)
 			_exit(0);
 		}
 	default:
-		wait(NULL);
+		break;
 	}
 }
 

@@ -27,6 +27,7 @@ newterm(const Arg* a)
 			} else {
 				chdir(getcwd_by_pid(pid));
 			}
+			setsid();
 			execl("/proc/self/exe", argv0, NULL);
 			_exit(1);
 			break;
@@ -34,7 +35,7 @@ newterm(const Arg* a)
 			_exit(0);
 		}
 	default:
-		wait(NULL);
+		break;
 	}
 }
 
