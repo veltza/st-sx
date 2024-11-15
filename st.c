@@ -1630,43 +1630,40 @@ tdefcolor(const int *attr, int *npar, int l)
 
 	/* use colon-separated subarguments if present */
 	if (subarg->count > 0) {
-		subidx = -1;
+		subidx = 0;
 		if (subarg->count > 4 && subarg->value[0] == 2) {
 			/* ignore colorspace-id */
 			subarg->value[1] = 2;
-			subidx = 0;
+			subidx = 1;
 		}
 		l = subarg->count;
 		attr = subarg->value;
 		npar = &subidx;
-	} else if (*npar + 1 >= l) {
+	} else if (++*npar >= l) {
 		fprintf(stderr, "erresc(%d): incorrect number of arguments\n", code);
 		return color;
 	}
 
-	switch (attr[*npar + 1]) {
+	switch (attr[*npar]) {
 	case 2: /* direct color in RGB space */
-		if (*npar + 4 >= l) {
+		if (*npar + 3 >= l) {
 			fprintf(stderr, "erresc(%d): incorrect number of arguments\n", code);
 			*npar = l;
 			break;
 		}
-		r = attr[*npar + 2];
-		g = attr[*npar + 3];
-		b = attr[*npar + 4];
-		*npar += 4;
+		r = attr[++*npar];
+		g = attr[++*npar];
+		b = attr[++*npar];
 		if (!BETWEEN(r, 0, 255) || !BETWEEN(g, 0, 255) || !BETWEEN(b, 0, 255))
 			fprintf(stderr, "erresc(%d): bad rgb color (%u,%u,%u)\n", code, r, g, b);
 		else
 			color = TRUECOLOR(r, g, b);
 		break;
 	case 5: /* indexed color */
-		if (*npar + 2 >= l) {
+		if (++*npar >= l) {
 			fprintf(stderr, "erresc(%d): incorrect number of arguments\n", code);
-			*npar = l;
 			break;
 		}
-		*npar += 2;
 		if (!BETWEEN(attr[*npar], 0, 255))
 			fprintf(stderr, "erresc(%d): bad color index %d\n", code, attr[*npar]);
 		else
@@ -1677,7 +1674,8 @@ tdefcolor(const int *attr, int *npar, int l)
 	case 3: /* direct color in CMY space */
 	case 4: /* direct color in CMYK space */
 	default:
-		fprintf(stderr, "erresc(%d): unknown color type %d\n", code, attr[*npar + 1]);
+		fprintf(stderr, "erresc(%d): unknown color type %d\n", code, attr[*npar]);
+		--*npar;
 		break;
 	}
 
