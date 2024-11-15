@@ -1639,6 +1639,9 @@ tdefcolor(const int *attr, int *npar, int l)
 		l = subarg->count;
 		attr = subarg->value;
 		npar = &subidx;
+	} else if (*npar + 1 >= l) {
+		fprintf(stderr, "erresc(%d): incorrect number of arguments\n", code);
+		return color;
 	}
 
 	switch (attr[*npar + 1]) {
