@@ -3113,7 +3113,7 @@ tputc(Rune u)
 		if (term.esc & ESC_DCS)
 			goto check_control_code;
 
-		if (strescseq.len+len >= strescseq.siz) {
+		if (strescseq.len+UTF_SIZ >= strescseq.siz) {
 			/*
 			 * Here is a bug in terminals. If the user never sends
 			 * some code to stop the str or esc command, then st
@@ -3133,7 +3133,11 @@ tputc(Rune u)
 			strescseq.buf = xrealloc(strescseq.buf, strescseq.siz);
 		}
 
-		memmove(&strescseq.buf[strescseq.len], c, len);
+		#if defined(__x86_64__) || defined(__i386__) || defined(__i486__) || defined(__i586__) || defined(__i686__)
+		*((int32_t *)&strescseq.buf[strescseq.len]) = *((int32_t *)c);
+		#else
+		memcpy(&strescseq.buf[strescseq.len], c, len);
+		#endif
 		strescseq.len += len;
 		return;
 	}
