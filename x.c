@@ -220,6 +220,8 @@ static char *opt_dir   = NULL;
 static int opt_geometry_cols;
 static int opt_geometry_rows;
 static int opt_fullscreen;
+static int opt_borderpx = -1;
+static int opt_borderperc = -1;
 
 static int focused = 0;
 
@@ -1248,6 +1250,9 @@ xloadfonts(const char *fontstr, double fontsize)
 	win.cw = ceilf(dc.font.width * cwscale);
 	win.ch = ceilf(dc.font.height * chscale);
 	win.cyo = vertcenter ? ceilf(dc.font.height * (chscale - 1.0) / 2) : 0;
+
+	borderpx = (borderperc > 0) ? ceilf(win.cw * borderperc / 100.0) : borderpx;
+	borderpx = MAX(borderpx, 0);
 
 	if (!disable_italic) {
 		FcPatternDel(pattern, FC_SLANT);
@@ -2979,13 +2984,13 @@ run(void)
 void
 usage(void)
 {
-	die("usage: %s [-aivF] [-A alpha] [-c class]"
+	die("usage: %s [-aivF] [-A alpha] [-b border] [-c class]"
 		" [-d path]"
 		" [-f font] [-g geometry]"
 	    " [-n name] [-o file]\n"
 	    "          [-T title] [-t title] [-w windowid]"
 	    " [[-e] command [args ...]]\n"
-	    "       %s [-aivF] [-A alpha] [-c class]"
+	    "       %s [-aivF] [-A alpha] [-b border] [-c class]"
 		" [-d path]"
 		" [-f font] [-g geometry]"
 	    " [-n name] [-o file]\n"
@@ -2996,6 +3001,7 @@ usage(void)
 int
 main(int argc, char *argv[])
 {
+	char *value;
 	xw.l = xw.t = 0;
 	xw.isfixed = False;
 
@@ -3005,6 +3011,11 @@ main(int argc, char *argv[])
 		break;
 	case 'A':
 		opt_alpha = EARGF(usage());
+		break;
+	case 'b':
+		value = EARGF(usage());
+		opt_borderpx = atoi(value);
+		opt_borderperc = strchr(value, '%') ? opt_borderpx : -1;
 		break;
 	case 'c':
 		opt_class = EARGF(usage());

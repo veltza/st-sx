@@ -16,7 +16,12 @@ static char *font2[] = {
 unsigned int disable_bold = 0;
 unsigned int disable_italic = 0;
 
+/* Borders in pixels */
 static int borderpx = 2;
+
+/* Borders as a percentage of the cell width. If greater than zero, overrides
+ * the borderpx setting. */
+static int borderperc = 0;
 
 /* Command that is executed when a URL or hyperlink is clicked */
 char *url_opener = "xdg-open";
@@ -746,6 +751,7 @@ ResourcePref resources[] = {
 		{ "tabspaces",           INTEGER, &tabspaces },
 		{ "cursorthickness",     INTEGER, &cursorthickness },
 		{ "borderpx",            INTEGER, &borderpx },
+		{ "borderperc",          INTEGER, &borderperc },
 		{ "cwscale",             FLOAT,   &cwscale },
 		{ "chscale",             FLOAT,   &chscale },
 		{ "boxdraw",             INTEGER, &boxdraw },

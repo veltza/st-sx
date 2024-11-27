@@ -17,8 +17,11 @@ St.font_fallback2:  Symbola:size=13.5:antialias=true:autohint=true
 St.cols:            80
 St.rows:            24
 
-! Border
+! Borders in pixels
 St.borderpx:        2
+
+! Borders as a percentage of the cell width. If greater than zero, overrides borderpx
+St.borderperc:      0
 
 ! Allow resizing the window to any pixel size: 0 = off, 1 = on
 St.anysize:         1

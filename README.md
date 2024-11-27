@@ -26,6 +26,7 @@ Sixels inside a [tmux](https://github.com/tmux/tmux) session (apps: [lsix](https
 - Netwmicon
 - Newterm
 - Openurlonclick
+- Relativeborder
 - Scrollback-reflow
 - Sixel
 - Swapmouse

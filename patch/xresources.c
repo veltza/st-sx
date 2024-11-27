@@ -56,9 +56,16 @@ config_init(Display *dpy)
 	xsetcursor(cursorstyle);
 	parseurlprotocols();
 
-	/* command line arguments override xresources */
+	/* command line arguments override xresources and config.h */
 	cols = (opt_geometry_cols > 0) ? opt_geometry_cols : cols;
 	rows = (opt_geometry_rows > 0) ? opt_geometry_rows : rows;
+	if (opt_borderperc >= 0) {
+		borderperc = opt_borderperc;
+		borderpx = 0;
+	} else if (opt_borderpx >= 0) {
+		borderpx = opt_borderpx;
+		borderperc = 0;
+	}
 }
 
 void
