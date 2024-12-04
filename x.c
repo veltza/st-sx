@@ -549,6 +549,13 @@ bpress(XEvent *e)
 	if (btn == Button1) {
 		asr.isbutton1pressed = 1;
 		asr.isscrolling = 0;
+		activeurl.click = 1;
+		clearurl(0);
+		if (url_opener_modkey != XK_ANY_MOD &&
+			(e->xkey.state & url_opener_modkey) &&
+			detecturl(evcol(e), evrow(e), 0)) {
+			return;
+		}
 	}
 
 	if (IS_SET(MODE_MOUSE) && !(e->xbutton.state & forcemousemod)) {
@@ -579,9 +586,6 @@ bpress(XEvent *e)
 			return;
 
 		selstart(evcol(e), evrow(e), snap);
-
-		clearurl(0);
-		activeurl.click = 1;
 	}
 }
 
@@ -806,20 +810,26 @@ brelease(XEvent *e)
 		asr.isscrolling = 0;
 	}
 
-	if (IS_SET(MODE_MOUSE) && !(e->xbutton.state & forcemousemod)) {
-		mousereport(e);
-		return;
+	if (IS_SET(MODE_MOUSE)) {
+		if (btn == Button1 && activeurl.click &&
+			url_opener_modkey != XK_ANY_MOD &&
+			(e->xkey.state & url_opener_modkey) &&
+			detecturl(evcol(e), evrow(e), 0)) {
+			openUrlOnClick(evcol(e), evrow(e), url_opener);
+			return;
+		} else if (!(e->xbutton.state & forcemousemod)) {
+			mousereport(e);
+			return;
+		}
 	}
 
-	if (mouseaction(e, 1)) {
-		activeurl.click = 0;
+	if (mouseaction(e, 1))
 		return;
-	}
+
 	if (btn == Button1) {
 		mousesel(e, 1);
 		if (activeurl.click && e->xkey.state & url_opener_modkey)
 			openUrlOnClick(evcol(e), evrow(e), url_opener);
-		activeurl.click = 0;
 	}
 }
 
