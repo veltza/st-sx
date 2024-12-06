@@ -657,23 +657,17 @@ static char ascii_printable[] =
 /**
  * Undercurl style. Set UNDERCURL_STYLE to one of the available styles.
  *
- * Curly: Dunno how to draw it *shrug*
- *  _   _   _   _
- * ( ) ( ) ( ) ( )
- *	 (_) (_) (_) (_)
- *
  * Spiky:
- * /\  /\   /\	/\
- *   \/  \/	  \/
+ * /\  /\  /\  /\
+ *   \/  \/  \/
  *
  * Capped:
- *	_     _     _
+ *  _     _     _
  * / \   / \   / \
  *    \_/   \_/
  */
 // Available styles
 #define UNDERCURL_NONE 0
-#define UNDERCURL_CURLY 1
 #define UNDERCURL_SPIKY 2
 #define UNDERCURL_CAPPED 3
 // Active style

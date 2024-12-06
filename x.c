@@ -1986,23 +1986,23 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 			switch (utype) {
 			case UNDERLINE_CURLY:
 				switch (undercurl_style) {
+				case UNDERCURL_NONE:
+					break;
 				case UNDERCURL_SPIKY:
-					undercurlspiky(ugc, winx, wy, win.cw, wh, width);
+					undercurlspiky(ugc, winx, wy, wh, winy, width);
 					break;
 				case UNDERCURL_CAPPED:
-					undercurlcapped(ugc, winx, wy, win.cw, wh, width);
-					break;
 				default:
-					undercurlcurly(ugc, winx, wy, win.cw, wh, charlen);
+					undercurlcapped(ugc, winx, wy, wh, winy, width);
 					break;
 				}
 				break;
 			case UNDERLINE_DOTTED:
 				if (!hyperlink || hyperlinkstyle)
-					undercurldotted(ugc, winx, wy, win.cw, wlw, charlen, hyperlink);
+					undercurldotted(ugc, winx, wy, wlw, charlen, hyperlink);
 				break;
 			case UNDERLINE_DASHED:
-				undercurldashed(ugc, winx, wy, win.cw, wlw, charlen);
+				undercurldashed(ugc, winx, wy, wlw, charlen);
 				break;
 			case UNDERLINE_SINGLE:
 			case UNDERLINE_DOUBLE:
