@@ -1784,7 +1784,9 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 	int width = charlen * win.cw;
 	Color *fg, *bg, *temp, revfg, revbg, truefg, truebg, bellfg, bellbg;
 	XRenderColor colfg, colbg;
-	XRectangle r;
+	static GC ugc;
+	static XGCValues ugcv;
+	static int ugc_clip;
 
 	/* Fallback on color display for attributes not supported by the font */
 	if (base.mode & ATTR_ITALIC && base.mode & ATTR_BOLD) {
@@ -1898,27 +1900,10 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 			xclear(winx, winy + win.ch, winx + width, win.h);
 
 		/* Clean up the region we want to draw to. */
-		/* Set the clip region because Xft is sometimes dirty. */
-		r.x = 0;
-		r.y = 0;
-		r.height = win.ch;
-		r.width = width;
-		XftDrawSetClipRectangles(xw.draw, winx, winy, &r, 1);
-		/* Fill the background */
 		XftDrawRect(xw.draw, bg, winx, winy, width, win.ch);
 	}
 
 	if (dmode & DRAW_FG) {
-		/* If dmode is set to DRAW_FG only, it means that we are in wide glyph mode
-		 * and we need to set the entire terminal row as the clipping region. */
-		if (!(dmode & DRAW_BG)) {
-			r.x = 0;
-			r.y = 0;
-			r.height = win.ch;
-			r.width = win.cw * term.col;
-			XftDrawSetClipRectangles(xw.draw, borderpx, winy, &r, 1);
-		}
-
 		if (base.mode & ATTR_BOXDRAW) {
 			drawboxes(winx, winy, width / len, win.ch, fg, bg, specs, len);
 		} else {
@@ -1959,30 +1944,35 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 				/* Foreground color for underline */
 				linecolor = fg->pixel;
 			}
-
-			XGCValues ugcv = {
-				.foreground = linecolor | 0xff000000,
-				.line_width = wlw,
-				.line_style = LineSolid,
-				.cap_style = CapNotLast
-			};
-
-			GC ugc = XCreateGC(xw.dpy, XftDrawDrawable(xw.draw),
-				GCForeground | GCLineWidth | GCLineStyle | GCCapStyle,
-				&ugcv);
+			linecolor |= 0xff000000;
 
 			/* Underline type */
 			int utype = (base.extra & UNDERLINE_TYPE_MASK) >> UNDERLINE_TYPE_SHIFT;
 			int hyperlink = 0;
 			if (base.mode & ATTR_HYPERLINK) {
 				if (!(base.mode & ATTR_UNDERLINE) ||
-				    (utype == UNDERLINE_DOTTED && (fg->pixel | 0xff000000) == (linecolor | 0xff000000))) {
+				    (utype == UNDERLINE_DOTTED && ((fg->pixel | 0xff000000) == linecolor))) {
 					utype = UNDERLINE_DOTTED;
 					hyperlink = 1;
 					wy = url_ascent + url_yoffset;
-					XSetForeground(xw.dpy, ugc, fg->pixel | 0xff000000);
+					linecolor = fg->pixel | 0xff000000;
 				}
 			}
+
+			if (ugcv.foreground != linecolor || ugcv.line_width != wlw) {
+				ugcv.foreground = linecolor;
+				ugcv.line_width = wlw;
+				if (ugc)
+					XChangeGC(xw.dpy, ugc, GCForeground | GCLineWidth, &ugcv);
+				else
+					ugc = XCreateGC(xw.dpy, XftDrawDrawable(xw.draw),
+						GCForeground | GCLineWidth, &ugcv);
+			}
+			if (utype != UNDERLINE_CURLY && ugc_clip) {
+				XSetClipMask(xw.dpy, ugc, None);
+				ugc_clip = 0;
+			}
+
 			switch (utype) {
 			case UNDERLINE_CURLY:
 				switch (undercurl_style) {
@@ -1990,10 +1980,12 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 					break;
 				case UNDERCURL_SPIKY:
 					undercurlspiky(ugc, winx, wy, wh, winy, width);
+					ugc_clip = 1;
 					break;
 				case UNDERCURL_CAPPED:
 				default:
 					undercurlcapped(ugc, winx, wy, wh, winy, width);
+					ugc_clip = 1;
 					break;
 				}
 				break;
@@ -2016,8 +2008,6 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 				url_yoffset = wlw*2 + 1;
 				break;
 			}
-
-			XFreeGC(xw.dpy, ugc);
 		}
 
 		if (base.mode & ATTR_STRUCK) {
@@ -2029,15 +2019,18 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 		if (activeurl.draw && y >= activeurl.y1 && y <= activeurl.y2)
 			drawurl(fg, base.mode, x, y, charlen, url_yoffset, underline_thickness);
 	}
-
-	/* Reset clip to none. */
-	XftDrawSetClip(xw.draw, 0);
 }
 
 void
 xdrawglyph(Glyph g, int x, int y)
 {
-	int numspecs;
+	int numspecs, charlen = (g.mode & ATTR_WIDE) ? 2 : 1;
+	XRectangle r = {
+		.x = borderpx + x * win.cw,
+		.y = borderpx + y * win.ch,
+		.width = win.cw * charlen,
+		.height = win.ch
+	};
 	XftGlyphFontSpec *specs = xw.specbuf;
 
 	#if !DISABLE_LIGATURES
@@ -2047,8 +2040,9 @@ xdrawglyph(Glyph g, int x, int y)
 	#endif
 		numspecs = xmakeglyphfontspecs_noligatures(specs, &g, 1, x, y);
 
-	xdrawglyphfontspecs(specs, g, numspecs, x, y, DRAW_BG | DRAW_FG,
-	                    (g.mode & ATTR_WIDE) ? 2 : 1);
+	XftDrawSetClipRectangles(xw.draw, 0, 0, &r, 1);
+	xdrawglyphfontspecs(specs, g, numspecs, x, y, DRAW_BG | DRAW_FG, charlen);
+	XftDrawSetClip(xw.draw, 0);
 	term.dirtyimg[y] = 1;
 }
 
@@ -2270,6 +2264,12 @@ xdrawline_ligatures(Line line, int x1, int y1, int x2)
 	Glyph new;
 	GlyphFontSeq *seq = xw.specseq;
 	XftGlyphFontSpec *specs = xw.specbuf;
+	XRectangle r = {
+		.x = borderpx,
+		.y = borderpx + y1 * win.ch,
+		.width = win.cw * term.col,
+		.height = win.ch
+	};
 
 	/* Draw line in 2 passes: background and foreground. This way wide glyphs
 	   won't get truncated (#223) */
@@ -2304,12 +2304,18 @@ xdrawline_ligatures(Line line, int x1, int y1, int x2)
 		seq[j++].numspecs = numspecs;
 	}
 
+	/* Set the clipping region for fonts */
+	XftDrawSetClipRectangles(xw.draw, 0, 0, &r, 1);
+
 	/* foreground */
 	specs = xw.specbuf;
 	for (i = 0; i < j; i++) {
 		xdrawglyphfontspecs(specs, seq[i].base, seq[i].numspecs, seq[i].ox, y1, DRAW_FG, seq[i].charlen);
 		specs += seq[i].numspecs;
 	}
+
+	/* Reset the clipping region */
+	XftDrawSetClip(xw.draw, 0);
 }
 #endif
 
@@ -2320,12 +2326,22 @@ xdrawline_noligatures(Line line, int x1, int y1, int x2)
 	int numspecs_cached;
 	Glyph base, new;
 	XftGlyphFontSpec *specs;
+	XRectangle r = {
+		.x = borderpx,
+		.y = borderpx + y1 * win.ch,
+		.width = win.cw * term.col,
+		.height = win.ch
+	};
 
 	numspecs_cached = xmakeglyphfontspecs_noligatures(xw.specbuf, &line[x1], x2 - x1, x1, y1);
 
 	/* Draw line in 2 passes: background and foreground. This way wide glyphs
 	   won't get truncated (#223) */
 	for (int dmode = DRAW_BG; dmode <= DRAW_FG; dmode <<= 1) {
+		if (dmode == DRAW_FG) {
+			/* Set the clipping region for fonts */
+			XftDrawSetClipRectangles(xw.draw, 0, 0, &r, 1);
+		}
 		specs = xw.specbuf;
 		numspecs = numspecs_cached;
 		i = ox = 0;
@@ -2350,6 +2366,9 @@ xdrawline_noligatures(Line line, int x1, int y1, int x2)
 		if (i > 0)
 			xdrawglyphfontspecs(specs, base, i, ox, y1, dmode, x2 - ox);
 	}
+
+	/* Reset the clipping region */
+	XftDrawSetClip(xw.draw, 0);
 }
 
 void
