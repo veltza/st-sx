@@ -955,7 +955,7 @@ xloadcols(void)
 	Color *cp;
 
 	if (!loaded) {
-		dc.collen = 1 + (defaultbg = MAX(LEN(colorname), 256));
+		dc.collen = 1 + defaultbg;
 		dc.col = xmalloc((dc.collen) * sizeof(Color));
 	}
 
@@ -3124,9 +3124,6 @@ run:
 		fullscreen(&((Arg) { .i = 0 }));
 	inithyperlinks();
 	run();
-	#if !DISABLE_LIGATURES
-	hbdestroybuffer();
-	#endif
 
 	return 0;
 }
