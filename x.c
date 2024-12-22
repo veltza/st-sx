@@ -3119,7 +3119,7 @@ run:
 	xsetenv();
 	selinit();
 	if (opt_dir && chdir(opt_dir))
-		die("Can't change to working directory %s\n", opt_dir);
+		fprintf(stderr, "Can't change to working directory %s\n", opt_dir);
 	if (opt_fullscreen)
 		fullscreen(&((Arg) { .i = 0 }));
 	inithyperlinks();
