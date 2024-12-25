@@ -2,11 +2,15 @@
 
 st-sx is a fork of suckless' [st terminal](https://st.suckless.org/) that aims to provide the best sixel support for the st users. It also includes many useful patches such as ligatures and text reflow. And it is the only st fork that supports hyperlinks (OSC 8) and [branch drawing symbols](https://github.com/kovidgoyal/kitty/pull/7681) as well!
 
-## Screenshot
+## Screenshots
 
-![1](https://github.com/veltza/st-sx/assets/106755522/0ec5f614-07fc-4843-8455-1a0020e0a0e7)
+Sixels inside a [tmux](https://github.com/tmux/tmux) session. (apps: [lsix](https://github.com/hackerb9/lsix) and [vv](https://github.com/hackerb9/vv))
 
-Sixels inside a [tmux](https://github.com/tmux/tmux) session (apps: [lsix](https://github.com/hackerb9/lsix) and [vv](https://github.com/hackerb9/vv))
+![sixels](https://github.com/veltza/st-sx/assets/106755522/0ec5f614-07fc-4843-8455-1a0020e0a0e7)
+
+Branch drawing symbols are supported with built-in glyphs. (app/plugin: [vim-flog](https://github.com/rbong/vim-flog))
+
+![branch-symbols](https://github.com/user-attachments/assets/66c86691-616e-40c7-a4ee-b83848d5d5e6)
 
 ## Patches
 
