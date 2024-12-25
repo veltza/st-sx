@@ -145,6 +145,12 @@ int boxdraw_bold = 0;
 /* braille (U28XX):  1: render as adjacent "pixels",  0: use font */
 int boxdraw_braille = 0;
 
+/* branch symbols (UF5D0..U+F60D). Ref. https://github.com/kovidgoyal/kitty/pull/7681 */
+int boxdraw_branch = 1;
+
+/* line thickness of the branch symbols in pixels (0 = auto) */
+int boxdraw_branch_thickness = 0;
+
 /*
  * bell volume. It must be a value between -100 and 100. Use 0 for disabling
  * it
@@ -752,6 +758,8 @@ ResourcePref resources[] = {
 		{ "boxdraw",             INTEGER, &boxdraw },
 		{ "boxdraw_bold",        INTEGER, &boxdraw_bold },
 		{ "boxdraw_braille",     INTEGER, &boxdraw_braille },
+		{ "boxdraw_branch",      INTEGER, &boxdraw_branch },
+		{ "boxdraw_branch_thickness", INTEGER, &boxdraw_branch_thickness },
 		{ "hidecursor",          INTEGER, &hidecursor },
 		{ "ligatures",           INTEGER, &ligatures },
 		{ "vertcenter",          INTEGER, &vertcenter },

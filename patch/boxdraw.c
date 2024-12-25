@@ -29,13 +29,16 @@ isboxdraw(Rune u)
 {
 	Rune block = u & ~0xff;
 	return (boxdraw && block == 0x2500 && boxdata[(uint8_t)u]) ||
-	       (boxdraw_braille && block == 0x2800);
+	       (boxdraw_braille && block == 0x2800) ||
+	       (boxdraw_branch && u >= 0xf5d0 && u < 0xf5d0 + LEN(branchsymbols));
 }
 
 /* the "index" is actually the entire shape data encoded as ushort */
 ushort
 boxdrawindex(const Glyph *g)
 {
+	if (g->u >= 0xf5d0 && g->u < 0xf5d0 + LEN(branchsymbols))
+		return BRS | (g->u - 0xf5d0);
 	if (boxdraw_braille && (g->u & ~0xff) == 0x2800)
 		return BRL | (uint8_t)g->u;
 	if (boxdraw_bold && (g->mode & ATTR_BOLD))
@@ -57,7 +60,10 @@ void
 drawbox(int x, int y, int w, int h, XftColor *fg, XftColor *bg, ushort bd)
 {
 	ushort cat = bd & ~(BDB | 0xff);  /* mask out bold and data */
-	if (bd & (BDL | BDA)) {
+	if (cat == BRS) {
+		drawbranchsymbol(x, y, w, h, fg, bd & 0xff);
+
+	} else if (bd & (BDL | BDA)) {
 		/* lines (light/double/heavy/arcs) */
 		drawboxlines(x, y, w, h, fg, bd);
 
