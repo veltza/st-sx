@@ -2291,6 +2291,8 @@ csihandle(void)
 		}
 		break;
 	case 'u': /* DECRC -- Restore cursor position (ANSI.SYS) */
+		if (csiescseq.priv)
+			goto unknown;
 		tcursor(CURSOR_LOAD);
 		break;
 	case ' ':
