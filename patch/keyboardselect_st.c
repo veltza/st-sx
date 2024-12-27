@@ -6,6 +6,7 @@ enum keyboardselect_mode {
 	KBDS_MODE_LSELECT = 1<<2,
 	KBDS_MODE_FIND    = 1<<3,
 	KBDS_MODE_SEARCH  = 1<<4,
+	KBDS_MODE_FLASH   = 1<<5,
 };
 
 enum cursor_wrap {
@@ -32,18 +33,230 @@ struct {
 	Glyph *str;
 } kbds_searchobj;
 
+typedef struct {
+    char *array;
+    size_t used;
+    size_t size;
+} CharArray;
+
+typedef struct {
+    KCursor *array;
+    size_t used;
+    size_t size;   
+} KCursorArray;
+
 static int kbds_in_use, kbds_quant;
 static int kbds_seltype = SEL_REGULAR;
 static int kbds_mode;
 static int kbds_finddir, kbds_findtill;
 static Rune kbds_findchar;
 static KCursor kbds_c, kbds_oc;
+static CharArray flash_next_char_record, flash_used_label;
+static KCursorArray flash_kcursor_record;
+
+static const char *flash_key_label[52] = {
+	"j", "f", "d", "k", "l", "h", "g", "a", "s", "o", 
+	"i", "e", "u", "n", "c", "m", "r", "p", "b", "t", 
+	"w", "v", "x", "y", "q", "z",
+	"I", "J", "L", "H", "A", "B", "Y", "D", "E", "F", 
+	"G", "Q", "R", "T", "U", "V", "W", "X", "Z", "C",
+	"K", "M", "N", "O", "P", "S"
+};
+
+void
+init_char_array(CharArray *a, size_t initialSize) {
+    a->array = (char *)malloc(initialSize * sizeof(char));
+    if (!a->array) {
+        perror("Failed to allocate memory");
+        exit(EXIT_FAILURE);
+    }
+    a->used = 0;
+    a->size = initialSize;
+}
+
+void
+insert_char_array(CharArray *a, char element) {
+    if (a->used == a->size) {
+        a->size *= 2;
+        a->array = (char *)realloc(a->array, a->size * sizeof(char));
+        if (!a->array) {
+            perror("Failed to reallocate memory");
+            exit(EXIT_FAILURE);
+        }
+    }
+    a->array[a->used++] = element;
+}
+
+void
+reset_char_array(CharArray *a) {
+    free(a->array);
+    a->array = NULL;
+    a->used = 0;
+    a->size = 0;
+}
+
+void
+init_kcursor_array(KCursorArray *a, size_t initialSize) {
+    a->array = (KCursor *)malloc(initialSize * sizeof(KCursor));
+    if (!a->array) {
+        perror("Failed to allocate memory");
+        exit(EXIT_FAILURE);
+    }
+    a->used = 0;
+    a->size = initialSize;
+}
+
+void
+insert_kcursor_array(KCursorArray *a, KCursor element) {
+    if (a->used == a->size) {
+        size_t newSize = a->size == 0 ? 1 : a->size * 2;
+        KCursor *newArray = (KCursor *)realloc(a->array, newSize * sizeof(KCursor));
+        if (!newArray) {
+            perror("Failed to reallocate memory");
+            exit(EXIT_FAILURE);
+        }
+        a->array = newArray;
+        a->size = newSize;
+    }
+    a->array[a->used++] = element;
+}
+
+void
+reset_kcursor_array(KCursorArray *a) {
+    free(a->array);
+    a->array = NULL;
+    a->used = 0;
+    a->size = 0;
+}
+
+char
+keysym_to_char(unsigned int keysym) {
+    switch (keysym) {
+        case XK_0: return '0';
+        case XK_1: return '1';
+        case XK_2: return '2';
+        case XK_3: return '3';
+        case XK_4: return '4';
+        case XK_5: return '5';
+        case XK_6: return '6';
+        case XK_7: return '7';
+        case XK_8: return '8';
+        case XK_9: return '9';
+        case XK_KP_0: return '0';
+        case XK_KP_1: return '1';
+        case XK_KP_2: return '2';
+        case XK_KP_3: return '3';
+        case XK_KP_4: return '4';
+        case XK_KP_5: return '5';
+        case XK_KP_6: return '6';
+        case XK_KP_7: return '7';
+        case XK_KP_8: return '8';
+        case XK_KP_9: return '9';
+        case XK_exclam: return '!';
+        case XK_at: return '@';
+        case XK_numbersign: return '#';
+        case XK_dollar: return '$';
+        case XK_percent: return '%';
+        case XK_asciicircum: return '^';
+        case XK_ampersand: return '&';
+        case XK_asterisk: return '*';
+        case XK_parenleft: return '(';
+        case XK_parenright: return ')';
+        case XK_minus: return '-';
+        case XK_underscore: return '_';
+        case XK_equal: return '=';
+        case XK_plus: return '+';
+		case XK_period : return '.';
+        case XK_BackSpace: return '\b';
+        case XK_Tab: return '\t';
+        case XK_Linefeed: return '\n';
+        case XK_Return: return '\r';
+        case XK_space: return ' ';
+        case XK_a: return 'a';
+        case XK_b: return 'b';
+        case XK_c: return 'c';
+        case XK_d: return 'd';
+        case XK_e: return 'e';
+        case XK_f: return 'f';
+        case XK_g: return 'g';
+        case XK_h: return 'h';
+        case XK_i: return 'i';
+        case XK_j: return 'j';
+        case XK_k: return 'k';
+        case XK_l: return 'l';
+        case XK_m: return 'm';
+        case XK_n: return 'n';
+        case XK_o: return 'o';
+        case XK_p: return 'p';
+        case XK_q: return 'q';
+        case XK_r: return 'r';
+        case XK_s: return 's';
+        case XK_t: return 't';
+        case XK_u: return 'u';
+        case XK_v: return 'v';
+        case XK_w: return 'w';
+        case XK_x: return 'x';
+        case XK_y: return 'y';
+        case XK_z: return 'z';
+        case XK_A: return 'A';
+        case XK_B: return 'B';
+        case XK_C: return 'C';
+        case XK_D: return 'D';
+        case XK_E: return 'E';
+        case XK_F: return 'F';
+        case XK_G: return 'G';
+        case XK_H: return 'H';
+        case XK_I: return 'I';
+        case XK_J: return 'J';
+        case XK_K: return 'K';
+        case XK_L: return 'L';
+        case XK_M: return 'M';
+        case XK_N: return 'N';
+        case XK_O: return 'O';
+        case XK_P: return 'P';
+        case XK_Q: return 'Q';
+        case XK_R: return 'R';
+        case XK_S: return 'S';
+        case XK_T: return 'T';
+        case XK_U: return 'U';
+        case XK_V: return 'V';
+        case XK_W: return 'W';
+        case XK_X: return 'X';
+        case XK_Y: return 'Y';
+        case XK_Z: return 'Z';
+        default: return '?'; // Unknown keysym
+    }
+}
+
+int
+is_in_flash_used_label(unsigned int keysym) {
+	int i;
+	char label = keysym_to_char(keysym);
+	for ( i = 0; i < flash_used_label.used; i++) {
+		if (label == flash_used_label.array[i]) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int
+is_in_flash_next_char_record(unsigned int keysym) {
+	int i;
+	char label = keysym_to_char(keysym);
+	for ( i = 0; i < flash_next_char_record.used; i++) {
+		if (label == flash_next_char_record.array[i]) {
+			return 1;
+		}
+	}
+	return 0;
+}
 
 void
 kbds_drawstatusbar(int y)
 {
 	static char *modes[] = { " MOVE ", "", " SELECT ", " RSELECT ", " LSELECT ",
-	                         " SEARCH FW ", " SEARCH BW ", " FIND FW ", " FIND BW " };
+	                         " SEARCH FW ", " SEARCH BW ", " FIND FW ", " FIND BW ", " FLASH " };
 	static char quant[20] = { ' ' };
 	static Glyph g;
 	int i, n, m;
@@ -58,7 +271,9 @@ kbds_drawstatusbar(int y)
 
 	/* draw the mode */
 	if (y == 0) {
-		if (kbds_issearchmode())
+		if (kbds_isflashmode())
+			m = 9;
+		else if (kbds_issearchmode())
 			m = 5 + (kbds_searchobj.dir < 0 ? 1 : 0);
 		else if (kbds_mode & KBDS_MODE_FIND)
 			m = 7 + (kbds_finddir < 0 ? 1 : 0);
@@ -82,7 +297,7 @@ kbds_drawstatusbar(int y)
 	}
 
 	/* draw the search bar */
-	if (y == term.row-1 && kbds_issearchmode()) {
+	if (y == term.row-1 && (kbds_issearchmode() || kbds_isflashmode())) {
 		/* search bar */
 		for (g.u = ' ', i = 0; i < term.col; i++)
 			xdrawglyph(g, i, y);
@@ -225,6 +440,12 @@ kbds_issearchmode(void)
 	return kbds_in_use && (kbds_mode & KBDS_MODE_SEARCH);
 }
 
+int
+kbds_isflashmode(void)
+{
+	return kbds_in_use && (kbds_mode & KBDS_MODE_FLASH);
+}
+
 void
 kbds_setmode(int mode)
 {
@@ -265,8 +486,13 @@ kbds_clearhighlights(void)
 
 	for (y = (IS_SET(MODE_ALTSCREEN) ? 0 : -term.histf); y < term.row; y++) {
 		line = TLINEABS(y);
-		for (x = 0; x < term.col; x++)
+		for (x = 0; x < term.col; x++) {
 			line[x].mode &= ~ATTR_HIGHLIGHT;
+			if (line[x].mode & ATTR_FLASH_LABEL) {
+				line[x].mode &= ~ATTR_FLASH_LABEL;
+				line[x].u = line[x].ubk;
+			}
+		}
 	}
 	tfulldirt();
 }
@@ -405,6 +631,13 @@ kbds_ismatch(KCursor c)
 			kbds_moveforward(&m, 1, KBDS_WRAP_LINE);
 		}
 	}
+
+	if (kbds_isflashmode()) {
+		m.line[m.x].ubk = m.line[m.x].u;
+		insert_char_array(&flash_next_char_record, m.line[m.x].u);
+		insert_kcursor_array(&flash_kcursor_record, m);
+	}
+
 	return 1;
 }
 
@@ -413,9 +646,19 @@ kbds_searchall(void)
 {
 	KCursor c;
 	int count = 0;
+	int i, j, is_invalid_label;
+	CharArray valid_label;
+
+	init_char_array(&flash_next_char_record, 1);
+	init_char_array(&valid_label, 1);
+	init_char_array(&flash_used_label, 1);
+	init_kcursor_array(&flash_kcursor_record, 1);
 
 	if (!kbds_searchobj.len)
 		return 0;
+
+	int begin = kbds_isflashmode() ? 0 : kbds_top();
+	int end = kbds_isflashmode() ? term.row - 1 : kbds_bot();
 
 	for (c.y = kbds_top(); c.y <= kbds_bot(); c.y++) {
 		c.line = TLINE(c.y);
@@ -423,9 +666,51 @@ kbds_searchall(void)
 		for (c.x = 0; c.x < c.len; c.x++)
 			count += kbds_ismatch(c);
 	}
+
+    for ( i = 0; i < 52; i++) {
+		is_invalid_label = 0;
+		for ( j = 0; j < flash_next_char_record.used; j++) {
+			if (flash_next_char_record.array[j] == *flash_key_label[i]) {
+				is_invalid_label = 1;
+				break;
+			}
+		}
+		if (is_invalid_label == 0) {
+			insert_char_array(&valid_label, *flash_key_label[i]);
+		}
+    }
+
+	for ( i = 0; i < flash_kcursor_record.used; i++) {
+		if (i < valid_label.used) {
+			flash_kcursor_record.array[i].line[flash_kcursor_record.array[i].x].mode |= ATTR_FLASH_LABEL;
+			insert_char_array(&flash_used_label, valid_label.array[i]);
+			flash_kcursor_record.array[i].line[flash_kcursor_record.array[i].x].u = valid_label.array[i];
+		}
+	}
+
+	reset_char_array(&valid_label);
+
 	tfulldirt();
 
 	return count;
+}
+
+void
+jump_to_label(unsigned int keysym, int len) {
+	int i;
+	char label = keysym_to_char(keysym);
+	for ( i = 0; i < flash_kcursor_record.used; i++) {
+		if (label == flash_kcursor_record.array[i].line[flash_kcursor_record.array[i].x].u) {
+			kbds_moveto(flash_kcursor_record.array[i].x-len, flash_kcursor_record.array[i].y);
+		}
+	}
+}
+
+void
+clear_flash_cache() {
+	reset_char_array(&flash_next_char_record);
+	reset_char_array(&flash_used_label);
+	reset_kcursor_array(&flash_kcursor_record);
 }
 
 void
@@ -610,6 +895,65 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 	Line line;
 	Rune u;
 
+	if (kbds_isflashmode() && !forcequit) {
+		switch (ksym) {
+		case XK_Escape:
+			kbds_searchobj.len = 0;
+			kbds_setmode(kbds_mode & ~KBDS_MODE_FLASH);
+			clear_flash_cache();
+			break;
+		case XK_BackSpace:
+			if (kbds_searchobj.cx == 0)
+				break;
+		case XK_Left:
+		case XK_KP_Left:
+			kbds_clearhighlights();
+			kbds_searchobj.cx = MAX(kbds_searchobj.cx-1, 0);
+			if (kbds_searchobj.str[kbds_searchobj.cx].mode & ATTR_WDUMMY)
+				kbds_searchobj.cx = MAX(kbds_searchobj.cx-1, 0);
+			if (ksym == XK_BackSpace)
+				kbds_deletechar();
+			for (kbds_searchobj.ignorecase = 1, i = 0; i < kbds_searchobj.len; i++) {
+				if (kbds_searchobj.str[i].u != towlower(kbds_searchobj.str[i].u)) {
+					kbds_searchobj.ignorecase = 0;
+					break;
+				}
+			}
+			kbds_searchobj.wordonly = 0;
+			count = kbds_searchall();
+			return 0;
+		default:
+			if (len > 0) {
+				if (is_in_flash_used_label(ksym) == 1) {
+					jump_to_label(ksym,kbds_searchobj.len);
+					kbds_searchobj.len = 0;
+					kbds_setmode(kbds_mode & ~KBDS_MODE_FLASH);
+					clear_flash_cache();
+					kbds_clearhighlights();
+					return 0;
+					break;
+				} else if(ksym,kbds_searchobj.len > 0 && is_in_flash_next_char_record(ksym) == 0) {
+					return 0;
+				} else {
+					clear_flash_cache();
+				}
+				kbds_clearhighlights();
+				utf8decode(buf, &u, len);
+				kbds_insertchar(u);
+				for (kbds_searchobj.ignorecase = 1, i = 0; i < kbds_searchobj.len; i++) {
+					if (kbds_searchobj.str[i].u != towlower(kbds_searchobj.str[i].u)) {
+						kbds_searchobj.ignorecase = 0;
+						break;
+					}
+				}
+				kbds_searchobj.wordonly = 0;
+				count = kbds_searchall();
+				return 0;				
+			}
+			break;
+		}
+	}
+
 	if (kbds_issearchmode() && !forcequit) {
 		switch (ksym) {
 		case XK_Escape:
@@ -730,12 +1074,20 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 			kbds_setmode(kbds_mode | KBDS_MODE_SELECT);
 		}
 		break;
-	case XK_s:
+	case XK_S:
 		if (!(kbds_mode & KBDS_MODE_LSELECT)) {
 			kbds_seltype ^= (SEL_REGULAR | SEL_RECTANGULAR);
 			selextend(kbds_c.x, kbds_c.y, kbds_seltype, 0);
 		}
 		break;
+	case XK_s:
+		kbds_searchobj.directsearch = (ksym == -2 || ksym == -3);
+		kbds_searchobj.dir = (ksym == XK_question || ksym == -3) ? -1 : 1;
+		kbds_searchobj.cx = kbds_searchobj.len = 0;
+		kbds_searchobj.maxlen = term.col - 2;
+		kbds_setmode(kbds_mode | KBDS_MODE_FLASH);
+		kbds_clearhighlights();
+		return 0;
 	case XK_o:
 	case XK_O:
 		ox = sel.ob.x; oy = sel.ob.y;
@@ -771,6 +1123,14 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		kbds_searchobj.cx = kbds_searchobj.len = 0;
 		kbds_searchobj.maxlen = term.col - 2;
 		kbds_setmode(kbds_mode | KBDS_MODE_SEARCH);
+		kbds_clearhighlights();
+		return 0;
+	case -4:
+		kbds_searchobj.directsearch = (ksym == -2 || ksym == -3);
+		kbds_searchobj.dir = (ksym == XK_question || ksym == -3) ? -1 : 1;
+		kbds_searchobj.cx = kbds_searchobj.len = 0;
+		kbds_searchobj.maxlen = term.col - 2;
+		kbds_setmode(kbds_mode | KBDS_MODE_FLASH);
 		kbds_clearhighlights();
 		return 0;
 	case XK_q:

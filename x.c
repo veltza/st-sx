@@ -1883,6 +1883,17 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 		bg = &bellbg;
 	}
 
+	if (base.mode & ATTR_FLASH_LABEL) {
+		fg = &dc.col[(base.mode & ATTR_REVERSE) ? flashlabelbg : flashlabelfg];
+		bg = &dc.col[(base.mode & ATTR_REVERSE) ? flashlabelfg : flashlabelbg];
+	}
+	
+	if (!(base.mode & (ATTR_HIGHLIGHT | ATTR_REVERSE | ATTR_WDUMMY | ATTR_FLASH_LABEL)) && kbds_isflashmode()) {
+		fg = &dc.col[flashtextfg];
+		if (base.bg != defaultbg)
+			bg = &dc.col[flashtextbg];
+	}
+
 	if (dmode & DRAW_BG) {
 		/* Intelligent cleaning up of the borders. */
 		if (x == 0) {
