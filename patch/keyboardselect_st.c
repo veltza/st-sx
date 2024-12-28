@@ -66,10 +66,6 @@ static const char *flash_key_label[52] = {
 void
 init_char_array(CharArray *a, size_t initialSize) {
     a->array = (char *)xmalloc(initialSize * sizeof(char));
-    if (!a->array) {
-        perror("Failed to allocate memory");
-        exit(EXIT_FAILURE);
-    }
     a->used = 0;
     a->size = initialSize;
 }
@@ -94,10 +90,6 @@ reset_char_array(CharArray *a) {
 void
 init_kcursor_array(KCursorArray *a, size_t initialSize) {
     a->array = (KCursor *)xmalloc(initialSize * sizeof(KCursor));
-    if (!a->array) {
-        perror("Failed to allocate memory");
-        exit(EXIT_FAILURE);
-    }
     a->used = 0;
     a->size = initialSize;
 }
