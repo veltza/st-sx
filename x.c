@@ -1644,7 +1644,7 @@ int
 xmakeglyphfontspecs_noligatures(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x, int y)
 {
 	float winx = borderpx + x * win.cw, winy = borderpx + y * win.ch, xp, yp;
-	Mode mode, prevmode = USHRT_MAX;
+	Mode mode, prevmode = -1;
 	Font *font = &dc.font;
 	int frcflags = FRC_NORMAL;
 	float runewidth = win.cw;
