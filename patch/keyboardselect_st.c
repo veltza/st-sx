@@ -65,7 +65,7 @@ static const char *flash_key_label[52] = {
 
 void
 init_char_array(CharArray *a, size_t initialSize) {
-    a->array = (char *)malloc(initialSize * sizeof(char));
+    a->array = (char *)xmalloc(initialSize * sizeof(char));
     if (!a->array) {
         perror("Failed to allocate memory");
         exit(EXIT_FAILURE);
@@ -78,11 +78,7 @@ void
 insert_char_array(CharArray *a, char element) {
     if (a->used == a->size) {
         a->size *= 2;
-        a->array = (char *)realloc(a->array, a->size * sizeof(char));
-        if (!a->array) {
-            perror("Failed to reallocate memory");
-            exit(EXIT_FAILURE);
-        }
+        a->array = (char *)xrealloc(a->array, a->size * sizeof(char));
     }
     a->array[a->used++] = element;
 }
@@ -97,7 +93,7 @@ reset_char_array(CharArray *a) {
 
 void
 init_kcursor_array(KCursorArray *a, size_t initialSize) {
-    a->array = (KCursor *)malloc(initialSize * sizeof(KCursor));
+    a->array = (KCursor *)xmalloc(initialSize * sizeof(KCursor));
     if (!a->array) {
         perror("Failed to allocate memory");
         exit(EXIT_FAILURE);
@@ -110,11 +106,7 @@ void
 insert_kcursor_array(KCursorArray *a, KCursor element) {
     if (a->used == a->size) {
         size_t newSize = a->size == 0 ? 1 : a->size * 2;
-        KCursor *newArray = (KCursor *)realloc(a->array, newSize * sizeof(KCursor));
-        if (!newArray) {
-            perror("Failed to reallocate memory");
-            exit(EXIT_FAILURE);
-        }
+        KCursor *newArray = (KCursor *)xrealloc(a->array, newSize * sizeof(KCursor));
         a->array = newArray;
         a->size = newSize;
     }
