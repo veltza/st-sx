@@ -644,7 +644,7 @@ kbds_searchall(void)
 	int begin = kbds_isflashmode() ? 0 : kbds_top();
 	int end = kbds_isflashmode() ? term.row - 1 : kbds_bot();
 
-	for (c.y = kbds_top(); c.y <= kbds_bot(); c.y++) {
+	for (c.y = begin; c.y <= end; c.y++) {
 		c.line = TLINE(c.y);
 		c.len = tlinelen(c.line);
 		for (c.x = 0; c.x < c.len; c.x++)
