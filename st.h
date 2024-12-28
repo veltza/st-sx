@@ -137,6 +137,7 @@ typedef unsigned long ulong;
 typedef unsigned short ushort;
 
 typedef uint_least32_t Rune;
+typedef uint32_t Mode;
 
 typedef XftDraw *Draw;
 typedef XftColor Color;
@@ -146,7 +147,7 @@ typedef XftGlyphFontSpec GlyphFontSpec;
 typedef struct {
 	Rune u;           /* character code */
 	Rune ubk;		/* character code for flash label */
-	uint32_t mode;   /* attribute flags */
+	Mode mode;   /* attribute flags */
 	ushort hlink;     /* hyperlink index */
 	uint32_t fg;      /* foreground  */
 	uint32_t bg;      /* background  */
