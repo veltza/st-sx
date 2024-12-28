@@ -251,7 +251,7 @@ unsigned int highlightbg = 160;
 
 /* Foreground and background color of flash label */
 unsigned int flashlabelfg = 15;
-unsigned int flashlabelbg = 9;
+unsigned int flashlabelbg = 4;
 unsigned int flashtextfg = 8;
 unsigned int flashtextbg = 0;
 
