@@ -678,7 +678,7 @@ kbds_searchall(void)
 		if (is_invalid_label == 0) {
 			insert_char_array(&valid_label, *flash_key_label[i]);
 		}
-    }
+	}
 
 	for ( i = 0; i < flash_kcursor_record.used; i++) {
 		if (i < valid_label.used) {
