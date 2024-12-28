@@ -667,7 +667,7 @@ kbds_searchall(void)
 			count += kbds_ismatch(c);
 	}
 
-    for ( i = 0; i < 52; i++) {
+	for (i = 0; i < LEN(flash_key_label); i++) {
 		is_invalid_label = 0;
 		for ( j = 0; j < flash_next_char_record.used; j++) {
 			if (flash_next_char_record.array[j] == *flash_key_label[i]) {
