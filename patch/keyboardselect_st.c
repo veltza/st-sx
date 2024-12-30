@@ -885,7 +885,12 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 			kbds_searchobj.len = 0;
 			kbds_setmode(kbds_mode & ~KBDS_MODE_FLASH);
 			clear_flash_cache();
-			break;
+			kbds_clearhighlights();
+			/* If the direct search is aborted, we just go to the next switch
+			 * statement and exit the keyboard selection mode immediately */
+			if (kbds_searchobj.directsearch)
+				break;
+			return 0;
 		case XK_BackSpace:
 			if (kbds_searchobj.cx == 0)
 				break;
@@ -1062,14 +1067,6 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 			selextend(kbds_c.x, kbds_c.y, kbds_seltype, 0);
 		}
 		break;
-	case XK_s:
-		kbds_searchobj.directsearch = (ksym == -2 || ksym == -3);
-		kbds_searchobj.dir = (ksym == XK_question || ksym == -3) ? -1 : 1;
-		kbds_searchobj.cx = kbds_searchobj.len = 0;
-		kbds_searchobj.maxlen = term.col - 2;
-		kbds_setmode(kbds_mode | KBDS_MODE_FLASH);
-		kbds_clearhighlights();
-		return 0;
 	case XK_o:
 	case XK_O:
 		ox = sel.ob.x; oy = sel.ob.y;
@@ -1108,8 +1105,9 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		kbds_clearhighlights();
 		return 0;
 	case -4:
-		kbds_searchobj.directsearch = (ksym == -2 || ksym == -3);
-		kbds_searchobj.dir = (ksym == XK_question || ksym == -3) ? -1 : 1;
+	case XK_s:
+		kbds_searchobj.directsearch = (ksym == -4);
+		kbds_searchobj.dir = 1;
 		kbds_searchobj.cx = kbds_searchobj.len = 0;
 		kbds_searchobj.maxlen = term.col - 2;
 		kbds_setmode(kbds_mode | KBDS_MODE_FLASH);
