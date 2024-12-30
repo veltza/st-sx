@@ -914,6 +914,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 					kbds_setmode(kbds_mode & ~KBDS_MODE_FLASH);
 					clear_flash_cache();
 					kbds_clearhighlights();
+					kbds_selecttext();
 					return 0;
 				} else if(ksym,kbds_searchobj.len > 0 && is_in_flash_next_char_record(ksym) == 0) {
 					return 0;
