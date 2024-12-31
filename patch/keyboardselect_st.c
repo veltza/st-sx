@@ -34,15 +34,15 @@ struct {
 } kbds_searchobj;
 
 typedef struct {
-    Rune *array;
-    size_t used;
-    size_t size;
+	Rune *array;
+	size_t used;
+	size_t size;
 } CharArray;
 
 typedef struct {
-    KCursor *array;
-    size_t used;
-    size_t size;   
+	KCursor *array;
+	size_t used;
+	size_t size;
 } KCursorArray;
 
 static int kbds_in_use, kbds_quant;
@@ -55,62 +55,62 @@ static CharArray flash_next_char_record, flash_used_label;
 static KCursorArray flash_kcursor_record;
 
 static const char *flash_key_label[52] = {
-	"j", "f", "d", "k", "l", "h", "g", "a", "s", "o", 
-	"i", "e", "u", "n", "c", "m", "r", "p", "b", "t", 
+	"j", "f", "d", "k", "l", "h", "g", "a", "s", "o",
+	"i", "e", "u", "n", "c", "m", "r", "p", "b", "t",
 	"w", "v", "x", "y", "q", "z",
-	"I", "J", "L", "H", "A", "B", "Y", "D", "E", "F", 
+	"I", "J", "L", "H", "A", "B", "Y", "D", "E", "F",
 	"G", "Q", "R", "T", "U", "V", "W", "X", "Z", "C",
 	"K", "M", "N", "O", "P", "S"
 };
 
 void
 init_char_array(CharArray *a, size_t initialSize) {
-    a->array = (Rune *)xmalloc(initialSize * sizeof(Rune));
-    a->used = 0;
-    a->size = initialSize;
+	a->array = (Rune *)xmalloc(initialSize * sizeof(Rune));
+	a->used = 0;
+	a->size = initialSize;
 }
 
 void
 insert_char_array(CharArray *a, Rune element) {
-    if (a->used == a->size) {
-        a->size *= 2;
-        a->array = (Rune *)xrealloc(a->array, a->size * sizeof(Rune));
-    }
-    a->array[a->used++] = element;
+	if (a->used == a->size) {
+		a->size *= 2;
+		a->array = (Rune *)xrealloc(a->array, a->size * sizeof(Rune));
+	}
+	a->array[a->used++] = element;
 }
 
 void
 reset_char_array(CharArray *a) {
-    free(a->array);
-    a->array = NULL;
-    a->used = 0;
-    a->size = 0;
+	free(a->array);
+	a->array = NULL;
+	a->used = 0;
+	a->size = 0;
 }
 
 void
 init_kcursor_array(KCursorArray *a, size_t initialSize) {
-    a->array = (KCursor *)xmalloc(initialSize * sizeof(KCursor));
-    a->used = 0;
-    a->size = initialSize;
+	a->array = (KCursor *)xmalloc(initialSize * sizeof(KCursor));
+	a->used = 0;
+	a->size = initialSize;
 }
 
 void
 insert_kcursor_array(KCursorArray *a, KCursor element) {
-    if (a->used == a->size) {
-        size_t newSize = a->size == 0 ? 1 : a->size * 2;
-        KCursor *newArray = (KCursor *)xrealloc(a->array, newSize * sizeof(KCursor));
-        a->array = newArray;
-        a->size = newSize;
-    }
-    a->array[a->used++] = element;
+	if (a->used == a->size) {
+		size_t newSize = a->size == 0 ? 1 : a->size * 2;
+		KCursor *newArray = (KCursor *)xrealloc(a->array, newSize * sizeof(KCursor));
+		a->array = newArray;
+		a->size = newSize;
+	}
+	a->array[a->used++] = element;
 }
 
 void
 reset_kcursor_array(KCursorArray *a) {
-    free(a->array);
-    a->array = NULL;
-    a->used = 0;
-    a->size = 0;
+	free(a->array);
+	a->array = NULL;
+	a->used = 0;
+	a->size = 0;
 }
 
 int
@@ -835,7 +835,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 				}
 				kbds_searchobj.wordonly = 0;
 				count = kbds_searchall();
-				return 0;				
+				return 0;
 			}
 			break;
 		}
@@ -1081,7 +1081,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		break;
 	case XK_M:
 		kbds_moveto(kbds_c.x, alt ? (term.row-1) / 2
-                                  : MIN(term.c.y + term.scr, term.row-1) / 2);
+		                          : MIN(term.c.y + term.scr, term.row-1) / 2);
 		break;
 	case XK_L:
 		kbds_moveto(kbds_c.x, alt ? term.row-1
