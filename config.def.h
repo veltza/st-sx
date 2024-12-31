@@ -249,6 +249,12 @@ unsigned int visualbellcolor = 261;
 unsigned int highlightfg = 15;
 unsigned int highlightbg = 160;
 
+/* Foreground and background color of flash label */
+unsigned int flashlabelfg = 15;
+unsigned int flashlabelbg = 4;
+unsigned int flashtextfg = 8;
+unsigned int flashtextbg = 0;
+
 /* Foreground and background color of the hyperlink hint */
 unsigned int hyperlinkhintfg = 0;
 unsigned int hyperlinkhintbg = 258;
@@ -384,6 +390,7 @@ static Shortcut shortcuts[] = {
 	{ TERMMOD,              XK_space,       keyboard_select, { 0 } },
 	{ TERMMOD,              XK_F,           searchforward,   { 0 } },
 	{ TERMMOD,              XK_B,           searchbackward,  { 0 } },
+	{ TERMMOD,              XK_I,           keyboard_flash,  { 0 } },
 	{ TERMMOD,              XK_Z,           scrolltoprompt,  {.i = -1}, S_PRI },
 	{ TERMMOD,              XK_X,           scrolltoprompt,  {.i =  1}, S_PRI },
 	{ XK_NO_MOD,            XK_F11,         fullscreen,      {.i =  0} },
@@ -726,6 +733,10 @@ ResourcePref resources[] = {
 		{ "visualbellcolor",     STRING,  &colorname[261] },
 		{ "highlightfg",         INTEGER, &highlightfg },
 		{ "highlightbg",         INTEGER, &highlightbg },
+		{ "flashlabelfg",        INTEGER, &flashlabelfg },
+		{ "flashlabelbg",        INTEGER, &flashlabelbg },
+		{ "flashtextfg",         INTEGER, &flashtextfg },
+		{ "flashtextbg",         INTEGER, &flashtextbg },
 		{ "hyperlinkhintfg",     INTEGER, &hyperlinkhintfg },
 		{ "hyperlinkhintbg",     INTEGER, &hyperlinkhintbg },
 		{ "kbselectfg",          INTEGER, &kbselectfg },

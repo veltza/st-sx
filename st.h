@@ -68,6 +68,7 @@ enum glyph_attribute {
 	ATTR_HYPERLINK      = 1 << 14,
 	ATTR_BOLD_FAINT = ATTR_BOLD | ATTR_FAINT,
 	ATTR_SIXEL          = 1 << 15,
+	ATTR_FLASH_LABEL    = 1 << 16,
 };
 
 enum extra_attribute {
@@ -136,6 +137,7 @@ typedef unsigned long ulong;
 typedef unsigned short ushort;
 
 typedef uint_least32_t Rune;
+typedef uint32_t Mode;
 
 typedef XftDraw *Draw;
 typedef XftColor Color;
@@ -144,7 +146,8 @@ typedef XftGlyphFontSpec GlyphFontSpec;
 #define Glyph Glyph_
 typedef struct {
 	Rune u;           /* character code */
-	ushort mode;      /* attribute flags */
+	Rune ubk;		/* character code for flash label */
+	Mode mode;   /* attribute flags */
 	ushort hlink;     /* hyperlink index */
 	uint32_t fg;      /* foreground  */
 	uint32_t bg;      /* background  */

@@ -6,6 +6,7 @@ enum keyboardselect_mode {
 	KBDS_MODE_LSELECT = 1<<2,
 	KBDS_MODE_FIND    = 1<<3,
 	KBDS_MODE_SEARCH  = 1<<4,
+	KBDS_MODE_FLASH   = 1<<5,
 };
 
 enum cursor_wrap {
@@ -32,18 +33,113 @@ struct {
 	Glyph *str;
 } kbds_searchobj;
 
+typedef struct {
+	Rune *array;
+	size_t used;
+	size_t size;
+} CharArray;
+
+typedef struct {
+	KCursor *array;
+	size_t used;
+	size_t size;
+} KCursorArray;
+
 static int kbds_in_use, kbds_quant;
 static int kbds_seltype = SEL_REGULAR;
 static int kbds_mode;
 static int kbds_finddir, kbds_findtill;
 static Rune kbds_findchar;
 static KCursor kbds_c, kbds_oc;
+static CharArray flash_next_char_record, flash_used_label;
+static KCursorArray flash_kcursor_record;
+
+static const char *flash_key_label[52] = {
+	"j", "f", "d", "k", "l", "h", "g", "a", "s", "o",
+	"i", "e", "u", "n", "c", "m", "r", "p", "b", "t",
+	"w", "v", "x", "y", "q", "z",
+	"I", "J", "L", "H", "A", "B", "Y", "D", "E", "F",
+	"G", "Q", "R", "T", "U", "V", "W", "X", "Z", "C",
+	"K", "M", "N", "O", "P", "S"
+};
+
+void
+init_char_array(CharArray *a, size_t initialSize) {
+	a->array = (Rune *)xmalloc(initialSize * sizeof(Rune));
+	a->used = 0;
+	a->size = initialSize;
+}
+
+void
+insert_char_array(CharArray *a, Rune element) {
+	if (a->used == a->size) {
+		a->size *= 2;
+		a->array = (Rune *)xrealloc(a->array, a->size * sizeof(Rune));
+	}
+	a->array[a->used++] = element;
+}
+
+void
+reset_char_array(CharArray *a) {
+	free(a->array);
+	a->array = NULL;
+	a->used = 0;
+	a->size = 0;
+}
+
+void
+init_kcursor_array(KCursorArray *a, size_t initialSize) {
+	a->array = (KCursor *)xmalloc(initialSize * sizeof(KCursor));
+	a->used = 0;
+	a->size = initialSize;
+}
+
+void
+insert_kcursor_array(KCursorArray *a, KCursor element) {
+	if (a->used == a->size) {
+		size_t newSize = a->size == 0 ? 1 : a->size * 2;
+		KCursor *newArray = (KCursor *)xrealloc(a->array, newSize * sizeof(KCursor));
+		a->array = newArray;
+		a->size = newSize;
+	}
+	a->array[a->used++] = element;
+}
+
+void
+reset_kcursor_array(KCursorArray *a) {
+	free(a->array);
+	a->array = NULL;
+	a->used = 0;
+	a->size = 0;
+}
+
+int
+is_in_flash_used_label(Rune label) {
+	int i;
+	for ( i = 0; i < flash_used_label.used; i++) {
+		if (label == flash_used_label.array[i]) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int
+is_in_flash_next_char_record(Rune label) {
+	int i;
+	for ( i = 0; i < flash_next_char_record.used; i++) {
+		if (label == flash_next_char_record.array[i]) {
+			return 1;
+		}
+	}
+	return 0;
+}
 
 void
 kbds_drawstatusbar(int y)
 {
 	static char *modes[] = { " MOVE ", "", " SELECT ", " RSELECT ", " LSELECT ",
-	                         " SEARCH FW ", " SEARCH BW ", " FIND FW ", " FIND BW " };
+	                         " SEARCH FW ", " SEARCH BW ", " FIND FW ", " FIND BW ", " FLASH " };
 	static char quant[20] = { ' ' };
 	static Glyph g;
 	int i, n, m;
@@ -58,7 +154,9 @@ kbds_drawstatusbar(int y)
 
 	/* draw the mode */
 	if (y == 0) {
-		if (kbds_issearchmode())
+		if (kbds_isflashmode())
+			m = 9;
+		else if (kbds_issearchmode())
 			m = 5 + (kbds_searchobj.dir < 0 ? 1 : 0);
 		else if (kbds_mode & KBDS_MODE_FIND)
 			m = 7 + (kbds_finddir < 0 ? 1 : 0);
@@ -82,7 +180,7 @@ kbds_drawstatusbar(int y)
 	}
 
 	/* draw the search bar */
-	if (y == term.row-1 && kbds_issearchmode()) {
+	if (y == term.row-1 && (kbds_issearchmode() || kbds_isflashmode())) {
 		/* search bar */
 		for (g.u = ' ', i = 0; i < term.col; i++)
 			xdrawglyph(g, i, y);
@@ -225,6 +323,12 @@ kbds_issearchmode(void)
 	return kbds_in_use && (kbds_mode & KBDS_MODE_SEARCH);
 }
 
+int
+kbds_isflashmode(void)
+{
+	return kbds_in_use && (kbds_mode & KBDS_MODE_FLASH);
+}
+
 void
 kbds_setmode(int mode)
 {
@@ -265,8 +369,13 @@ kbds_clearhighlights(void)
 
 	for (y = (IS_SET(MODE_ALTSCREEN) ? 0 : -term.histf); y < term.row; y++) {
 		line = TLINEABS(y);
-		for (x = 0; x < term.col; x++)
+		for (x = 0; x < term.col; x++) {
 			line[x].mode &= ~ATTR_HIGHLIGHT;
+			if (line[x].mode & ATTR_FLASH_LABEL) {
+				line[x].mode &= ~ATTR_FLASH_LABEL;
+				line[x].u = line[x].ubk;
+			}
+		}
 	}
 	tfulldirt();
 }
@@ -380,6 +489,7 @@ kbds_ismatch(KCursor c)
 {
 	KCursor m = c;
 	int i, next;
+	Rune u;
 
 	if (c.x + kbds_searchobj.len > c.len && (!kbds_iswrapped(&c) || c.y >= kbds_bot()))
 		return 0;
@@ -405,6 +515,14 @@ kbds_ismatch(KCursor c)
 			kbds_moveforward(&m, 1, KBDS_WRAP_LINE);
 		}
 	}
+
+	if (kbds_isflashmode()) {
+		m.line[m.x].ubk = m.line[m.x].u;
+		u = kbds_searchobj.ignorecase ? towlower(m.line[m.x].u) : m.line[m.x].u;
+		insert_char_array(&flash_next_char_record, u);
+		insert_kcursor_array(&flash_kcursor_record, m);
+	}
+
 	return 1;
 }
 
@@ -413,19 +531,70 @@ kbds_searchall(void)
 {
 	KCursor c;
 	int count = 0;
+	int i, j, is_invalid_label;
+	CharArray valid_label;
+
+	init_char_array(&flash_next_char_record, 1);
+	init_char_array(&valid_label, 1);
+	init_char_array(&flash_used_label, 1);
+	init_kcursor_array(&flash_kcursor_record, 1);
 
 	if (!kbds_searchobj.len)
 		return 0;
 
-	for (c.y = kbds_top(); c.y <= kbds_bot(); c.y++) {
+	int begin = kbds_isflashmode() ? 0 : kbds_top();
+	int end = kbds_isflashmode() ? term.row - 1 : kbds_bot();
+
+	for (c.y = begin; c.y <= end; c.y++) {
 		c.line = TLINE(c.y);
 		c.len = tlinelen(c.line);
 		for (c.x = 0; c.x < c.len; c.x++)
 			count += kbds_ismatch(c);
 	}
+
+	for (i = 0; i < LEN(flash_key_label); i++) {
+		is_invalid_label = 0;
+		for ( j = 0; j < flash_next_char_record.used; j++) {
+			if (flash_next_char_record.array[j] == *flash_key_label[i]) {
+				is_invalid_label = 1;
+				break;
+			}
+		}
+		if (is_invalid_label == 0) {
+			insert_char_array(&valid_label, *flash_key_label[i]);
+		}
+	}
+
+	for ( i = 0; i < flash_kcursor_record.used; i++) {
+		if (i < valid_label.used) {
+			flash_kcursor_record.array[i].line[flash_kcursor_record.array[i].x].mode |= ATTR_FLASH_LABEL;
+			insert_char_array(&flash_used_label, valid_label.array[i]);
+			flash_kcursor_record.array[i].line[flash_kcursor_record.array[i].x].u = valid_label.array[i];
+		}
+	}
+
+	reset_char_array(&valid_label);
+
 	tfulldirt();
 
 	return count;
+}
+
+void
+jump_to_label(Rune label, int len) {
+	int i;
+	for ( i = 0; i < flash_kcursor_record.used; i++) {
+		if (label == flash_kcursor_record.array[i].line[flash_kcursor_record.array[i].x].u) {
+			kbds_moveto(flash_kcursor_record.array[i].x-len, flash_kcursor_record.array[i].y);
+		}
+	}
+}
+
+void
+clear_flash_cache() {
+	reset_char_array(&flash_next_char_record);
+	reset_char_array(&flash_used_label);
+	reset_kcursor_array(&flash_kcursor_record);
 }
 
 void
@@ -610,6 +779,68 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 	Line line;
 	Rune u;
 
+	if (kbds_isflashmode() && !forcequit) {
+		switch (ksym) {
+		case XK_Escape:
+			kbds_searchobj.len = 0;
+			kbds_setmode(kbds_mode & ~KBDS_MODE_FLASH);
+			clear_flash_cache();
+			kbds_clearhighlights();
+			/* If the direct search is aborted, we just go to the next switch
+			 * statement and exit the keyboard selection mode immediately */
+			if (kbds_searchobj.directsearch)
+				break;
+			return 0;
+		case XK_BackSpace:
+			if (kbds_searchobj.cx == 0)
+				break;
+			kbds_clearhighlights();
+			kbds_searchobj.cx = MAX(kbds_searchobj.cx-1, 0);
+			if (kbds_searchobj.str[kbds_searchobj.cx].mode & ATTR_WDUMMY)
+				kbds_searchobj.cx = MAX(kbds_searchobj.cx-1, 0);
+			if (ksym == XK_BackSpace)
+				kbds_deletechar();
+			for (kbds_searchobj.ignorecase = 1, i = 0; i < kbds_searchobj.len; i++) {
+				if (kbds_searchobj.str[i].u != towlower(kbds_searchobj.str[i].u)) {
+					kbds_searchobj.ignorecase = 0;
+					break;
+				}
+			}
+			kbds_searchobj.wordonly = 0;
+			count = kbds_searchall();
+			return 0;
+		default:
+			if (len > 0) {
+				utf8decode(buf, &u, len);
+				if (is_in_flash_used_label(u) == 1) {
+					jump_to_label(u, kbds_searchobj.len);
+					kbds_searchobj.len = 0;
+					kbds_setmode(kbds_mode & ~KBDS_MODE_FLASH);
+					clear_flash_cache();
+					kbds_clearhighlights();
+					kbds_selecttext();
+					return 0;
+				} else if (kbds_searchobj.len > 0 && is_in_flash_next_char_record(u) == 0) {
+					return 0;
+				} else {
+					clear_flash_cache();
+				}
+				kbds_clearhighlights();
+				kbds_insertchar(u);
+				for (kbds_searchobj.ignorecase = 1, i = 0; i < kbds_searchobj.len; i++) {
+					if (kbds_searchobj.str[i].u != towlower(kbds_searchobj.str[i].u)) {
+						kbds_searchobj.ignorecase = 0;
+						break;
+					}
+				}
+				kbds_searchobj.wordonly = 0;
+				count = kbds_searchall();
+				return 0;
+			}
+			break;
+		}
+	}
+
 	if (kbds_issearchmode() && !forcequit) {
 		switch (ksym) {
 		case XK_Escape:
@@ -730,7 +961,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 			kbds_setmode(kbds_mode | KBDS_MODE_SELECT);
 		}
 		break;
-	case XK_s:
+	case XK_S:
 		if (!(kbds_mode & KBDS_MODE_LSELECT)) {
 			kbds_seltype ^= (SEL_REGULAR | SEL_RECTANGULAR);
 			selextend(kbds_c.x, kbds_c.y, kbds_seltype, 0);
@@ -771,6 +1002,15 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		kbds_searchobj.cx = kbds_searchobj.len = 0;
 		kbds_searchobj.maxlen = term.col - 2;
 		kbds_setmode(kbds_mode | KBDS_MODE_SEARCH);
+		kbds_clearhighlights();
+		return 0;
+	case -4:
+	case XK_s:
+		kbds_searchobj.directsearch = (ksym == -4);
+		kbds_searchobj.dir = 1;
+		kbds_searchobj.cx = kbds_searchobj.len = 0;
+		kbds_searchobj.maxlen = term.col - 2;
+		kbds_setmode(kbds_mode | KBDS_MODE_FLASH);
 		kbds_clearhighlights();
 		return 0;
 	case XK_q:
@@ -841,7 +1081,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		break;
 	case XK_M:
 		kbds_moveto(kbds_c.x, alt ? (term.row-1) / 2
-                                  : MIN(term.c.y + term.scr, term.row-1) / 2);
+		                          : MIN(term.c.y + term.scr, term.row-1) / 2);
 		break;
 	case XK_L:
 		kbds_moveto(kbds_c.x, alt ? term.row-1

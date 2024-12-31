@@ -69,7 +69,7 @@ char *font2_xresources[FONT2_XRESOURCES_SIZE];
 
 static inline ushort sixd_to_16bit(int);
 #if !DISABLE_LIGATURES
-static inline void xresetfontsettings(ushort mode, Font **font, int *frcflags);
+static inline void xresetfontsettings(Mode mode, Font **font, int *frcflags);
 static int xmakeglyphfontspecs_ligatures(XftGlyphFontSpec *, const Glyph *, int, int, int);
 static inline void xdrawline_ligatures(Line, int, int, int);
 #endif
@@ -1493,7 +1493,7 @@ xinit(int cols, int rows)
 
 #if !DISABLE_LIGATURES
 void
-xresetfontsettings(ushort mode, Font **font, int *frcflags)
+xresetfontsettings(Mode mode, Font **font, int *frcflags)
 {
 	*font = &dc.font;
 	if ((mode & ATTR_ITALIC) && (mode & ATTR_BOLD)) {
@@ -1644,7 +1644,7 @@ int
 xmakeglyphfontspecs_noligatures(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x, int y)
 {
 	float winx = borderpx + x * win.cw, winy = borderpx + y * win.ch, xp, yp;
-	ushort mode, prevmode = USHRT_MAX;
+	Mode mode, prevmode = -1;
 	Font *font = &dc.font;
 	int frcflags = FRC_NORMAL;
 	float runewidth = win.cw;
@@ -1881,6 +1881,17 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 		lerpvisualbellcolor(bg, &bellbg);
 		fg = &bellfg;
 		bg = &bellbg;
+	}
+
+	if (base.mode & ATTR_FLASH_LABEL) {
+		fg = &dc.col[(base.mode & ATTR_REVERSE) ? flashlabelbg : flashlabelfg];
+		bg = &dc.col[(base.mode & ATTR_REVERSE) ? flashlabelfg : flashlabelbg];
+	}
+	
+	if (!(base.mode & (ATTR_HIGHLIGHT | ATTR_REVERSE | ATTR_WDUMMY | ATTR_FLASH_LABEL)) && kbds_isflashmode()) {
+		fg = &dc.col[flashtextfg];
+		if (base.bg != defaultbg)
+			bg = &dc.col[flashtextbg];
 	}
 
 	if (dmode & DRAW_BG) {

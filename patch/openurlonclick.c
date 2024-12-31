@@ -254,7 +254,7 @@ detecturl(int col, int row, int draw)
 }
 
 void
-drawurl(Color *fg, ushort basemode, int x, int y, int charlen, int yoff, int thickness)
+drawurl(Color *fg, Mode basemode, int x, int y, int charlen, int yoff, int thickness)
 {
 	Line line;
 	int i, j, x1, x2, xu, yu, wu, hlink;

@@ -24,7 +24,8 @@ t, T:                    jump forward/backward to before the given character
 , or R                   repeat previous f, t, F or T movement and move backward
 v:                       toggle selection mode
 V:                       toggle line selection mode
-s:                       toggle regular/rectangular selection type
+S:                       toggle regular/rectangular selection type
+s:                       jump to flash mode
 y:                       yank (copy) selected text
 Z, X:                    jump to previous/next shell prompt that contains the OSC "133;A" sequence
 u:                       open hyperlink under the cursor

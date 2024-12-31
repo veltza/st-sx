@@ -58,6 +58,12 @@ St.color15:         white
 St.highlightfg:     15
 St.highlightbg:     160
 
+! Foreground and background color of flash label
+St.flashlabelfg: 15
+St.flashlabelbg: 4
+St.flashtextfg:  8
+St.flashtextbg:  0
+
 ! Foreground and background color of the hyperlink hint
 St.hyperlinkhintfg: 0
 St.hyperlinkhintbg: 258
