@@ -34,7 +34,7 @@ struct {
 } kbds_searchobj;
 
 typedef struct {
-    char *array;
+    Rune *array;
     size_t used;
     size_t size;
 } CharArray;
@@ -65,16 +65,16 @@ static const char *flash_key_label[52] = {
 
 void
 init_char_array(CharArray *a, size_t initialSize) {
-    a->array = (char *)xmalloc(initialSize * sizeof(char));
+    a->array = (Rune *)xmalloc(initialSize * sizeof(Rune));
     a->used = 0;
     a->size = initialSize;
 }
 
 void
-insert_char_array(CharArray *a, char element) {
+insert_char_array(CharArray *a, Rune element) {
     if (a->used == a->size) {
         a->size *= 2;
-        a->array = (char *)xrealloc(a->array, a->size * sizeof(char));
+        a->array = (Rune *)xrealloc(a->array, a->size * sizeof(Rune));
     }
     a->array[a->used++] = element;
 }
@@ -113,109 +113,9 @@ reset_kcursor_array(KCursorArray *a) {
     a->size = 0;
 }
 
-char
-keysym_to_char(unsigned int keysym) {
-    switch (keysym) {
-        case XK_0: return '0';
-        case XK_1: return '1';
-        case XK_2: return '2';
-        case XK_3: return '3';
-        case XK_4: return '4';
-        case XK_5: return '5';
-        case XK_6: return '6';
-        case XK_7: return '7';
-        case XK_8: return '8';
-        case XK_9: return '9';
-        case XK_KP_0: return '0';
-        case XK_KP_1: return '1';
-        case XK_KP_2: return '2';
-        case XK_KP_3: return '3';
-        case XK_KP_4: return '4';
-        case XK_KP_5: return '5';
-        case XK_KP_6: return '6';
-        case XK_KP_7: return '7';
-        case XK_KP_8: return '8';
-        case XK_KP_9: return '9';
-        case XK_exclam: return '!';
-        case XK_at: return '@';
-        case XK_numbersign: return '#';
-        case XK_dollar: return '$';
-        case XK_percent: return '%';
-        case XK_asciicircum: return '^';
-        case XK_ampersand: return '&';
-        case XK_asterisk: return '*';
-        case XK_parenleft: return '(';
-        case XK_parenright: return ')';
-        case XK_minus: return '-';
-        case XK_underscore: return '_';
-        case XK_equal: return '=';
-        case XK_plus: return '+';
-		case XK_period : return '.';
-        case XK_BackSpace: return '\b';
-        case XK_Tab: return '\t';
-        case XK_Linefeed: return '\n';
-        case XK_Return: return '\r';
-        case XK_space: return ' ';
-        case XK_a: return 'a';
-        case XK_b: return 'b';
-        case XK_c: return 'c';
-        case XK_d: return 'd';
-        case XK_e: return 'e';
-        case XK_f: return 'f';
-        case XK_g: return 'g';
-        case XK_h: return 'h';
-        case XK_i: return 'i';
-        case XK_j: return 'j';
-        case XK_k: return 'k';
-        case XK_l: return 'l';
-        case XK_m: return 'm';
-        case XK_n: return 'n';
-        case XK_o: return 'o';
-        case XK_p: return 'p';
-        case XK_q: return 'q';
-        case XK_r: return 'r';
-        case XK_s: return 's';
-        case XK_t: return 't';
-        case XK_u: return 'u';
-        case XK_v: return 'v';
-        case XK_w: return 'w';
-        case XK_x: return 'x';
-        case XK_y: return 'y';
-        case XK_z: return 'z';
-        case XK_A: return 'A';
-        case XK_B: return 'B';
-        case XK_C: return 'C';
-        case XK_D: return 'D';
-        case XK_E: return 'E';
-        case XK_F: return 'F';
-        case XK_G: return 'G';
-        case XK_H: return 'H';
-        case XK_I: return 'I';
-        case XK_J: return 'J';
-        case XK_K: return 'K';
-        case XK_L: return 'L';
-        case XK_M: return 'M';
-        case XK_N: return 'N';
-        case XK_O: return 'O';
-        case XK_P: return 'P';
-        case XK_Q: return 'Q';
-        case XK_R: return 'R';
-        case XK_S: return 'S';
-        case XK_T: return 'T';
-        case XK_U: return 'U';
-        case XK_V: return 'V';
-        case XK_W: return 'W';
-        case XK_X: return 'X';
-        case XK_Y: return 'Y';
-        case XK_Z: return 'Z';
-        default: return '?'; // Unknown keysym
-    }
-}
-
 int
-is_in_flash_used_label(unsigned int keysym) {
+is_in_flash_used_label(Rune label) {
 	int i;
-	char label = keysym_to_char(keysym);
 	for ( i = 0; i < flash_used_label.used; i++) {
 		if (label == flash_used_label.array[i]) {
 			return 1;
@@ -225,9 +125,8 @@ is_in_flash_used_label(unsigned int keysym) {
 }
 
 int
-is_in_flash_next_char_record(unsigned int keysym) {
+is_in_flash_next_char_record(Rune label) {
 	int i;
-	char label = keysym_to_char(keysym);
 	for ( i = 0; i < flash_next_char_record.used; i++) {
 		if (label == flash_next_char_record.array[i]) {
 			return 1;
@@ -590,6 +489,7 @@ kbds_ismatch(KCursor c)
 {
 	KCursor m = c;
 	int i, next;
+	Rune u;
 
 	if (c.x + kbds_searchobj.len > c.len && (!kbds_iswrapped(&c) || c.y >= kbds_bot()))
 		return 0;
@@ -618,7 +518,8 @@ kbds_ismatch(KCursor c)
 
 	if (kbds_isflashmode()) {
 		m.line[m.x].ubk = m.line[m.x].u;
-		insert_char_array(&flash_next_char_record, m.line[m.x].u);
+		u = kbds_searchobj.ignorecase ? towlower(m.line[m.x].u) : m.line[m.x].u;
+		insert_char_array(&flash_next_char_record, u);
 		insert_kcursor_array(&flash_kcursor_record, m);
 	}
 
@@ -680,9 +581,8 @@ kbds_searchall(void)
 }
 
 void
-jump_to_label(unsigned int keysym, int len) {
+jump_to_label(Rune label, int len) {
 	int i;
-	char label = keysym_to_char(keysym);
 	for ( i = 0; i < flash_kcursor_record.used; i++) {
 		if (label == flash_kcursor_record.array[i].line[flash_kcursor_record.array[i].x].u) {
 			kbds_moveto(flash_kcursor_record.array[i].x-len, flash_kcursor_record.array[i].y);
@@ -911,21 +811,21 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 			return 0;
 		default:
 			if (len > 0) {
-				if (is_in_flash_used_label(ksym) == 1) {
-					jump_to_label(ksym,kbds_searchobj.len);
+				utf8decode(buf, &u, len);
+				if (is_in_flash_used_label(u) == 1) {
+					jump_to_label(u, kbds_searchobj.len);
 					kbds_searchobj.len = 0;
 					kbds_setmode(kbds_mode & ~KBDS_MODE_FLASH);
 					clear_flash_cache();
 					kbds_clearhighlights();
 					kbds_selecttext();
 					return 0;
-				} else if(ksym,kbds_searchobj.len > 0 && is_in_flash_next_char_record(ksym) == 0) {
+				} else if (kbds_searchobj.len > 0 && is_in_flash_next_char_record(u) == 0) {
 					return 0;
 				} else {
 					clear_flash_cache();
 				}
 				kbds_clearhighlights();
-				utf8decode(buf, &u, len);
 				kbds_insertchar(u);
 				for (kbds_searchobj.ignorecase = 1, i = 0; i < kbds_searchobj.len; i++) {
 					if (kbds_searchobj.str[i].u != towlower(kbds_searchobj.str[i].u)) {
