@@ -15,14 +15,15 @@ static char *font2[] = {
 /* pattern for regex mode, 
  * use () sub-patterns to define the range to be copied*/
 char *pattern_list[] = {
-	".*commit ([^ \n\\^]+)", 				//git hash in lazygit
-	"(http://[^ \n\\^]*)", 					// url
-	"(https://[^ \n\\^]*)", 				// url
-	"file://([^ \n\\^]*)", 					// url
-	"(#[a-zA-Z0-9]{6}).*", 					// hex color
-	"([0-9a-zA-Z]{8}) [A-Za-z]{2} ", 		//git hash in lazygit
-	"([0-9]{4,})\\b", 						// long number
-	"([a-zA-Z0-9]+@[a-zA-Z0-9]+\\.com)", 	//email
+	".*commit ([^ \n\\^]+)", //git hash in lazygit
+	"(http://[^ \n\\^]*)", // url
+	"(https://[^ \n\\^]*)", // url
+	"file://([^ \n\\^]*)", // url
+	"((/[a-zA-Z0-9_.-]+)+)", // file path
+	"(#[a-zA-Z0-9]{6}).*", // hex color
+	"([0-9a-zA-Z]{8}) [A-Za-z]{2} ", //git hash in lazygit
+	"([0-9]{4,})\\b", // long number
+	"([a-zA-Z0-9]+@[a-zA-Z0-9]+\\.com)", //email
 	"([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})", //uuid
 	NULL 
 };

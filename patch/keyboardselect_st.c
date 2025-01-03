@@ -740,11 +740,10 @@ kbds_ismatch_regex(KCursor c,unsigned int head)
 		target_str = xmalloc((target_len + 1) * sizeof(Rune));
 		target_str[target_len] = L'\0';
 
-		for (i=1; i <target_len; i++) {
-		    for (size_t j = 0; j < i + 1; j++) {
-    	    	target_str[j] = c.line[head + j].u;
-    		}
-		}
+		for (size_t j = 0; j < target_len; j++) {
+    		target_str[j] = c.line[head + j].u;
+    	}
+
 		result = get_position_from_regex(pattern, target_str);
 		if(result.miss == 0) {
 			m.x = head + result.start;
@@ -774,7 +773,7 @@ kbds_ismatch_regex(KCursor c,unsigned int head)
 				insert_regex_kcursor_array(&regex_kcursor_record, regex_kcursor);
 			}
 		}
-		XFree(target_str);	
+		XFree(target_str);
 	}
 }
 
@@ -794,24 +793,33 @@ kbds_search_regex(void)
 	for (c.y = begin; c.y <= end; c.y++) {
 		c.line = TLINE(c.y);
 		c.len = tlinelen(c.line);
+		int head_hit = 0;
+		int bottom_hit = 0;
 		head = 0;
 		bottom = 0;
 		for (c.x = 0; c.x < c.len; c.x++) {
-			if(head == 0 && c.line[c.x].u != L' ' && is_valid_char(c.line[c.x].u)) {
+			if(head_hit == 0 && bottom_hit == 0 && c.line[c.x].u != L' ' && is_valid_char(c.line[c.x].u)) {
 				head = c.x;
+				head_hit = 1;
 			}
 
-			if(head !=0 && c.line[c.x].u == L' ')
+			if(head_hit !=0 && c.line[c.x].u == L' ') {
 				bottom = c.x - 1;
+				bottom_hit = 1;
+			}
 
-			if(head !=0 && c.x == c.len - 1)
+			if(head_hit !=0 && c.x == c.len - 1) {
 				bottom = c.x;
+				bottom_hit = 1;
+			}
 
-			if (head != 0 && bottom != 0 && head != bottom) {
+			if (head_hit != 0 && bottom_hit != 0 && head != bottom) {
 				count += kbds_ismatch_regex(c,head);
 
 				head = 0;
 				bottom = 0;
+				head_hit = 0;
+				bottom_hit = 0;
 			}
 		}
 			
