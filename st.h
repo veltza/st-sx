@@ -379,6 +379,7 @@ extern int allowaltscreen;
 extern int allowwindowops;
 extern char *termname;
 extern char *url_opener;
+extern char *pattern_list[];
 extern unsigned int tabspaces;
 extern unsigned int defaultfg;
 extern unsigned int defaultbg;

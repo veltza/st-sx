@@ -1,4 +1,9 @@
 #include <wctype.h>
+#include <string.h>
+#include <unistd.h>
+#include <pcre.h>
+#include <wchar.h>
+#include <string.h>
 
 enum keyboardselect_mode {
 	KBDS_MODE_MOVE    = 0,
@@ -7,6 +12,7 @@ enum keyboardselect_mode {
 	KBDS_MODE_FIND    = 1<<3,
 	KBDS_MODE_SEARCH  = 1<<4,
 	KBDS_MODE_FLASH   = 1<<5,
+	KBDS_MODE_REGEX   = 1<<6,
 };
 
 enum cursor_wrap {
@@ -21,6 +27,25 @@ typedef struct {
 	Line line;
 	int len;
 } KCursor;
+
+typedef struct {
+	unsigned int start;
+	unsigned int len;
+	unsigned int miss;
+	char * pattern;
+} RegexResult;
+
+typedef struct {
+	KCursor c;
+	unsigned int len;
+	char * pattern;
+} RegexKCursor;
+
+typedef struct {
+    RegexKCursor *array;
+    size_t used;
+    size_t size;   
+} RegexKCursorArray;
 
 struct {
 	int cx;
@@ -53,6 +78,7 @@ static Rune kbds_findchar;
 static KCursor kbds_c, kbds_oc;
 static CharArray flash_next_char_record, flash_used_label;
 static KCursorArray flash_kcursor_record;
+static RegexKCursorArray regex_kcursor_record;
 
 static const char *flash_key_label[52] = {
 	"j", "f", "d", "k", "l", "h", "g", "a", "s", "o",
@@ -62,6 +88,57 @@ static const char *flash_key_label[52] = {
 	"G", "Q", "R", "T", "U", "V", "W", "X", "Z", "C",
 	"K", "M", "N", "O", "P", "S"
 };
+
+static const char *valid_char[] = {
+	"0","1","2","3","4","5","6","7","8","9",
+    "j", "f", "d", "k", "l", "h", "g", "a", "s", "o", 
+    "i", "e", "u", "n", "c", "m", "r", "p", "b", "t", 
+    "w", "v", "x", "y", "q", "z",
+    "I", "J", "L", "H", "A", "B", "Y", "D", "E", "F", 
+    "G", "Q", "R", "T", "U", "V", "W", "X", "Z", "C",
+    "K", "M", "N", "O", "P", "S",
+    ".", "/", "#", 
+    "-", "_", "=", "+", "(", ")", "@", "!", "$", "&", "*",
+    "[", "]", "{", "}", "|", "\\", ":", ";", "\"", "'",
+    "<", ">", ",", "?", "`", "~" 
+};
+
+int
+is_valid_char(Rune u) {
+	int i;
+	for ( i = 0; i < LEN(valid_char); i++) {
+		if (u == *valid_char[i]) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+void
+init_regex_kcursor_array(RegexKCursorArray *a, size_t initialSize) {
+    a->array = (RegexKCursor *)xmalloc(initialSize * sizeof(RegexKCursor));
+    a->used = 0;
+    a->size = initialSize;
+}
+
+void
+insert_regex_kcursor_array(RegexKCursorArray *a, RegexKCursor element) {
+    if (a->used == a->size) {
+        size_t newSize = a->size == 0 ? 1 : a->size * 2;
+        RegexKCursor *newArray = (RegexKCursor *)xrealloc(a->array, newSize * sizeof(RegexKCursor));
+        a->array = newArray;
+        a->size = newSize;
+    }
+    a->array[a->used++] = element;
+}
+
+void
+reset_regex_kcursor_array(RegexKCursorArray *a) {
+    free(a->array);
+    a->array = NULL;
+    a->used = 0;
+    a->size = 0;
+}
 
 void
 init_char_array(CharArray *a, size_t initialSize) {
@@ -139,7 +216,7 @@ void
 kbds_drawstatusbar(int y)
 {
 	static char *modes[] = { " MOVE ", "", " SELECT ", " RSELECT ", " LSELECT ",
-	                         " SEARCH FW ", " SEARCH BW ", " FIND FW ", " FIND BW ", " FLASH " };
+	                         " SEARCH FW ", " SEARCH BW ", " FIND FW ", " FIND BW ", " FLASH ", " REGEX " };
 	static char quant[20] = { ' ' };
 	static Glyph g;
 	int i, n, m;
@@ -154,7 +231,9 @@ kbds_drawstatusbar(int y)
 
 	/* draw the mode */
 	if (y == 0) {
-		if (kbds_isflashmode())
+		if (kbds_isregexmode())
+			m = 10;
+		else if (kbds_isflashmode())
 			m = 9;
 		else if (kbds_issearchmode())
 			m = 5 + (kbds_searchobj.dir < 0 ? 1 : 0);
@@ -327,6 +406,12 @@ int
 kbds_isflashmode(void)
 {
 	return kbds_in_use && (kbds_mode & KBDS_MODE_FLASH);
+}
+
+int
+kbds_isregexmode(void)
+{
+	return kbds_in_use && (kbds_mode & KBDS_MODE_REGEX);
 }
 
 void
@@ -580,9 +665,207 @@ kbds_searchall(void)
 	return count;
 }
 
+RegexResult get_position_from_regex(char *pattern, unsigned int *wstr) {
+	RegexResult result;
+
+	unsigned int match_start = 0, match_length = 0;
+
+    // check if the pattern contains any subpatterns
+    int num_subpatterns = 0;
+    for (int i = 0; pattern[i] != '\0'; ++i) {
+        if (pattern[i] == '(') {
+            num_subpatterns++;
+        }
+    }
+
+    // if there are no subpatterns, exit with an error
+    if (num_subpatterns == 0) {
+		result.miss = 1;
+		printf("No subpatterns found in pattern: %s\n", pattern);
+		return result;
+    }
+
+    size_t len = wcstombs(NULL, wstr, 0);
+    char *str = malloc(len + 1);
+    if (!str) {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+    wcstombs(str, wstr, len + 1);
+
+    const char *error;
+    int erroffset;
+    pcre *re = pcre_compile(pattern, PCRE_UTF8, &error, &erroffset, NULL);
+    if (!re) {
+        fprintf(stderr, "PCRE compilation failed at offset %d: %s\n", erroffset, error);
+        free(str);
+        exit(EXIT_FAILURE);
+    }
+
+    int ovector[30];
+    int ret = pcre_exec(re, NULL, str, len, 0, 0, ovector, 30);
+    if (ret >= 0) {
+        // 	match success, extract the match string's index and length
+        result.start = ovector[2];
+        result.len = ovector[3] - ovector[2];
+		result.miss = 0;
+		result.pattern = pattern;
+    } else if (ret == PCRE_ERROR_NOMATCH) {
+		result.miss = 1;
+    } else {
+		result.miss = 1;
+    }
+
+    pcre_free(re);
+    free(str);
+
+	return result;
+}
+
+int
+kbds_ismatch_regex(KCursor c,unsigned int head)
+{
+	KCursor m = c;
+	Rune *target_str;
+	RegexResult result;
+	RegexKCursor regex_kcursor;
+	unsigned int is_exists = 0;
+	unsigned int h,i,j,k;
+	unsigned int target_len =0;
+	char *pattern;
+
+	for (h=0; pattern_list[h] != NULL; h++) {
+		pattern = pattern_list[h];
+		target_len = m.len - head;
+		target_str = xmalloc((target_len + 1) * sizeof(Rune));
+		target_str[target_len] = L'\0';
+
+		for (i=1; i <target_len; i++) {
+		    for (size_t j = 0; j < i + 1; j++) {
+    	    	target_str[j] = c.line[head + j].u;
+    		}
+		}
+		result = get_position_from_regex(pattern, target_str);
+		if(result.miss == 0) {
+			m.x = head + result.start;
+			regex_kcursor.c = m;
+			regex_kcursor.len = result.len;
+			regex_kcursor.pattern = result.pattern;
+			is_exists = 0;
+			for ( k = 0; k < regex_kcursor_record.used; k++) {
+				if (regex_kcursor.c.x == regex_kcursor_record.array[k].c.x && regex_kcursor.c.y == regex_kcursor_record.array[k].c.y) {
+					is_exists = 1;
+					if (regex_kcursor.len > regex_kcursor_record.array[k].len) {
+						regex_kcursor_record.array[k].len = regex_kcursor.len;
+					}
+					break;
+				}
+				if (regex_kcursor.c.y == regex_kcursor_record.array[k].c.y && regex_kcursor.pattern == regex_kcursor_record.array[k].pattern && regex_kcursor.c.x < regex_kcursor_record.array[k].c.x && regex_kcursor.c.x + regex_kcursor.len -1 > regex_kcursor_record.array[k].c.x) {
+					regex_kcursor.c.line[regex_kcursor.c.x].ubk = regex_kcursor.c.line[regex_kcursor.c.x].u;
+					regex_kcursor_record.array[k].c = regex_kcursor.c;
+					regex_kcursor_record.array[k].len = regex_kcursor.len;
+					is_exists = 1;
+					break;
+				}
+			}
+			
+			if (is_exists == 0) {
+				regex_kcursor.c.line[regex_kcursor.c.x].ubk = regex_kcursor.c.line[regex_kcursor.c.x].u;
+				insert_regex_kcursor_array(&regex_kcursor_record, regex_kcursor);
+			}
+		}
+		XFree(target_str);
+	
+		
+	}
+}
+
+int
+kbds_search_regex(void)
+{
+	KCursor c;
+	unsigned int head,count,bottom,target_len,i,j;
+	Rune *target_str;
+
+	init_char_array(&flash_used_label, 1);
+	init_regex_kcursor_array(&regex_kcursor_record, 1);
+
+	int begin = kbds_isflashmode() ? 0 : kbds_top();
+	int end = kbds_isflashmode() ? term.row - 1 : kbds_bot();
+
+	for (c.y = begin; c.y <= end; c.y++) {
+		c.line = TLINE(c.y);
+		c.len = tlinelen(c.line);
+		head = 0;
+		bottom = 0;
+		for (c.x = 0; c.x < c.len; c.x++) {
+			if(head == 0 && c.line[c.x].u != L' ' && is_valid_char(c.line[c.x].u)) {
+				head = c.x;
+			}
+
+			if(head !=0 && c.line[c.x].u == L' ')
+				bottom = c.x - 1;
+
+			if(head !=0 && c.x == c.len - 1)
+				bottom = c.x;
+
+			if (head != 0 && bottom != 0 && head != bottom) {
+				count += kbds_ismatch_regex(c,head);
+
+				head = 0;
+				bottom = 0;
+			}
+		}
+			
+	}
+
+	for ( i = 0; i < LEN(flash_key_label) && i < regex_kcursor_record.used; i++) {
+		regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].mode |= ATTR_FLASH_LABEL;
+		insert_char_array(&flash_used_label, *flash_key_label[i]);
+		regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].u = *flash_key_label[i];
+	}
+
+	for ( i = 0; i < regex_kcursor_record.used;i++) {
+		for ( j = 1; j < regex_kcursor_record.array[i].len; j++) {
+			regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x + j].mode |= ATTR_HIGHLIGHT;
+		}
+	}
+
+	tfulldirt();
+
+	return count;
+}
+
+void copy_regex_result(KCursor m, unsigned int len) {
+	char *dest = xmalloc(len+1);
+	char *dup;
+	int i;
+	for (i = 0; i < len; i++) {
+		if (i == 0)
+			dest[i] = m.line[m.x].ubk;
+		else
+			dest[i] = m.line[m.x+i].u;
+	}
+	dest[len] = '\0';
+	dup = strdup(dest);
+	XFree(dest);
+
+	xsetsel(dup);
+}
+
 void
 jump_to_label(Rune label, int len) {
 	int i;
+
+	if (kbds_isregexmode()) {
+		for ( i = 0; i < regex_kcursor_record.used; i++) {
+			if (label == regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].u) {
+				copy_regex_result(regex_kcursor_record.array[i].c, regex_kcursor_record.array[i].len);
+				return;
+			}
+		}		
+	}
+
 	for ( i = 0; i < flash_kcursor_record.used; i++) {
 		if (label == flash_kcursor_record.array[i].line[flash_kcursor_record.array[i].x].u) {
 			kbds_moveto(flash_kcursor_record.array[i].x-len, flash_kcursor_record.array[i].y);
@@ -595,6 +878,12 @@ clear_flash_cache() {
 	reset_char_array(&flash_next_char_record);
 	reset_char_array(&flash_used_label);
 	reset_kcursor_array(&flash_kcursor_record);
+}
+
+void
+clear_regex_cache() {
+	reset_regex_kcursor_array(&regex_kcursor_record);
+	reset_char_array(&flash_used_label);
 }
 
 void
@@ -778,6 +1067,39 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 	char *url;
 	Line line;
 	Rune u;
+
+	if (kbds_isregexmode() && !forcequit) {
+		switch (ksym) {
+		case XK_Escape:
+			kbds_searchobj.len = 0;
+			kbds_setmode(kbds_mode & ~KBDS_MODE_REGEX);
+			clear_regex_cache();
+			kbds_clearhighlights();
+			/* If the direct search is aborted, we just go to the next switch
+			 * statement and exit the keyboard selection mode immediately */
+			if (kbds_searchobj.directsearch)
+				break;
+			return 0;
+		default:
+			if (len > 0) {
+				utf8decode(buf, &u, len);
+				if (is_in_flash_used_label(u) == 1) {
+					jump_to_label(u, kbds_searchobj.len);
+					kbds_searchobj.len = 0;
+					kbds_setmode(kbds_mode & ~KBDS_MODE_REGEX);
+					clear_regex_cache();
+					kbds_clearhighlights();
+					kbds_selecttext();
+					kbds_in_use = kbds_quant = 0;
+					free(kbds_searchobj.str);
+					return MODE_KBDSELECT;
+				} else {
+					return 0;
+				}
+			}
+			break;
+		}
+	}
 
 	if (kbds_isflashmode() && !forcequit) {
 		switch (ksym) {
@@ -1012,6 +1334,14 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		kbds_searchobj.maxlen = term.col - 2;
 		kbds_setmode(kbds_mode | KBDS_MODE_FLASH);
 		kbds_clearhighlights();
+		return 0;
+	case XK_p:
+	case -5:
+		kbds_searchobj.directsearch = (ksym == -5);
+		kbds_searchobj.dir = 1;
+		kbds_setmode(kbds_mode | KBDS_MODE_REGEX);
+		kbds_clearhighlights();
+		kbds_search_regex();
 		return 0;
 	case XK_q:
 	case XK_Escape:
