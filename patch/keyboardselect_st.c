@@ -774,9 +774,7 @@ kbds_ismatch_regex(KCursor c,unsigned int head)
 				insert_regex_kcursor_array(&regex_kcursor_record, regex_kcursor);
 			}
 		}
-		XFree(target_str);
-	
-		
+		XFree(target_str);	
 	}
 }
 
