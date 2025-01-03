@@ -12,7 +12,7 @@ static char *font2[] = {
 /*	"Hack Nerd Font Mono:pixelsize=11:antialias=true:autohint=true", */
 };
 
-/* For quick automatic matching in Flash mode, 
+/* pattern for regex mode, 
  * use () sub-patterns to define the range to be copied*/
 char *pattern_list[] = {
 	".*commit ([^ \n\\^]+)", 				//git hash in lazygit
