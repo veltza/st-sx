@@ -19,7 +19,7 @@ char *pattern_list[] = {
 	"(http://[^ \n\\^]*)", // url
 	"(https://[^ \n\\^]*)", // url
 	"file://([^ \n\\^]*)", // url
-	"((/[a-zA-Z0-9_.-]+)+)", // file path
+	"(~{0,1}(/[a-zA-Z0-9_.-]+)+)", // file path
 	"(#[a-zA-Z0-9]{6}).*", // hex color
 	"([0-9a-zA-Z]{8}) [A-Za-z]{2} ", //git hash in lazygit
 	"([0-9]{4,})\\b", // long number
