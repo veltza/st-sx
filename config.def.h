@@ -12,6 +12,25 @@ static char *font2[] = {
 /*	"Hack Nerd Font Mono:pixelsize=11:antialias=true:autohint=true", */
 };
 
+/* pattern for regex mode, 
+ * use () sub-patterns to define the range to be copied*/
+char *pattern_list[] = {
+	".*commit ([^ \n\\^]+)", //git hash in lazygit
+	"(http://[^ \n\\^]*)", // url
+	"(https://[^ \n\\^]*)", // url
+	"(file://[^ \n\\^]*)", // url
+	"(~{0,1}(/[a-zA-Z0-9_.-]+)+)", // file path
+	"(#[a-zA-Z0-9]{6}).*", // hex color
+	"([0-9a-zA-Z]{8}) [A-Za-z]{2} ", //git hash in lazygit
+	"([0-9]{4,})\\b", // long number
+	"([a-zA-Z0-9]+@[a-zA-Z0-9]+\\.com)", //email
+	"([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})", //uuid
+	NULL 
+};
+
+/* Use same label in url search when url is a same value */
+unsigned int enable_same_label = 0;
+
 /* Disable bold and italic fonts globally */
 unsigned int disable_bold = 0;
 unsigned int disable_italic = 0;
@@ -391,6 +410,8 @@ static Shortcut shortcuts[] = {
 	{ TERMMOD,              XK_F,           searchforward,   { 0 } },
 	{ TERMMOD,              XK_B,           searchbackward,  { 0 } },
 	{ TERMMOD,              XK_I,           keyboard_flash,  { 0 } },
+	{ TERMMOD,          	XK_N,           keyboard_regex,  { 0 } },
+	{ TERMMOD,          	XK_M,           keyboard_url,  	 { 0 } },
 	{ TERMMOD,              XK_Z,           scrolltoprompt,  {.i = -1}, S_PRI },
 	{ TERMMOD,              XK_X,           scrolltoprompt,  {.i =  1}, S_PRI },
 	{ XK_NO_MOD,            XK_F11,         fullscreen,      {.i =  0} },

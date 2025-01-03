@@ -47,7 +47,7 @@ Branch drawing symbols are supported with built-in glyphs. (app/plugin: [vim-flo
 Arch:
 
 ```
-sudo pacman -S libx11 libxft imlib2 gd
+sudo pacman -S libx11 libxft imlib2 gd pcre2
 ```
 
 Ubuntu:
