@@ -104,7 +104,7 @@ static const char *valid_char[] = {
 };
 
 int
-is_valid_char(Rune u) {
+is_valid_head_char(Rune u) {
 	int i;
 	for ( i = 0; i < LEN(valid_char); i++) {
 		if (u == *valid_char[i]) {
@@ -797,7 +797,7 @@ kbds_search_regex(void)
 		head = 0;
 		bottom = 0;
 		for (c.x = 0; c.x < c.len; c.x++) {
-			if(head_hit == 0 && bottom_hit == 0 && c.line[c.x].u != L' ' && is_valid_char(c.line[c.x].u)) {
+			if(head_hit == 0 && bottom_hit == 0 && c.line[c.x].u != L' ' && is_valid_head_char(c.line[c.x].u)) {
 				head = c.x;
 				head_hit = 1;
 			}
