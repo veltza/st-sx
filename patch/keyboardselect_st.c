@@ -787,10 +787,7 @@ kbds_search_regex(void)
 	init_char_array(&flash_used_label, 1);
 	init_regex_kcursor_array(&regex_kcursor_record, 1);
 
-	int begin = kbds_isflashmode() ? 0 : kbds_top();
-	int end = kbds_isflashmode() ? term.row - 1 : kbds_bot();
-
-	for (c.y = begin; c.y <= end; c.y++) {
+	for (c.y = 0; c.y <= term.row - 1; c.y++) {
 		c.line = TLINE(c.y);
 		c.len = tlinelen(c.line);
 		int head_hit = 0;
