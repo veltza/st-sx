@@ -783,6 +783,8 @@ kbds_search_regex(void)
 	KCursor c;
 	unsigned int head,count,bottom,target_len,i,j;
 	Rune *target_str;
+	int head_hit = 0;
+	int bottom_hit = 0;
 
 	init_char_array(&flash_used_label, 1);
 	init_regex_kcursor_array(&regex_kcursor_record, 1);
@@ -790,8 +792,8 @@ kbds_search_regex(void)
 	for (c.y = 0; c.y <= term.row - 1; c.y++) {
 		c.line = TLINE(c.y);
 		c.len = tlinelen(c.line);
-		int head_hit = 0;
-		int bottom_hit = 0;
+		head_hit = 0;
+		bottom_hit = 0;
 		head = 0;
 		bottom = 0;
 		for (c.x = 0; c.x < c.len; c.x++) {
