@@ -26,6 +26,7 @@ v:                       toggle selection mode
 V:                       toggle line selection mode
 S:                       toggle regular/rectangular selection type
 s:                       jump to flash mode
+p:                       switch to regex mode
 y:                       yank (copy) selected text
 Z, X:                    jump to previous/next shell prompt that contains the OSC "133;A" sequence
 u:                       open hyperlink under the cursor

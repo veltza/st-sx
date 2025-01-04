@@ -7,6 +7,8 @@ include config.mk
 SRC = st.c x.c $(LIGATURES_C) $(SIXEL_C)
 OBJ = $(SRC:.c=.o)
 
+STLDFLAGS += -lpcre
+
 all: st
 
 config.h:
