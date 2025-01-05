@@ -953,10 +953,11 @@ kbds_search_url(void)
 void
 jump_to_label(Rune label, int len) {
 	int i;
+	
 	if (kbds_isurlmode()) {
 		for ( i = 0; i < flash_kcursor_record.used; i++) {
 			if (label == flash_kcursor_record.array[i].line[flash_kcursor_record.array[i].x].u) {
-				flash_kcursor_record.array[i].line[flash_kcursor_record.array[i].x].u = flash_kcursor_record.array[i].line[flash_kcursor_record.array[i].x].ubk;
+				kbds_clearhighlights();
 				openUrlOnClick(flash_kcursor_record.array[i].x, flash_kcursor_record.array[i].y, url_opener);
 				return;
 			}
@@ -966,6 +967,7 @@ jump_to_label(Rune label, int len) {
 	if (kbds_isregexmode()) {
 		for ( i = 0; i < regex_kcursor_record.used; i++) {
 			if (label == regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].u) {
+				kbds_clearhighlights();
 				copy_regex_result(regex_kcursor_record.array[i].c, regex_kcursor_record.array[i].len);
 				return;
 			}
@@ -974,6 +976,7 @@ jump_to_label(Rune label, int len) {
 
 	for ( i = 0; i < flash_kcursor_record.used; i++) {
 		if (label == flash_kcursor_record.array[i].line[flash_kcursor_record.array[i].x].u) {
+			kbds_clearhighlights();
 			kbds_moveto(flash_kcursor_record.array[i].x-len, flash_kcursor_record.array[i].y);
 		}
 	}
@@ -1200,7 +1203,6 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 					kbds_searchobj.len = 0;
 					kbds_setmode(kbds_mode & ~KBDS_MODE_URL);
 					clear_url_cache();
-					kbds_clearhighlights();
 					kbds_selecttext();
 					kbds_in_use = kbds_quant = 0;
 					free(kbds_searchobj.str);
@@ -1233,7 +1235,6 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 					kbds_searchobj.len = 0;
 					kbds_setmode(kbds_mode & ~KBDS_MODE_REGEX);
 					clear_regex_cache();
-					kbds_clearhighlights();
 					kbds_selecttext();
 					kbds_in_use = kbds_quant = 0;
 					free(kbds_searchobj.str);
@@ -1284,7 +1285,6 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 					kbds_searchobj.len = 0;
 					kbds_setmode(kbds_mode & ~KBDS_MODE_FLASH);
 					clear_flash_cache();
-					kbds_clearhighlights();
 					kbds_selecttext();
 					return 0;
 				} else if (kbds_searchobj.len > 0 && is_in_flash_next_char_record(u) == 0) {
