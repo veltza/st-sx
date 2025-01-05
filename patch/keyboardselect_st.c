@@ -1,9 +1,13 @@
 #include <wctype.h>
 #include <string.h>
 #include <unistd.h>
-#include <pcre.h>
 #include <wchar.h>
 #include <string.h>
+#include <locale.h>
+
+#define PCRE2_CODE_UNIT_WIDTH 32
+#include <pcre2.h>
+
 
 enum keyboardselect_mode {
 	KBDS_MODE_MOVE    = 0,
@@ -34,12 +38,14 @@ typedef struct {
 	unsigned int len;
 	unsigned int miss;
 	char * pattern;
+	wchar_t * matched_substring;
 } RegexResult;
 
 typedef struct {
 	KCursor c;
 	unsigned int len;
 	char * pattern;
+	wchar_t * matched_substring;
 } RegexKCursor;
 
 typedef struct {
@@ -47,6 +53,17 @@ typedef struct {
     size_t used;
     size_t size;   
 } RegexKCursorArray;
+
+typedef struct {
+	KCursor c;
+	char *url;
+} UrlKCursor;
+
+typedef struct {
+    UrlKCursor *array;
+    size_t used;
+    size_t size;   
+} UrlKCursorArray;
 
 struct {
 	int cx;
@@ -80,8 +97,9 @@ static KCursor kbds_c, kbds_oc;
 static CharArray flash_next_char_record, flash_used_label;
 static KCursorArray flash_kcursor_record;
 static RegexKCursorArray regex_kcursor_record;
+static UrlKCursorArray url_kcursor_record;
 
-static const char *flash_key_label[52] = {
+static const char *flash_key_label[] = {
 	"j", "f", "d", "k", "l", "h", "g", "a", "s", "o",
 	"i", "e", "u", "n", "c", "m", "r", "p", "b", "t",
 	"w", "v", "x", "y", "q", "z",
@@ -103,7 +121,6 @@ static const char *valid_char[] = {
     "[", "]", "{", "}", "|", "\\", ":", ";", "\"", "'",
     "<", ">", ",", "?", "`", "~" 
 };
-
 
 int is_chinese_character(wchar_t ch) {
     // check if the character is a Chinese character
@@ -132,6 +149,35 @@ is_valid_head_char(Rune u) {
 }
 
 void
+init_url_kcursor_array(UrlKCursorArray *a, size_t initialSize) {
+    a->array = (UrlKCursor *)xmalloc(initialSize * sizeof(UrlKCursor));
+    a->used = 0;
+    a->size = initialSize;
+}
+
+void
+insert_url_kcursor_array(UrlKCursorArray *a, UrlKCursor element) {
+    if (a->used == a->size) {
+        size_t newSize = a->size == 0 ? 1 : a->size * 2;
+        UrlKCursor *newArray = (UrlKCursor *)xrealloc(a->array, newSize * sizeof(UrlKCursor));
+        a->array = newArray;
+        a->size = newSize;
+    }
+    a->array[a->used++] = element;
+}
+
+void
+reset_url_kcursor_array(UrlKCursorArray *a) {
+	for (int i = 0; i < a->used; i++) {
+		XFree(a->array[i].url);
+	}
+    XFree(a->array);
+    a->array = NULL;
+    a->used = 0;
+    a->size = 0;
+}
+
+void
 init_regex_kcursor_array(RegexKCursorArray *a, size_t initialSize) {
     a->array = (RegexKCursor *)xmalloc(initialSize * sizeof(RegexKCursor));
     a->used = 0;
@@ -151,7 +197,10 @@ insert_regex_kcursor_array(RegexKCursorArray *a, RegexKCursor element) {
 
 void
 reset_regex_kcursor_array(RegexKCursorArray *a) {
-    free(a->array);
+	for (int i = 0; i < regex_kcursor_record.used; i++) {
+		XFree(regex_kcursor_record.array[i].matched_substring);
+	}
+    XFree(a->array);
     a->array = NULL;
     a->used = 0;
     a->size = 0;
@@ -175,7 +224,7 @@ insert_char_array(CharArray *a, Rune element) {
 
 void
 reset_char_array(CharArray *a) {
-	free(a->array);
+	XFree(a->array);
 	a->array = NULL;
 	a->used = 0;
 	a->size = 0;
@@ -201,7 +250,7 @@ insert_kcursor_array(KCursorArray *a, KCursor element) {
 
 void
 reset_kcursor_array(KCursorArray *a) {
-	free(a->array);
+	XFree(a->array);
 	a->array = NULL;
 	a->used = 0;
 	a->size = 0;
@@ -693,61 +742,89 @@ kbds_searchall(void)
 	return count;
 }
 
-RegexResult get_position_from_regex(char *pattern, unsigned int *wstr) {
-	RegexResult result;
+RegexResult get_position_from_regex(char *pattern_mb, unsigned int *wstr) {
+    RegexResult result;
+    result.matched_substring = NULL;
 
-	unsigned int match_start = 0, match_length = 0;
+	setlocale(LC_ALL, "");
 
     // check if the pattern contains any subpatterns
     int num_subpatterns = 0;
-    for (int i = 0; pattern[i] != '\0'; ++i) {
-        if (pattern[i] == '(') {
+    for (int i = 0; pattern_mb[i] != '\0'; ++i) {
+        if (pattern_mb[i] == '(') {
             num_subpatterns++;
         }
     }
 
     // if there are no subpatterns, exit with an error
     if (num_subpatterns == 0) {
-		result.miss = 1;
-		printf("No subpatterns found in pattern: %s\n", pattern);
+        result.miss = 1;
+        printf("No subpatterns found in pattern: %s\n", pattern_mb);
+        return result;
+    }
+
+     // turn the pattern into wide character string
+    size_t pattern_len = mbstowcs(NULL, pattern_mb, 0) + 1;
+    wchar_t *pattern = xmalloc(pattern_len * sizeof(wchar_t));
+
+    mbstowcs(pattern, pattern_mb, pattern_len);
+
+    // turn the pattern into PCRE2_UCHAR32
+    PCRE2_UCHAR32 *wpattern = xmalloc(pattern_len * sizeof(PCRE2_UCHAR32));
+
+    for (size_t i = 0; i < pattern_len; i++) {
+        wpattern[i] = (PCRE2_UCHAR32)pattern[i];
+    }
+
+    // create the regex object
+    int errorcode;
+    PCRE2_SIZE erroffset;
+    pcre2_code *re = pcre2_compile(wpattern, PCRE2_ZERO_TERMINATED, 0, &errorcode, &erroffset, NULL);
+    XFree(pattern);
+    XFree(wpattern);
+    if (!re) {
+        PCRE2_UCHAR buffer[256];
+        pcre2_get_error_message(errorcode, buffer, sizeof(buffer));
+        fprintf(stderr, "PCRE2 compilation failed at offset %zu: %s\n", erroffset, buffer);
+        result.miss = 1;
 		return result;
     }
 
-    size_t len = wcstombs(NULL, wstr, 0);
-    char *str = malloc(len + 1);
-    if (!str) {
-        perror("malloc");
-        exit(EXIT_FAILURE);
-    }
-    wcstombs(str, wstr, len + 1);
+    // turn the text into PCRE2_UCHAR32
+    size_t len = wcslen(wstr);
+    PCRE2_UCHAR32 *wtext = xmalloc((len + 1) * sizeof(PCRE2_UCHAR32));
 
-    const char *error;
-    int erroffset;
-    pcre *re = pcre_compile(pattern, PCRE_UTF8, &error, &erroffset, NULL);
-    if (!re) {
-        fprintf(stderr, "PCRE compilation failed at offset %d: %s\n", erroffset, error);
-        free(str);
-        exit(EXIT_FAILURE);
+    for (size_t i = 0; i < len; i++) {
+        wtext[i] = (PCRE2_UCHAR32)wstr[i];
     }
+    wtext[len] = 0; 
 
-    int ovector[30];
-    int ret = pcre_exec(re, NULL, str, len, 0, 0, ovector, 30);
+    pcre2_match_data *match_data = pcre2_match_data_create_from_pattern(re, NULL);
+    int ret = pcre2_match(re, wtext, len, 0, 0, match_data, NULL);
     if (ret >= 0) {
-        // 	match success, extract the match string's index and length
+        PCRE2_SIZE *ovector = pcre2_get_ovector_pointer(match_data);
         result.start = ovector[2];
         result.len = ovector[3] - ovector[2];
 		result.miss = 0;
-		result.pattern = pattern;
-    } else if (ret == PCRE_ERROR_NOMATCH) {
+		result.pattern = pattern_mb;
+
+        // get the matched string
+        wchar_t *match_str = xmalloc((result.len + 1) * sizeof(wchar_t));
+
+        wcsncpy(match_str, wstr + result.start, result.len);
+        match_str[result.len] = L'\0'; 
+		result.matched_substring = match_str;
+    } else if (ret == PCRE2_ERROR_NOMATCH) {
 		result.miss = 1;
     } else {
 		result.miss = 1;
     }
 
-    pcre_free(re);
-    free(str);
-
-	return result;
+    // free the regex object and the converted string
+    pcre2_match_data_free(match_data);
+    pcre2_code_free(re);
+    XFree(wtext);
+    return result;
 }
 
 int
@@ -778,29 +855,11 @@ kbds_ismatch_regex(KCursor c,unsigned int head)
 			regex_kcursor.c = m;
 			regex_kcursor.len = result.len;
 			regex_kcursor.pattern = result.pattern;
-			is_exists = 0;
-			for ( k = 0; k < regex_kcursor_record.used; k++) {
-				if (regex_kcursor.c.x == regex_kcursor_record.array[k].c.x && regex_kcursor.c.y == regex_kcursor_record.array[k].c.y) {
-					is_exists = 1;
-					if (regex_kcursor.len > regex_kcursor_record.array[k].len) {
-						regex_kcursor_record.array[k].len = regex_kcursor.len;
-					}
-					break;
-				}
-				if (regex_kcursor.c.y == regex_kcursor_record.array[k].c.y && regex_kcursor.pattern == regex_kcursor_record.array[k].pattern && regex_kcursor.c.x < regex_kcursor_record.array[k].c.x && regex_kcursor.c.x + regex_kcursor.len -1 > regex_kcursor_record.array[k].c.x) {
-					regex_kcursor.c.line[regex_kcursor.c.x].ubk = regex_kcursor.c.line[regex_kcursor.c.x].u;
-					regex_kcursor_record.array[k].c = regex_kcursor.c;
-					regex_kcursor_record.array[k].len = regex_kcursor.len;
-					is_exists = 1;
-					break;
-				}
-			}
-			
-			if (is_exists == 0) {
-				regex_kcursor.c.line[regex_kcursor.c.x].ubk = regex_kcursor.c.line[regex_kcursor.c.x].u;
-				insert_regex_kcursor_array(&regex_kcursor_record, regex_kcursor);
-			}
-		}
+			regex_kcursor.matched_substring = result.matched_substring;
+			regex_kcursor.c.line[regex_kcursor.c.x].ubk = regex_kcursor.c.line[regex_kcursor.c.x].u;
+			insert_regex_kcursor_array(&regex_kcursor_record, regex_kcursor);		
+		} 
+
 		XFree(target_str);
 	}
 }
@@ -809,10 +868,13 @@ int
 kbds_search_regex(void)
 {
 	KCursor c;
-	unsigned int head,count,bottom,target_len,i,j;
+	unsigned int head,bottom,target_len,i,j;
 	Rune *target_str;
 	int head_hit = 0;
 	int bottom_hit = 0;
+	unsigned int is_exists_str;
+	unsigned int is_exists_str_index = 0;
+	unsigned int count = 0;
 
 	init_char_array(&flash_used_label, 1);
 	init_regex_kcursor_array(&regex_kcursor_record, 1);
@@ -825,7 +887,7 @@ kbds_search_regex(void)
 		head = 0;
 		bottom = 0;
 		for (c.x = 0; c.x < c.len; c.x++) {
-			if(head_hit == 0 && bottom_hit == 0 && c.line[c.x].u != L' ' && (is_valid_head_char(c.line[c.x].u) || is_chinese_character(c.line[c.x].u))) {
+			if(head_hit == 0 && bottom_hit == 0 && c.line[c.x].u != L' ') {
 				head = c.x;
 				head_hit = 1;
 			}
@@ -841,7 +903,7 @@ kbds_search_regex(void)
 			}
 
 			if (head_hit != 0 && bottom_hit != 0 && head != bottom) {
-				count += kbds_ismatch_regex(c,head);
+				kbds_ismatch_regex(c,head);
 
 				head = 0;
 				bottom = 0;
@@ -852,10 +914,35 @@ kbds_search_regex(void)
 			
 	}
 
-	for ( i = 0; i < LEN(flash_key_label) && i < regex_kcursor_record.used; i++) {
-		regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].mode |= ATTR_FLASH_LABEL;
-		insert_char_array(&flash_used_label, *flash_key_label[i]);
-		regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].u = *flash_key_label[i];
+	for ( i = 0; (count < LEN(flash_key_label)) && (i < regex_kcursor_record.used); i++) {
+		is_exists_str = 0;
+
+		if (i == 0) {
+			regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].mode |= ATTR_FLASH_LABEL;
+			insert_char_array(&flash_used_label, *flash_key_label[count]);
+			regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].u = *flash_key_label[count];
+			count++;
+			continue;		
+		}
+
+		for (int j = 0; j < i; j++) {
+			if(wcscmp(regex_kcursor_record.array[i].matched_substring,regex_kcursor_record.array[j].matched_substring) == 0) {
+				is_exists_str = 1;
+				is_exists_str_index = j;
+				break;
+			}
+		}
+
+		if (is_exists_str == 0) {
+			regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].mode |= ATTR_FLASH_LABEL;
+			insert_char_array(&flash_used_label, *flash_key_label[count]);
+			regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].u = *flash_key_label[count];
+			count++;
+		} else {
+			regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].mode |= ATTR_FLASH_LABEL;
+			regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].u = regex_kcursor_record.array[is_exists_str_index].c.line[regex_kcursor_record.array[is_exists_str_index].c.x].u;
+		}
+
 	}
 
 	for ( i = 0; i < regex_kcursor_record.used;i++) {
@@ -870,7 +957,7 @@ kbds_search_regex(void)
 }
 
 void copy_regex_result(KCursor m, unsigned int len) {
-	char *dest = xmalloc(len+1);
+	char *dest = xmalloc((len+1) * sizeof(Rune));
 	char *dup;
 	int i;
 	for (i = 0; i < len; i++) {
@@ -879,7 +966,7 @@ void copy_regex_result(KCursor m, unsigned int len) {
 		else
 			dest[i] = m.line[m.x+i].u;
 	}
-	dest[len] = '\0';
+	dest[len] = L'\0';
 	dup = strdup(dest);
 	XFree(dest);
 
@@ -890,14 +977,17 @@ int
 kbds_search_url(void)
 {
 	KCursor c,m;
-	unsigned int head,bottom,target_len,i,j;
+	UrlKCursor url_kcursor;
+	unsigned int head,bottom,target_len,i,j,h;
 	unsigned int count = 0;
 	char *url;
 	int head_hit = 0;
 	int bottom_hit = 0;
+	int is_exists_url = 0;
+	int repeat_exists_url_index = 0;
 
 	init_char_array(&flash_used_label, 1);
-	init_kcursor_array(&flash_kcursor_record, 1);
+	init_url_kcursor_array(&url_kcursor_record, 1);
 
 	for (c.y = 0; c.y <= term.row - 1; c.y++) {
 		c.line = TLINE(c.y);
@@ -925,16 +1015,31 @@ kbds_search_url(void)
 			if (head_hit != 0 && bottom_hit != 0 && head != bottom) {
 				url = detecturl(head,c.y,1);
 				if (url != NULL && count < 52) {
+					is_exists_url = 0;
+					for (h = 0; h < url_kcursor_record.used; h++) {
+						if (strcmp(url_kcursor_record.array[h].url, url) == 0) {
+							is_exists_url = 1;
+							repeat_exists_url_index = h;
+							break;
+						}
+					}
 					m.x = head;
 					m.y = c.y;
 					m.line = TLINE(c.y);
 					m.len = tlinelen(m.line);
 					m.line[head].ubk |= m.line[head].u;
 					m.line[head].mode |= ATTR_FLASH_LABEL;
-					m.line[head].u = *flash_key_label[count];
-					insert_char_array(&flash_used_label, *flash_key_label[count]);
-					insert_kcursor_array(&flash_kcursor_record, m);
-					count++;
+					if (is_exists_url == 0) {
+						m.line[head].u = *flash_key_label[count];
+						insert_char_array(&flash_used_label, *flash_key_label[count]);
+						count++;
+					} else {
+						m.line[head].u = url_kcursor_record.array[repeat_exists_url_index].c.line[url_kcursor_record.array[repeat_exists_url_index].c.x].u;
+					}
+					url_kcursor.c = m;
+					url_kcursor.url = xmalloc((strlen(url) + 1)* sizeof(char));
+					url_kcursor.url = strdup(url);
+					insert_url_kcursor_array(&url_kcursor_record, url_kcursor);
 				}
 				head = 0;
 				bottom = 0;
@@ -955,10 +1060,10 @@ jump_to_label(Rune label, int len) {
 	int i;
 	
 	if (kbds_isurlmode()) {
-		for ( i = 0; i < flash_kcursor_record.used; i++) {
-			if (label == flash_kcursor_record.array[i].line[flash_kcursor_record.array[i].x].u) {
+		for ( i = 0; i < url_kcursor_record.used; i++) {
+			if (label == url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u) {
 				kbds_clearhighlights();
-				openUrlOnClick(flash_kcursor_record.array[i].x, flash_kcursor_record.array[i].y, url_opener);
+				openUrlOnClick(url_kcursor_record.array[i].c.x, url_kcursor_record.array[i].c.y, url_opener);
 				return;
 			}
 		}		
@@ -997,7 +1102,7 @@ clear_regex_cache() {
 
 void
 clear_url_cache() {
-	reset_kcursor_array(&flash_kcursor_record);
+	reset_url_kcursor_array(&url_kcursor_record);
 	reset_char_array(&flash_used_label);
 }
 
