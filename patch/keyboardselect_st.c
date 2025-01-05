@@ -924,7 +924,7 @@ kbds_search_url(void)
 
 			if (head_hit != 0 && bottom_hit != 0 && head != bottom) {
 				url = detecturl(head,c.y,1);
-				if (url != NULL) {
+				if (url != NULL && count < 52) {
 					m.x = head;
 					m.y = c.y;
 					m.line = TLINE(c.y);
