@@ -947,6 +947,7 @@ kbds_search_url(void)
 	int bottom = 0;
 	int head_hit = 0;
 	int bottom_hit = 0;
+	int hit_url_y;
 
 	init_char_array(&flash_used_label, 1);
 	init_url_kcursor_array(&url_kcursor_record, 1);
@@ -962,6 +963,7 @@ kbds_search_url(void)
 			else if (head_hit == 0) {
 				head = c.x;
 				head_hit = 1;	
+				hit_url_y = c.y;
 				continue;
 			}
 
@@ -971,7 +973,7 @@ kbds_search_url(void)
 			}
 
 			if (head_hit != 0 && bottom_hit != 0 && head != bottom) {
-				url = detecturl(head,c.y,1);
+				url = detecturl(head,hit_url_y,1);
 				if (url != NULL && count < 52) {
 					is_exists_url = 0;
 					for (h = 0; h < url_kcursor_record.used; h++) {
