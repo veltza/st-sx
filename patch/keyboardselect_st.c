@@ -108,46 +108,6 @@ static const char *flash_key_label[] = {
 	"K", "M", "N", "O", "P", "S"
 };
 
-static const char *valid_char[] = {
-	"0","1","2","3","4","5","6","7","8","9",
-    "j", "f", "d", "k", "l", "h", "g", "a", "s", "o", 
-    "i", "e", "u", "n", "c", "m", "r", "p", "b", "t", 
-    "w", "v", "x", "y", "q", "z",
-    "I", "J", "L", "H", "A", "B", "Y", "D", "E", "F", 
-    "G", "Q", "R", "T", "U", "V", "W", "X", "Z", "C",
-    "K", "M", "N", "O", "P", "S",
-    ".", "/", "#", 
-    "-", "_", "=", "+", "(", ")", "@", "!", "$", "&", "*",
-    "[", "]", "{", "}", "|", "\\", ":", ";", "\"", "'",
-    "<", ">", ",", "?", "`", "~" 
-};
-
-int is_chinese_character(wchar_t ch) {
-    // check if the character is a Chinese character
-    if ((ch >= 0x4E00 && ch <= 0x9FFF) || 
-        (ch >= 0x3400 && ch <= 0x4DBF) || 
-        (ch >= 0x20000 && ch <= 0x2A6DF) ||
-        (ch >= 0x2A700 && ch <= 0x2B73F) ||
-        (ch >= 0x2B740 && ch <= 0x2B81F) ||
-        (ch >= 0x2B820 && ch <= 0x2CEAF) ||
-        (ch >= 0x2CEB0 && ch <= 0x2EBEF) ||
-        (ch >= 0x30000 && ch <= 0x3134F)) {
-        return 1; 
-		}
-    return 0;
-}
-
-int
-is_valid_head_char(Rune u) {
-	int i;
-	for ( i = 0; i < LEN(valid_char); i++) {
-		if (u == *valid_char[i]) {
-			return 1;
-		}
-	}
-	return 0;
-}
-
 void
 init_url_kcursor_array(UrlKCursorArray *a, size_t initialSize) {
     a->array = (UrlKCursor *)xmalloc(initialSize * sizeof(UrlKCursor));
@@ -978,13 +938,15 @@ kbds_search_url(void)
 {
 	KCursor c,m;
 	UrlKCursor url_kcursor;
-	unsigned int head,bottom,target_len,i,j,h;
+	unsigned int i,j,h;
 	unsigned int count = 0;
 	char *url;
-	int head_hit = 0;
-	int bottom_hit = 0;
 	int is_exists_url = 0;
 	int repeat_exists_url_index = 0;
+	int head = 0;
+	int bottom = 0;
+	int head_hit = 0;
+	int bottom_hit = 0;
 
 	init_char_array(&flash_used_label, 1);
 	init_url_kcursor_array(&url_kcursor_record, 1);
@@ -992,24 +954,20 @@ kbds_search_url(void)
 	for (c.y = 0; c.y <= term.row - 1; c.y++) {
 		c.line = TLINE(c.y);
 		c.len = tlinelen(c.line);
-		head_hit = 0;
-		bottom_hit = 0;
-		head = 0;
-		bottom = 0;
+
 		for (c.x = 0; c.x < c.len; c.x++) {
-			if(head_hit == 0 && bottom_hit == 0 && c.line[c.x].u != L' ' && (is_valid_head_char(c.line[c.x].u) || is_chinese_character(c.line[c.x].u))) {
+			url = detecturl(c.x,c.y,1);
+			if (url == NULL && head_hit == 0) 
+				continue;
+			else if (head_hit == 0) {
 				head = c.x;
-				head_hit = 1;
+				head_hit = 1;	
+				continue;
 			}
 
-			if(head_hit !=0 && c.line[c.x].u == L' ') {
+			if ((head_hit !=0 && url == NULL ) || c.x == c.len - 1) {
 				bottom = c.x - 1;
-				bottom_hit = 1;
-			}
-
-			if(head_hit !=0 && c.x == c.len - 1) {
-				bottom = c.x;
-				bottom_hit = 1;
+				bottom_hit = 1;	
 			}
 
 			if (head_hit != 0 && bottom_hit != 0 && head != bottom) {
