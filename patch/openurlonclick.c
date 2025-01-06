@@ -213,7 +213,7 @@ detecturl(int col, int row, int draw)
 
 	/* if the url contains extra closing parentheses or brackets,
 	 * we can assume that they do not belong in the url */
-	for (e = b + 7; e < j; e++) {
+	for (e = b + 1; e < j; e++) {
 		if (url[e] == '(') {
 			parentheses++;
 		} else if (url[e] == '[') {
