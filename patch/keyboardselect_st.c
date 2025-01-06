@@ -36,7 +36,6 @@ typedef struct {
 typedef struct {
 	unsigned int start;
 	unsigned int len;
-	unsigned int miss;
 	char * pattern;
 	wchar_t * matched_substring;
 } RegexResult;
@@ -702,7 +701,35 @@ kbds_searchall(void)
 	return count;
 }
 
-RegexResult get_position_from_regex(char *pattern_mb, unsigned int *wstr) {
+void apply_regex_result(KCursor c, RegexResult result) {
+	KCursor m;
+	RegexKCursor regex_kcursor;
+	int i;
+	int is_exists_regex;
+	m.y = c.y;
+	m.line = TLINE(c.y);
+	m.len = tlinelen(m.line);
+	m.x = result.start;
+	regex_kcursor.c = m;
+	regex_kcursor.len = result.len;
+	regex_kcursor.pattern = result.pattern;
+	regex_kcursor.matched_substring = result.matched_substring;
+	regex_kcursor.c.line[regex_kcursor.c.x].ubk = regex_kcursor.c.line[regex_kcursor.c.x].u;
+	is_exists_regex = 0;
+	for (i = 0; i < regex_kcursor_record.used; i++) {
+		if (regex_kcursor.c.y == regex_kcursor_record.array[i].c.y && regex_kcursor.c.x == regex_kcursor_record.array[i].c.x) {
+			is_exists_regex = 1;
+			if (regex_kcursor.len > regex_kcursor_record.array[i].len) {
+				regex_kcursor_record.array[i] = regex_kcursor;
+			}
+			break;
+		}
+	}
+	if (is_exists_regex == 0) 
+		insert_regex_kcursor_array(&regex_kcursor_record, regex_kcursor);		
+}
+
+void get_position_from_regex(KCursor c, char *pattern_mb, unsigned int *wstr) {
     RegexResult result;
     result.matched_substring = NULL;
 
@@ -718,9 +745,8 @@ RegexResult get_position_from_regex(char *pattern_mb, unsigned int *wstr) {
 
     // if there are no subpatterns, exit with an error
     if (num_subpatterns == 0) {
-        result.miss = 1;
         printf("No subpatterns found in pattern: %s\n", pattern_mb);
-        return result;
+        return;
     }
 
      // turn the pattern into wide character string
@@ -746,8 +772,7 @@ RegexResult get_position_from_regex(char *pattern_mb, unsigned int *wstr) {
         PCRE2_UCHAR buffer[256];
         pcre2_get_error_message(errorcode, buffer, sizeof(buffer));
         fprintf(stderr, "PCRE2 compilation failed at offset %zu: %s\n", erroffset, buffer);
-        result.miss = 1;
-		return result;
+		return;
     }
 
     // turn the text into PCRE2_UCHAR32
@@ -760,65 +785,61 @@ RegexResult get_position_from_regex(char *pattern_mb, unsigned int *wstr) {
     wtext[len] = 0; 
 
     pcre2_match_data *match_data = pcre2_match_data_create_from_pattern(re, NULL);
-    int ret = pcre2_match(re, wtext, len, 0, 0, match_data, NULL);
-    if (ret >= 0) {
-        PCRE2_SIZE *ovector = pcre2_get_ovector_pointer(match_data);
-        result.start = ovector[2];
-        result.len = ovector[3] - ovector[2];
-		result.miss = 0;
-		result.pattern = pattern_mb;
+	PCRE2_SIZE start_offset = 0;
+	while (start_offset < len) {
+    	int ret = pcre2_match(re, wtext, len, start_offset, 0, match_data, NULL);
+    	if (ret >= 0) {
+    	    PCRE2_SIZE *ovector = pcre2_get_ovector_pointer(match_data);
+    	    result.start = ovector[2];
+    	    result.len = ovector[3] - ovector[2];
+			result.pattern = pattern_mb;
 
-        // get the matched string
-        wchar_t *match_str = xmalloc((result.len + 1) * sizeof(wchar_t));
+    	    // get the matched string
+    	    wchar_t *match_str = xmalloc((result.len + 1) * sizeof(wchar_t));
 
-        wcsncpy(match_str, wstr + result.start, result.len);
-        match_str[result.len] = L'\0'; 
-		result.matched_substring = match_str;
-    } else if (ret == PCRE2_ERROR_NOMATCH) {
-		result.miss = 1;
-    } else {
-		result.miss = 1;
-    }
+    	    wcsncpy(match_str, wstr + result.start, result.len);
+    	    match_str[result.len] = L'\0'; 
+			result.matched_substring = match_str;
+			apply_regex_result(c, result);
+			start_offset = ovector[1];
+    	} else if (ret == PCRE2_ERROR_NOMATCH) {
+            break;
+        } else {
+            break;
+        }
+	}
 
     // free the regex object and the converted string
     pcre2_match_data_free(match_data);
     pcre2_code_free(re);
     XFree(wtext);
-    return result;
 }
 
 int
-kbds_ismatch_regex(KCursor c,unsigned int head)
+kbds_ismatch_regex(KCursor c)
 {
-	KCursor m = c;
 	Rune *target_str;
-	RegexResult result;
-	RegexKCursor regex_kcursor;
-	unsigned int is_exists = 0;
-	unsigned int h,i,j,k;
-	unsigned int target_len =0;
+	unsigned int i,j,k;
 	char *pattern;
+	c.line = TLINE(c.y);
+	c.len = tlinelen(c.line);
 
-	for (h=0; pattern_list[h] != NULL; h++) {
-		pattern = pattern_list[h];
-		target_len = m.len - head;
-		target_str = xmalloc((target_len + 1) * sizeof(Rune));
-		target_str[target_len] = L'\0';
-
-		for (size_t j = 0; j < target_len; j++) {
-    		target_str[j] = c.line[head + j].u;
+	for (i=0; pattern_list[i] != NULL; i++) {
+		pattern = pattern_list[i];
+		target_str = xmalloc((c.len + 1) * sizeof(Rune));
+		k = 0;
+		for (j = 0; j < c.len; j++) {
+			if (c.line[j].u != '\0' && c.line[j].u != L'\0') {
+    			target_str[k] = (Rune)c.line[j].u;
+				k++;
+			} else {
+				target_str[k] = L' ';
+				k++;
+			}
     	}
 
-		result = get_position_from_regex(pattern, target_str);
-		if(result.miss == 0) {
-			m.x = head + result.start;
-			regex_kcursor.c = m;
-			regex_kcursor.len = result.len;
-			regex_kcursor.pattern = result.pattern;
-			regex_kcursor.matched_substring = result.matched_substring;
-			regex_kcursor.c.line[regex_kcursor.c.x].ubk = regex_kcursor.c.line[regex_kcursor.c.x].u;
-			insert_regex_kcursor_array(&regex_kcursor_record, regex_kcursor);		
-		} 
+		target_str[k] = L'\0';
+		get_position_from_regex(c,pattern, target_str);
 
 		XFree(target_str);
 	}
@@ -828,10 +849,7 @@ int
 kbds_search_regex(void)
 {
 	KCursor c;
-	unsigned int head,bottom,target_len,i,j;
-	Rune *target_str;
-	int head_hit = 0;
-	int bottom_hit = 0;
+	unsigned int i,j;
 	unsigned int is_exists_str;
 	unsigned int is_exists_str_index = 0;
 	unsigned int count = 0;
@@ -840,38 +858,7 @@ kbds_search_regex(void)
 	init_regex_kcursor_array(&regex_kcursor_record, 1);
 
 	for (c.y = 0; c.y <= term.row - 1; c.y++) {
-		c.line = TLINE(c.y);
-		c.len = tlinelen(c.line);
-		head_hit = 0;
-		bottom_hit = 0;
-		head = 0;
-		bottom = 0;
-		for (c.x = 0; c.x < c.len; c.x++) {
-			if(head_hit == 0 && bottom_hit == 0 && c.line[c.x].u != L' ') {
-				head = c.x;
-				head_hit = 1;
-			}
-
-			if(head_hit !=0 && c.line[c.x].u == L' ') {
-				bottom = c.x - 1;
-				bottom_hit = 1;
-			}
-
-			if(head_hit !=0 && c.x == c.len - 1) {
-				bottom = c.x;
-				bottom_hit = 1;
-			}
-
-			if (head_hit != 0 && bottom_hit != 0 && head != bottom) {
-				kbds_ismatch_regex(c,head);
-
-				head = 0;
-				bottom = 0;
-				head_hit = 0;
-				bottom_hit = 0;
-			}
-		}
-			
+		kbds_ismatch_regex(c);
 	}
 
 	for ( i = 0; (count < LEN(flash_key_label)) && (i < regex_kcursor_record.used); i++) {
@@ -938,7 +925,7 @@ kbds_search_url(void)
 {
 	KCursor c,m;
 	UrlKCursor url_kcursor;
-	unsigned int i,j,h;
+	unsigned int h;
 	unsigned int count = 0;
 	char *url;
 	int is_exists_url = 0;
