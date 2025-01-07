@@ -69,6 +69,7 @@ enum glyph_attribute {
 	ATTR_BOLD_FAINT = ATTR_BOLD | ATTR_FAINT,
 	ATTR_SIXEL          = 1 << 15,
 	ATTR_FLASH_LABEL    = 1 << 16,
+	ATTR_FLASH_LABEL_HIT    = 1 << 17,
 };
 
 enum extra_attribute {
@@ -380,6 +381,7 @@ extern int allowwindowops;
 extern char *termname;
 extern char *url_opener;
 extern char *pattern_list[];
+extern unsigned int enable_same_label;
 extern unsigned int tabspaces;
 extern unsigned int defaultfg;
 extern unsigned int defaultbg;

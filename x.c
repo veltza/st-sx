@@ -1883,7 +1883,7 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 		bg = &bellbg;
 	}
 
-	if (base.mode & ATTR_FLASH_LABEL) {
+	if ((base.mode & ATTR_FLASH_LABEL) && !(base.mode & ATTR_FLASH_LABEL_HIT)) {
 		fg = &dc.col[(base.mode & ATTR_REVERSE) ? flashlabelbg : flashlabelfg];
 		bg = &dc.col[(base.mode & ATTR_REVERSE) ? flashlabelfg : flashlabelbg];
 	}

@@ -8,7 +8,6 @@
 #define PCRE2_CODE_UNIT_WIDTH 32
 #include <pcre2.h>
 
-
 enum keyboardselect_mode {
 	KBDS_MODE_MOVE    = 0,
 	KBDS_MODE_SELECT  = 1<<1,
@@ -93,18 +92,54 @@ static int kbds_mode;
 static int kbds_finddir, kbds_findtill;
 static Rune kbds_findchar;
 static KCursor kbds_c, kbds_oc;
-static CharArray flash_next_char_record, flash_used_label;
+static CharArray flash_next_char_record, flash_used_label, flash_used_double_label;
 static KCursorArray flash_kcursor_record;
 static RegexKCursorArray regex_kcursor_record;
 static UrlKCursorArray url_kcursor_record;
+static int hit_input_first = 0;
+static Rune hit_input_first_label;
 
 static const char *flash_key_label[] = {
-	"j", "f", "d", "k", "l", "h", "g", "a", "s", "o",
+	"j", "f", "d", "k",
+	"l", "h", "g", "a", "s", "o",
 	"i", "e", "u", "n", "c", "m", "r", "p", "b", "t",
 	"w", "v", "x", "y", "q", "z",
 	"I", "J", "L", "H", "A", "B", "Y", "D", "E", "F",
 	"G", "Q", "R", "T", "U", "V", "W", "X", "Z", "C",
 	"K", "M", "N", "O", "P", "S"
+};
+
+static const char *flash_double_key_label[] = {
+	"au", "ai", "ao", "ah", "aj", "ak", "al", "an",
+	"su", "si", "so", "sh", "sj", "sk", "sl", "sn",
+	"du", "di", "do", "dh", "dj", "dk", "dl", "dn",
+	"fu", "fi", "fo", "fh", "fj", "fk", "fl", "fn",
+	"gu", "gi", "go", "gh", "gj", "gk", "gl", "gn",
+	"eu", "ei", "eo", "eh", "ej", "ek", "el", "en",
+	"ru", "ri", "ro", "rh", "rj", "rk", "rl", "rn",
+	"cu", "ci", "co", "ch", "cj", "ck", "cl", "cn",
+	"wu", "wi", "wo", "wh", "wj", "wk", "wl", "wn",
+	"tu", "ti", "to", "th", "tj", "tk", "tl", "tn",
+	"vu", "vi", "vo", "vh", "vj", "vk", "vl", "vn",
+	"xu", "xi", "xo", "xh", "xj", "xk", "xl", "xn",
+	"bu", "bi", "bo", "bh", "bj", "bk", "bl", "bn",
+	"qu", "qi", "qo", "qh", "qj", "qk", "ql", "qn",
+	
+	"ap", "ay", "am",
+	"sp", "sy", "sm",
+	"dp", "dy", "dm",
+	"fp", "fy", "fm",
+	"gp", "gy", "gm",
+	"ep", "ey", "em",
+	"rp", "ry", "rm",
+	"cp", "cy", "cm",
+	"wp", "wy", "wm",
+	"tp", "ty", "tm",
+	"vp", "vy", "vm",
+	"xp", "xy", "xm",
+	"bp", "by", "bm",
+	"qp", "qy", "qm",
+
 };
 
 void
@@ -225,6 +260,18 @@ is_in_flash_used_label(Rune label) {
 	}
 	return 0;
 }
+
+int
+is_in_flash_used_double_label(Rune label) {
+	int i;
+	for ( i = 0; i < flash_used_double_label.used; i++) {
+		if (label == flash_used_double_label.array[i]) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
 
 int
 is_in_flash_next_char_record(Rune label) {
@@ -491,9 +538,17 @@ kbds_clearhighlights(void)
 	for (y = (IS_SET(MODE_ALTSCREEN) ? 0 : -term.histf); y < term.row; y++) {
 		line = TLINEABS(y);
 		for (x = 0; x < term.col; x++) {
+			if (kbds_isurlmode() && line[x].mode & ATTR_FLASH_LABEL && hit_input_first == 1 && is_in_flash_used_label(line[x].u) == 1) {
+				line[x].mode |= ATTR_FLASH_LABEL_HIT;
+				continue;
+			}
+			if (kbds_isurlmode() && line[x].mode & ATTR_FLASH_LABEL && hit_input_first == 1 && is_in_flash_used_double_label(line[x].u) == 1) {
+				continue;
+			}
 			line[x].mode &= ~ATTR_HIGHLIGHT;
 			if (line[x].mode & ATTR_FLASH_LABEL) {
 				line[x].mode &= ~ATTR_FLASH_LABEL;
+				line[x].mode &= ~ATTR_FLASH_LABEL_HIT;
 				line[x].u = line[x].ubk;
 			}
 		}
@@ -925,7 +980,7 @@ kbds_search_url(void)
 {
 	KCursor c,m;
 	UrlKCursor url_kcursor;
-	unsigned int h;
+	unsigned int h,i;
 	unsigned int count = 0;
 	char *url;
 	int is_exists_url = 0;
@@ -935,8 +990,10 @@ kbds_search_url(void)
 	int head_hit = 0;
 	int bottom_hit = 0;
 	int hit_url_y;
+	unsigned int label_need = 0;
 
 	init_char_array(&flash_used_label, 1);
+	init_char_array(&flash_used_double_label, 1);
 	init_url_kcursor_array(&url_kcursor_record, 1);
 
 	for (c.y = 0; c.y <= term.row - 1; c.y++) {
@@ -961,33 +1018,30 @@ kbds_search_url(void)
 
 			if (head_hit != 0 && bottom_hit != 0 && head != bottom) {
 				url = detecturl(head,hit_url_y,1);
-				if (url != NULL && count < 52) {
+				if (url != NULL ) {
 					is_exists_url = 0;
 					for (h = 0; h < url_kcursor_record.used; h++) {
+						if (enable_same_label == 0)
+							break;
 						if (strcmp(url_kcursor_record.array[h].url, url) == 0) {
 							is_exists_url = 1;
 							repeat_exists_url_index = h;
 							break;
 						}
 					}
+					if (is_exists_url == 0) {
+						label_need ++;
+					}
 					m.x = head;
 					m.y = c.y;
 					m.line = TLINE(c.y);
 					m.len = tlinelen(m.line);
-					m.line[head].ubk |= m.line[head].u;
-					m.line[head].mode |= ATTR_FLASH_LABEL;
-					if (is_exists_url == 0) {
-						m.line[head].u = *flash_key_label[count];
-						insert_char_array(&flash_used_label, *flash_key_label[count]);
-						count++;
-					} else {
-						m.line[head].u = url_kcursor_record.array[repeat_exists_url_index].c.line[url_kcursor_record.array[repeat_exists_url_index].c.x].u;
-					}
 					url_kcursor.c = m;
 					url_kcursor.url = xmalloc((strlen(url) + 1)* sizeof(char));
 					url_kcursor.url = strdup(url);
 					insert_url_kcursor_array(&url_kcursor_record, url_kcursor);
 				}
+
 				head = 0;
 				bottom = 0;
 				head_hit = 0;
@@ -997,6 +1051,80 @@ kbds_search_url(void)
 			
 	}
 
+	for ( i = 0; i < url_kcursor_record.used; i++) {
+		if (label_need > LEN(flash_key_label) - 1 && count >= LEN(flash_double_key_label)) {
+			continue;
+		} else if(label_need <= LEN(flash_key_label) - 1 && count >= LEN(flash_double_key_label)) {
+			continue;
+		}
+		is_exists_url = 0;
+
+		if (i == 0) {
+			if (label_need > LEN(flash_key_label) - 1) {
+				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].mode |= ATTR_FLASH_LABEL;
+				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].ubk = url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u;
+				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x+1].mode |= ATTR_FLASH_LABEL;
+				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x+1].ubk = url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x + 1].u;
+				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u = flash_double_key_label[count][0];
+				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x+1].u = flash_double_key_label[count][1];
+				insert_char_array(&flash_used_label, flash_double_key_label[count][0]);
+				insert_char_array(&flash_used_double_label, flash_double_key_label[count][1]);
+				count++;
+				continue;
+			} else {
+				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].mode |= ATTR_FLASH_LABEL;
+				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].ubk = url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u;
+				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u = *flash_key_label[count];
+				insert_char_array(&flash_used_label, *flash_key_label[count]);
+				count++;	
+				continue;	
+			}
+		}
+
+		for (h = 0; h < i; h++) {
+			if (enable_same_label == 0)
+				break;
+			if (strcmp(url_kcursor_record.array[h].url, url_kcursor_record.array[i].url) == 0) {
+				is_exists_url = 1;
+				repeat_exists_url_index = h;
+				break;
+			}
+		}
+
+		if(label_need > LEN(flash_key_label) - 1) {
+			url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].mode |= ATTR_FLASH_LABEL;
+			url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].ubk = url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u;
+			url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x+1].mode |= ATTR_FLASH_LABEL;
+			url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x+1].ubk = url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x + 1].u;
+			url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u = flash_double_key_label[count][0];
+			url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x+1].u = flash_double_key_label[count][1];
+			if (is_exists_url == 0) {
+				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u = flash_double_key_label[count][0];
+				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x + 1].u = flash_double_key_label[count][1];
+				insert_char_array(&flash_used_label, flash_double_key_label[count][0]);
+				insert_char_array(&flash_used_double_label, flash_double_key_label[count][1]);
+				count++;
+			} else {
+				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u = url_kcursor_record.array[repeat_exists_url_index].c.line[url_kcursor_record.array[repeat_exists_url_index].c.x].u;
+				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x+1].u = url_kcursor_record.array[repeat_exists_url_index].c.line[url_kcursor_record.array[repeat_exists_url_index].c.x+1].u;
+			}
+		} else {
+			url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].mode |= ATTR_FLASH_LABEL;
+			url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].ubk = url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u;
+			url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u = *flash_key_label[count];
+			if (is_exists_url == 0) {
+				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u = *flash_key_label[count];
+				insert_char_array(&flash_used_label, *flash_key_label[count]);
+				count++;
+			} else {
+				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u = url_kcursor_record.array[repeat_exists_url_index].c.line[url_kcursor_record.array[repeat_exists_url_index].c.x].u;
+			}
+
+		}
+
+	}
+
+	hit_input_first = 0;
 	tfulldirt();
 
 	return count;
@@ -1006,10 +1134,25 @@ void
 jump_to_label(Rune label, int len) {
 	int i;
 	
-	if (kbds_isurlmode()) {
+	if (kbds_isurlmode() && flash_used_double_label.used > 0) {
+		for ( i = 0; i < url_kcursor_record.used; i++) {
+			if (hit_input_first == 0 && label == url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u) {
+				hit_input_first = 1;
+				hit_input_first_label = label;
+				return;
+			}
+			if (hit_input_first == 1 && hit_input_first_label == url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u && label == url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x + 1].u) {
+				hit_input_first = 0;
+				kbds_clearhighlights();
+				openUrlOnClick(url_kcursor_record.array[i].c.x, url_kcursor_record.array[i].c.y, url_opener);
+				return;
+			}
+		}		
+	} else if (kbds_isurlmode()) {
 		for ( i = 0; i < url_kcursor_record.used; i++) {
 			if (label == url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u) {
 				kbds_clearhighlights();
+				hit_input_first = 0;
 				openUrlOnClick(url_kcursor_record.array[i].c.x, url_kcursor_record.array[i].c.y, url_opener);
 				return;
 			}
@@ -1049,8 +1192,10 @@ clear_regex_cache() {
 
 void
 clear_url_cache() {
+	hit_input_first = 0;
 	reset_url_kcursor_array(&url_kcursor_record);
 	reset_char_array(&flash_used_label);
+	reset_char_array(&flash_used_double_label);
 }
 
 void
@@ -1250,14 +1395,19 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		default:
 			if (len > 0) {
 				utf8decode(buf, &u, len);
-				if (is_in_flash_used_label(u) == 1) {
+				if ((is_in_flash_used_label(u) == 1 && hit_input_first == 0) || (is_in_flash_used_double_label(u) == 1 && hit_input_first == 1)) {
 					jump_to_label(u, kbds_searchobj.len);
+					if (hit_input_first == 1) {
+						kbds_clearhighlights();
+						return 0;
+					}
 					kbds_searchobj.len = 0;
 					kbds_setmode(kbds_mode & ~KBDS_MODE_URL);
 					clear_url_cache();
+					kbds_clearhighlights();
 					kbds_selecttext();
 					kbds_in_use = kbds_quant = 0;
-					free(kbds_searchobj.str);
+					XFree(kbds_searchobj.str);
 					return MODE_KBDSELECT;
 				} else {
 					return 0;
