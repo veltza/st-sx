@@ -15,16 +15,34 @@ static char *font2[] = {
 /* pattern for regex mode, 
  * use () sub-patterns to define the range to be copied*/
 char *pattern_list[] = {
-	".*commit ([^ \n\\^]+)", //git hash in lazygit
-	"(http://[^ \n\\^]*)", // url
-	"(https://[^ \n\\^]*)", // url
-	"(file://[^ \n\\^]*)", // url
-	"(~{0,1}(/[a-zA-Z0-9_.-]+)+)", // file path
-	"(#[a-zA-Z0-9]{6}).*", // hex color
-	"([0-9a-zA-Z]{8}) [A-Za-z]{2} ", //git hash in lazygit
-	"([0-9]{4,})\\b", // long number
-	"([a-zA-Z0-9]+@[a-zA-Z0-9]+\\.com)", //email
-	"([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})", //uuid
+    // Markdown URL
+    "(\\[[^]]*\\]\\(([^)]+)\\))",
+    // URL
+    "((?:https?://|git@|git://|ssh://|ftp://|file://)\\S+)",
+    // Diff a
+    "(--- a/(\\S+))",
+    // Diff b
+    "(\\+\\+\\+ b/(\\S+))",
+    // Docker
+    "(sha256:([0-9a-f]{64}))",
+    // File path
+    "((?:[.\\w\\-@~]+)?(?:/+[.\\w\\-@]+)+)",
+    // Color hex code
+    "(#[0-9a-fA-F]{6})",
+    // UUID
+    "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
+    // IPFS
+    "(Qm[0-9a-zA-Z]{44})",
+    // SHA hash
+    "([0-9a-f]{7,40})",
+    // IPv4 address
+    "(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})",
+    // IPv6 address
+    "([A-f0-9:]+:+[A-f0-9:]+[%\\w\\d]+)",
+    // Hexadecimal address
+    "(0x[0-9a-fA-F]+)",
+    // Number (at least 4 digits)
+    "([0-9]{4,})",
 	NULL 
 };
 
