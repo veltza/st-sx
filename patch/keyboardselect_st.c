@@ -1428,7 +1428,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 					kbds_clearhighlights();
 					kbds_selecttext();
 					kbds_in_use = kbds_quant = 0;
-					XFree(kbds_searchobj.str);
+					free(kbds_searchobj.str);
 					return MODE_KBDSELECT;
 				} else {
 					return 0;
