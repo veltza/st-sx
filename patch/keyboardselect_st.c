@@ -1,5 +1,8 @@
 #include <wctype.h>
+#include <string.h>
+#include <unistd.h>
 #include <wchar.h>
+#include <string.h>
 #include <locale.h>
 
 #define PCRE2_CODE_UNIT_WIDTH 32
@@ -148,9 +151,9 @@ insert_url_kcursor_array(UrlKCursorArray *a, UrlKCursor element) {
 void
 reset_url_kcursor_array(UrlKCursorArray *a) {
 	for (int i = 0; i < a->used; i++) {
-		XFree(a->array[i].url);
+		free(a->array[i].url);
 	}
-    XFree(a->array);
+    free(a->array);
     a->array = NULL;
     a->used = 0;
     a->size = 0;
@@ -177,9 +180,9 @@ insert_regex_kcursor_array(RegexKCursorArray *a, RegexKCursor element) {
 void
 reset_regex_kcursor_array(RegexKCursorArray *a) {
 	for (int i = 0; i < regex_kcursor_record.used; i++) {
-		XFree(regex_kcursor_record.array[i].matched_substring);
+		free(regex_kcursor_record.array[i].matched_substring);
 	}
-    XFree(a->array);
+    free(a->array);
     a->array = NULL;
     a->used = 0;
     a->size = 0;
@@ -203,7 +206,7 @@ insert_char_array(CharArray *a, Rune element) {
 
 void
 reset_char_array(CharArray *a) {
-	XFree(a->array);
+	free(a->array);
 	a->array = NULL;
 	a->used = 0;
 	a->size = 0;
@@ -229,7 +232,7 @@ insert_kcursor_array(KCursorArray *a, KCursor element) {
 
 void
 reset_kcursor_array(KCursorArray *a) {
-	XFree(a->array);
+	free(a->array);
 	a->array = NULL;
 	a->used = 0;
 	a->size = 0;
@@ -758,16 +761,18 @@ void apply_regex_result(KCursor c, RegexResult result) {
 	regex_kcursor.matched_substring = result.matched_substring;
 	regex_kcursor.c.line[regex_kcursor.c.x].ubk = regex_kcursor.c.line[regex_kcursor.c.x].u;
 	is_exists_regex = 0;
+	// check the match position is already in the cache
 	for (i = 0; i < regex_kcursor_record.used; i++) {
 		if (regex_kcursor.c.y == regex_kcursor_record.array[i].c.y && regex_kcursor.c.x == regex_kcursor_record.array[i].c.x) {
 			is_exists_regex = 1;
-			if (regex_kcursor.len > regex_kcursor_record.array[i].len) {
+			// update the length record of the position if the new match length is longer
+			if (regex_kcursor.len > regex_kcursor_record.array[i].len) { 
 				regex_kcursor_record.array[i] = regex_kcursor;
 			}
 			break;
 		}
 	}
-	if (is_exists_regex == 0) {
+	if (is_exists_regex == 0) { // if new position match, record it
 		insert_regex_kcursor_array(&regex_kcursor_record, regex_kcursor);		
 	}
 }
@@ -775,8 +780,6 @@ void apply_regex_result(KCursor c, RegexResult result) {
 void get_position_from_regex(KCursor c, char *pattern_mb, unsigned int *wstr) {
     RegexResult result;
     result.matched_substring = NULL;
-
-	setlocale(LC_ALL, "");
 
     // check if the pattern contains any subpatterns
     int num_subpatterns = 0;
@@ -792,13 +795,13 @@ void get_position_from_regex(KCursor c, char *pattern_mb, unsigned int *wstr) {
         return;
     }
 
-     // turn the pattern into wide character string
+     // convert the pattern into wide character string
     size_t pattern_len = mbstowcs(NULL, pattern_mb, 0) + 1;
     wchar_t *pattern = xmalloc(pattern_len * sizeof(wchar_t));
 
     mbstowcs(pattern, pattern_mb, pattern_len);
 
-    // turn the pattern into PCRE2_UCHAR32
+    // convert the pattern into PCRE2_UCHAR32
     PCRE2_UCHAR32 *wpattern = xmalloc(pattern_len * sizeof(PCRE2_UCHAR32));
 
     for (size_t i = 0; i < pattern_len; i++) {
@@ -809,8 +812,8 @@ void get_position_from_regex(KCursor c, char *pattern_mb, unsigned int *wstr) {
     int errorcode;
     PCRE2_SIZE erroffset;
     pcre2_code *re = pcre2_compile(wpattern, PCRE2_ZERO_TERMINATED, 0, &errorcode, &erroffset, NULL);
-    XFree(pattern);
-    XFree(wpattern);
+    free(pattern);
+    free(wpattern);
     if (!re) {
         PCRE2_UCHAR buffer[256];
         pcre2_get_error_message(errorcode, buffer, sizeof(buffer));
@@ -818,7 +821,7 @@ void get_position_from_regex(KCursor c, char *pattern_mb, unsigned int *wstr) {
 		return;
     }
 
-    // turn the text into PCRE2_UCHAR32
+    // convert the text into PCRE2_UCHAR32
     size_t len = wcslen(wstr);
     PCRE2_UCHAR32 *wtext = xmalloc((len + 1) * sizeof(PCRE2_UCHAR32));
 
@@ -854,7 +857,7 @@ void get_position_from_regex(KCursor c, char *pattern_mb, unsigned int *wstr) {
     // free the regex object and the converted string
     pcre2_match_data_free(match_data);
     pcre2_code_free(re);
-    XFree(wtext);
+    free(wtext);
 }
 
 void
@@ -876,7 +879,7 @@ kbds_ismatch_regex(unsigned int begin, unsigned int end, unsigned int len)
 		c.len = tlinelen(c.line);
 		
 		for (j = 0; j < c.len; j++) {
-			if (c.line[j].u != '\0' && c.line[j].u != L'\0') {
+			if (!(c.line[j].mode & ATTR_WDUMMY) ) {
     			target_str[h] = (Rune)c.line[j].u;
 				h++;
 			} else {
@@ -891,7 +894,7 @@ kbds_ismatch_regex(unsigned int begin, unsigned int end, unsigned int len)
 		pattern = pattern_list[i];
 		get_position_from_regex(begin_c,pattern, target_str);
 	}
-	XFree(target_str);
+	free(target_str);
 }
 
 int
@@ -908,6 +911,7 @@ kbds_search_regex(void)
 	init_char_array(&flash_used_label, 1);
 	init_regex_kcursor_array(&regex_kcursor_record, 1);
 
+	// read a full line to match regex
 	for (c.y = 0; c.y <= term.row - 1; c.y++) {
 		c.line = TLINE(c.y);
 		c.len = tlinelen(c.line);
@@ -919,10 +923,11 @@ kbds_search_regex(void)
 		}
 	}
 
+	// assign label to the matched string
 	for ( i = 0; (count < LEN(flash_key_label)) && (i < regex_kcursor_record.used); i++) {
 		is_exists_str = 0;
 
-		if (i == 0) {
+		if (i == 0) { // first match
 			regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].mode |= ATTR_FLASH_LABEL;
 			insert_char_array(&flash_used_label, *flash_key_label[count]);
 			regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].u = *flash_key_label[count];
@@ -930,7 +935,7 @@ kbds_search_regex(void)
 			continue;		
 		}
 
-		for (int j = 0; j < i; j++) {
+		for (int j = 0; j < i; j++) { // check if the matched string is already in the cache
 			if(wcscmp(regex_kcursor_record.array[i].matched_substring,regex_kcursor_record.array[j].matched_substring) == 0) {
 				is_exists_str = 1;
 				is_exists_str_index = j;
@@ -938,18 +943,19 @@ kbds_search_regex(void)
 			}
 		}
 
-		if (is_exists_str == 0) {
+		if (is_exists_str == 0) { // if new value match, use new label
 			regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].mode |= ATTR_FLASH_LABEL;
 			insert_char_array(&flash_used_label, *flash_key_label[count]);
 			regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].u = *flash_key_label[count];
 			count++;
-		} else {
+		} else { // if same value match, use same label of the first hit
 			regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].mode |= ATTR_FLASH_LABEL;
 			regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].u = regex_kcursor_record.array[is_exists_str_index].c.line[regex_kcursor_record.array[is_exists_str_index].c.x].u;
 		}
 
 	}
 
+	// highlight the matched string
 	KCursor temp_c;
 	for ( i = 0; i < regex_kcursor_record.used;i++) {
 
@@ -1004,24 +1010,27 @@ kbds_search_url(void)
 			url = detecturl(c.x,c.y,0);
 			if (url == NULL && head_hit == 0) 
 				continue;
-			else if (head_hit == 0) {
+			else if (head_hit == 0) { // find the first char which is belong to a url
 				head = c.x;
 				head_hit = 1;	
 				hit_url_y = c.y;
 				continue;
 			}
 
+			// find the last char which is belong to the url 
 			if (head_hit !=0 && (url == NULL || (!(c.line[c.x].mode & ATTR_WRAP) && c.x == c.len - 1))) {	
 				bottom = c.x - 1;
 				bottom_hit = 1;	
 			}
 
+			// complete one url match
 			if (head_hit != 0 && bottom_hit != 0 && head != bottom) {
 				url = detecturl(head,hit_url_y,0);
 				if (url != NULL ) {
 					is_exists_url = 0;
+					// check if the url is already in the cache
 					for (h = 0; h < url_kcursor_record.used; h++) {
-						if (enable_same_label == 0)
+						if (enable_same_label == 0) // if disable same label
 							break;
 						if (strcmp(url_kcursor_record.array[h].url, url) == 0) {
 							is_exists_url = 1;
@@ -1029,9 +1038,11 @@ kbds_search_url(void)
 							break;
 						}
 					}
+					// calculate the number of labels needed
 					if (is_exists_url == 0) {
 						label_need ++;
 					}
+					// record the position of the url
 					m.x = head;
 					m.y = hit_url_y;
 					m.line = TLINE(hit_url_y);
@@ -1041,7 +1052,7 @@ kbds_search_url(void)
 					url_kcursor.url = strdup(url);
 					insert_url_kcursor_array(&url_kcursor_record, url_kcursor);
 				}
-
+				// reset to match the next url
 				head = 0;
 				bottom = 0;
 				head_hit = 0;
@@ -1051,80 +1062,94 @@ kbds_search_url(void)
 			
 	}
 
+	Glyph *label_pos1, *label_pos2, *same_value_pos1,*same_value_pos2;
+	char label1, label2;
+
+	// assign label to the matched url
 	for ( i = 0; i < url_kcursor_record.used; i++) {
+		// Check whether the label is used up 
 		if (label_need > LEN(flash_key_label) - 1 && count >= LEN(flash_double_key_label)) {
 			break;
 		} else if(label_need <= LEN(flash_key_label) - 1 && count >= LEN(flash_double_key_label)) {
 			break;
 		}
-		is_exists_url = 0;
 
-		if (i == 0) {
-			if (label_need > LEN(flash_key_label) - 1) {
-				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].mode |= ATTR_FLASH_LABEL;
-				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].ubk = url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u;
-				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x+1].mode |= ATTR_FLASH_LABEL;
-				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x+1].ubk = url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x + 1].u;
-				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u = flash_double_key_label[count][0];
-				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x+1].u = flash_double_key_label[count][1];
-				insert_char_array(&flash_used_label, flash_double_key_label[count][0]);
-				insert_char_array(&flash_used_double_label, flash_double_key_label[count][1]);
+		is_exists_url = 0;
+		label_pos1 = &url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x];
+		label_pos2 = &url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x + 1];
+		label1 = flash_double_key_label[count][0];
+		label2 = flash_double_key_label[count][1];
+
+		if (i == 0) { // first match
+			if (label_need > LEN(flash_key_label) - 1) { // double label
+				label_pos1->mode |= ATTR_FLASH_LABEL;
+				label_pos1->ubk = label_pos1->u;
+				label_pos1->u = label1;
+				label_pos2->mode |= ATTR_FLASH_LABEL;
+				label_pos2->ubk = label_pos2->u;
+				label_pos2->u = label2;
+				insert_char_array(&flash_used_label, label1);
+				insert_char_array(&flash_used_double_label, label2);
 				count++;
 				continue;
-			} else {
-				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].mode |= ATTR_FLASH_LABEL;
-				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].ubk = url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u;
-				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u = *flash_key_label[count];
+			} else { // single label
+				label_pos1->mode |= ATTR_FLASH_LABEL;
+				label_pos1->ubk = label_pos1->u;
+				label_pos1->u = *flash_key_label[count];
 				insert_char_array(&flash_used_label, *flash_key_label[count]);
 				count++;	
 				continue;	
 			}
 		}
 
+		// check if the url is already in the cache
 		for (h = 0; h < i; h++) {
 			if (enable_same_label == 0)
 				break;
 			if (strcmp(url_kcursor_record.array[h].url, url_kcursor_record.array[i].url) == 0) {
 				is_exists_url = 1;
-				repeat_exists_url_index = h;
+				repeat_exists_url_index = h; // record the index of the first hit
 				break;
 			}
 		}
 
-		if(label_need > LEN(flash_key_label) - 1) {
-			url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].mode |= ATTR_FLASH_LABEL;
-			url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].ubk = url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u;
-			url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x+1].mode |= ATTR_FLASH_LABEL;
-			url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x+1].ubk = url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x + 1].u;
-			url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u = flash_double_key_label[count][0];
-			url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x+1].u = flash_double_key_label[count][1];
-			if (is_exists_url == 0) {
-				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u = flash_double_key_label[count][0];
-				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x + 1].u = flash_double_key_label[count][1];
-				insert_char_array(&flash_used_label, flash_double_key_label[count][0]);
-				insert_char_array(&flash_used_double_label, flash_double_key_label[count][1]);
+		// record the first hit pos of the same url
+		same_value_pos1 = &url_kcursor_record.array[repeat_exists_url_index].c.line[url_kcursor_record.array[repeat_exists_url_index].c.x];
+		same_value_pos2 = &url_kcursor_record.array[repeat_exists_url_index].c.line[url_kcursor_record.array[repeat_exists_url_index].c.x+1];
+
+		if(label_need > LEN(flash_key_label) - 1) {  // double label
+			label_pos1->mode |= ATTR_FLASH_LABEL;
+			label_pos1->ubk = label_pos1->u;
+			label_pos2->mode |= ATTR_FLASH_LABEL;
+			label_pos2->ubk = label_pos2->u;
+
+			if (is_exists_url == 0) { // new value match, use new label
+				label_pos1->u = label1;
+				label_pos2->u = label2;
+				insert_char_array(&flash_used_label, label1);
+				insert_char_array(&flash_used_double_label, label2);
 				count++;
-			} else {
-				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u = url_kcursor_record.array[repeat_exists_url_index].c.line[url_kcursor_record.array[repeat_exists_url_index].c.x].u;
-				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x+1].u = url_kcursor_record.array[repeat_exists_url_index].c.line[url_kcursor_record.array[repeat_exists_url_index].c.x+1].u;
+			} else { // same value match, use same label of the first hit
+				label_pos1->u = same_value_pos1->u;
+				label_pos2->u = same_value_pos2->u;
 			}
-		} else {
-			url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].mode |= ATTR_FLASH_LABEL;
-			url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].ubk = url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u;
-			url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u = *flash_key_label[count];
-			if (is_exists_url == 0) {
-				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u = *flash_key_label[count];
+		} else {  // single label
+			label_pos1->mode |= ATTR_FLASH_LABEL;
+			label_pos1->ubk = label_pos1->u;
+			label_pos1->u = *flash_key_label[count];
+			if (is_exists_url == 0) { // new value match, use new label
+				label_pos1->u = *flash_key_label[count];
 				insert_char_array(&flash_used_label, *flash_key_label[count]);
 				count++;
-			} else {
-				url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u = url_kcursor_record.array[repeat_exists_url_index].c.line[url_kcursor_record.array[repeat_exists_url_index].c.x].u;
+			} else { // same value match, use same label of the first hit
+				label_pos1->u = same_value_pos1->u;
 			}
 
 		}
 
 	}
 
-	hit_input_first = 0;
+	hit_input_first = 0; // begin hit first label
 	tfulldirt();
 
 	return count;
@@ -1134,13 +1159,16 @@ void
 jump_to_label(Rune label, int len) {
 	int i;
 	
+	// double label hit
 	if (kbds_isurlmode() && flash_used_double_label.used > 0) {
 		for ( i = 0; i < url_kcursor_record.used; i++) {
+			// hit first label
 			if (hit_input_first == 0 && label == url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u) {
 				hit_input_first = 1;
 				hit_input_first_label = label;
 				return;
 			}
+			// hit second label
 			if (hit_input_first == 1 && hit_input_first_label == url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].ubk && label == url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x + 1].u) {
 				hit_input_first = 0;
 				kbds_clearhighlights();
@@ -1148,7 +1176,7 @@ jump_to_label(Rune label, int len) {
 				return;
 			}
 		}		
-	} else if (kbds_isurlmode()) {
+	} else if (kbds_isurlmode()) { // single label hit
 		for ( i = 0; i < url_kcursor_record.used; i++) {
 			if (label == url_kcursor_record.array[i].c.line[url_kcursor_record.array[i].c.x].u) {
 				kbds_clearhighlights();
