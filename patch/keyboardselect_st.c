@@ -1,10 +1,3 @@
-#include <wctype.h>
-#include <string.h>
-#include <unistd.h>
-#include <wchar.h>
-#include <string.h>
-#include <locale.h>
-
 #define PCRE2_CODE_UNIT_WIDTH 32
 #include <pcre2.h>
 
