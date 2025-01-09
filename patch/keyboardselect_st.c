@@ -759,7 +759,8 @@ void apply_regex_result(KCursor c, RegexResult result) {
 		if (regex_kcursor.c.y == regex_kcursor_record.array[i].c.y && regex_kcursor.c.x == regex_kcursor_record.array[i].c.x) {
 			is_exists_regex = 1;
 			// update the length record of the position if the new match length is longer
-			if (regex_kcursor.len > regex_kcursor_record.array[i].len) { 
+			if (regex_kcursor.len > regex_kcursor_record.array[i].len) {
+				free(regex_kcursor_record.array[i].matched_substring); 
 				regex_kcursor_record.array[i] = regex_kcursor;
 			}
 			break;
