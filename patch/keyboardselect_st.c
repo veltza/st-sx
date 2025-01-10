@@ -1042,7 +1042,6 @@ kbds_search_url(void)
 					m.line = TLINE(hit_url_y);
 					m.len = tlinelen(m.line);
 					url_kcursor.c = m;
-					url_kcursor.url = xmalloc((strlen(url) + 1)* sizeof(char));
 					url_kcursor.url = strdup(url);
 					insert_url_kcursor_array(&url_kcursor_record, url_kcursor);
 				}
