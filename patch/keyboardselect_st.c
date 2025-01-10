@@ -744,7 +744,6 @@ void apply_regex_result(KCursor c, RegexResult result) {
 	KCursor m;
 	RegexKCursor regex_kcursor;
 	KCursor target_cursor;
-	int target_y;
 	int i;
 	int is_exists_regex;
 
