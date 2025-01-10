@@ -81,6 +81,7 @@ static int kbds_in_use, kbds_quant;
 static int kbds_seltype = SEL_REGULAR;
 static int kbds_mode;
 static int kbds_finddir, kbds_findtill;
+static int kbds_scrolldownonexit;
 static Rune kbds_findchar;
 static KCursor kbds_c, kbds_oc;
 static CharArray flash_next_char_record, flash_used_label, flash_used_double_label;
@@ -1628,6 +1629,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 	case -1:
 		kbds_searchobj.str = xmalloc(term.col * sizeof(Glyph));
 		kbds_searchobj.cx = kbds_searchobj.len = 0;
+		kbds_scrolldownonexit = 0;
 		kbds_in_use = 1;
 		kbds_moveto(term.c.x, term.c.y);
 		kbds_oc = kbds_c;
@@ -1700,6 +1702,8 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		kbds_searchobj.dir = (ksym == XK_question || ksym == -3) ? -1 : 1;
 		kbds_searchobj.cx = kbds_searchobj.len = 0;
 		kbds_searchobj.maxlen = term.col - 2;
+		if (kbds_searchobj.directsearch && term.scr == 0)
+			kbds_scrolldownonexit = 1;
 		kbds_setmode(kbds_mode | KBDS_MODE_SEARCH);
 		kbds_clearhighlights();
 		return 0;
@@ -1751,8 +1755,9 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 			kbds_copytoclipboard();
 		kbds_in_use = kbds_quant = 0;
 		free(kbds_searchobj.str);
-		kscrolldown(&((Arg){ .i = term.histf }));
 		kbds_clearhighlights();
+		if (kbds_scrolldownonexit)
+			kscrolldown(&((Arg){ .i = term.histf }));
 		return MODE_KBDSELECT;
 	case XK_n:
 	case XK_N:
