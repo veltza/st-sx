@@ -910,7 +910,7 @@ kbds_search_regex(void)
 		c.line = TLINE(c.y);
 		c.len = tlinelen(c.line);
 		str_len = str_len + c.len;
-		if (!(c.line[c.len-1].mode & ATTR_WRAP)) {
+		if (c.len == 0 || !kbds_iswrapped(&c)) {
 			kbds_ismatch_regex(begin_y,c.y,str_len);
 			begin_y = c.y + 1;
 			str_len = 0;
