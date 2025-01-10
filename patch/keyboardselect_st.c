@@ -783,7 +783,7 @@ void apply_regex_result(KCursor c, RegexResult result) {
 	}
 }
 
-void get_position_from_regex(KCursor c, char *pattern_mb, unsigned int *wstr) {
+void get_position_from_regex(KCursor c, char *pattern_mb, wchar_t *wstr) {
     RegexResult result;
     result.matched_substring = NULL;
 
@@ -823,7 +823,7 @@ void get_position_from_regex(KCursor c, char *pattern_mb, unsigned int *wstr) {
     if (!re) {
         PCRE2_UCHAR buffer[256];
         pcre2_get_error_message(errorcode, buffer, sizeof(buffer));
-        fprintf(stderr, "PCRE2 compilation failed at offset %zu: %s\n", erroffset, buffer);
+        fprintf(stderr, "PCRE2 compilation failed at offset %zu: %ls\n", erroffset, (wchar_t *)buffer);
 		return;
     }
 
@@ -869,12 +869,12 @@ void get_position_from_regex(KCursor c, char *pattern_mb, unsigned int *wstr) {
 void
 kbds_ismatch_regex(unsigned int begin, unsigned int end, unsigned int len)
 {
-	Rune *target_str;
+	wchar_t *target_str;
 	unsigned int i,j;
 	char *pattern;
 	unsigned h = 0;
 	KCursor c,begin_c;
-	target_str = xmalloc((len + 1) * sizeof(Rune));
+	target_str = xmalloc((len + 1) * sizeof(wchar_t));
 	begin_c.y = begin;
 	begin_c.line = TLINE(begin);
 	begin_c.len = tlinelen(begin_c.line);
@@ -886,7 +886,7 @@ kbds_ismatch_regex(unsigned int begin, unsigned int end, unsigned int len)
 		
 		for (j = 0; j < c.len; j++) {
 			if (!(c.line[j].mode & ATTR_WDUMMY) ) {
-    			target_str[h] = (Rune)c.line[j].u;
+    			target_str[h] = (wchar_t)c.line[j].u;
 				h++;
 			} else {
 				target_str[h] = L' ';
