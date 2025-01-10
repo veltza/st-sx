@@ -743,12 +743,25 @@ kbds_searchall(void)
 void apply_regex_result(KCursor c, RegexResult result) {
 	KCursor m;
 	RegexKCursor regex_kcursor;
+	KCursor target_cursor;
+	int target_y;
 	int i;
 	int is_exists_regex;
-	m.y = c.y + (int)(result.start/term.col);
+
+	target_cursor.y = c.y;
+	target_cursor.line = TLINE(target_cursor.y);
+	target_cursor.len = tlinelen(target_cursor.line);
+	target_cursor.x = c.x;
+
+	// get the real position of match cursor 
+	for(i = 0; i < result.start; i++) { 
+		kbds_moveforward(&target_cursor, 1, KBDS_WRAP_LINE);
+	}
+
+	m.y = target_cursor.y;
 	m.line = TLINE(m.y);
 	m.len = tlinelen(m.line);
-	m.x = (int)(result.start % term.col);
+	m.x = target_cursor.x;
 	regex_kcursor.c = m;
 	regex_kcursor.len = result.len;
 	regex_kcursor.matched_substring = result.matched_substring;
