@@ -1379,7 +1379,10 @@ kbds_nextword(int start, int dir, wchar_t *delims)
 int
 kbds_drawcursor(void)
 {
-	if (kbds_in_use && (!kbds_issearchmode() || kbds_c.y != term.row-1)) {
+	if (kbds_in_use &&
+	    (kbds_c.y != term.row-1 || !kbds_issearchmode()) &&
+	    !(kbds_searchobj.directsearch && kbds_isurlmode()) &&
+	    !(kbds_searchobj.directsearch && kbds_isregexmode())) {
 		xdrawcursor(kbds_c.x, kbds_c.y, TLINE(kbds_c.y)[kbds_c.x],
 		            kbds_oc.x, kbds_oc.y, TLINE(kbds_oc.y));
 		kbds_oc = kbds_c;
@@ -1716,6 +1719,8 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		kbds_setmode(kbds_mode | KBDS_MODE_REGEX);
 		kbds_clearhighlights();
 		kbds_search_regex();
+		if (kbds_searchobj.directsearch)
+			clearurl(1);
 		return 0;
 	case -6:
 		kbds_searchobj.directsearch = (ksym == -6);
@@ -1723,6 +1728,8 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		kbds_setmode(kbds_mode | KBDS_MODE_URL);
 		kbds_clearhighlights();
 		kbds_search_url();
+		if (kbds_searchobj.directsearch)
+			clearurl(1);
 		return 0;
 	case XK_q:
 	case XK_Escape:
