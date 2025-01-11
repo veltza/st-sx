@@ -95,9 +95,6 @@ static const char *flash_key_label[] = {
 	"j", "f", "d", "k", "l", "h", "g", "a", "s", "o",
 	"i", "e", "u", "n", "c", "m", "r", "p", "b", "t",
 	"w", "v", "x", "y", "q", "z",
-	"I", "J", "L", "H", "A", "B", "Y", "D", "E", "F",
-	"G", "Q", "R", "T", "U", "V", "W", "X", "Z", "C",
-	"K", "M", "N", "O", "P", "S"
 };
 
 static const char *flash_double_key_label[] = {
@@ -521,14 +518,14 @@ kbds_clearhighlights(void)
 	for (y = (IS_SET(MODE_ALTSCREEN) ? 0 : -term.histf); y < term.row; y++) {
 		line = TLINEABS(y);
 		for (x = 0; x < term.col; x++) {
-			if (kbds_isurlmode() && line[x].mode & ATTR_FLASH_LABEL && hit_input_first == 1 && is_in_flash_used_label(line[x].u) == 1) {
+			if ((kbds_isurlmode()||kbds_isregexmode()) && line[x].mode & ATTR_FLASH_LABEL && hit_input_first == 1 && is_in_flash_used_label(line[x].u) == 1) {
 				line[x].mode &= ~ATTR_FLASH_LABEL;
 				u = line[x].u;
 				line[x].u = line[x].ubk;
 				line[x].ubk = u; //backup the first hit label for judge in double hit
 				continue;
 			}
-			if (kbds_isurlmode() && line[x].mode & ATTR_FLASH_LABEL && hit_input_first == 1 && is_in_flash_used_double_label(line[x].u) == 1 && line[x-1].ubk == hit_input_first_label) {
+			if ((kbds_isurlmode()||kbds_isregexmode()) && line[x].mode & ATTR_FLASH_LABEL && hit_input_first == 1 && is_in_flash_used_double_label(line[x].u) == 1 && line[x-1].ubk == hit_input_first_label) {
 				continue;
 			}
 			line[x].mode &= ~ATTR_HIGHLIGHT;
@@ -741,12 +738,13 @@ kbds_searchall(void)
 	return count;
 }
 
-void apply_regex_result(KCursor c, RegexResult result) {
+int apply_regex_result(KCursor c, RegexResult result) {
 	KCursor m;
 	RegexKCursor regex_kcursor;
 	KCursor target_cursor;
 	int i;
 	int is_exists_regex;
+	int is_same_value_regex = 0;
 
 	target_cursor.y = c.y;
 	target_cursor.line = TLINE(target_cursor.y);
@@ -779,17 +777,27 @@ void apply_regex_result(KCursor c, RegexResult result) {
 				free(regex_kcursor_record.array[i].matched_substring);
 				regex_kcursor_record.array[i] = regex_kcursor;
 			}
-			break;
 		}
+		// check if the matched string is already in the cache
+		if (enable_regex_same_label && wcscmp(regex_kcursor.matched_substring, regex_kcursor_record.array[i].matched_substring) == 0) {
+			is_same_value_regex = 1;
+		}		
+
 	}
 	if (is_exists_regex == 0) { // if new position match, record it
 		insert_regex_kcursor_array(&regex_kcursor_record, regex_kcursor);
 	}
+	if (is_same_value_regex)
+		return 0;
+	else
+		return 1;
 }
 
-void get_position_from_regex(KCursor c, char *pattern_mb, wchar_t *wstr) {
+int get_position_from_regex(KCursor c, char *pattern_mb, wchar_t *wstr) {
 	RegexResult result;
 	result.matched_substring = NULL;
+	int new_count = 0;
+	int label_need = 0;
 
 	// check if the pattern contains any subpatterns
 	int num_subpatterns = 0;
@@ -802,7 +810,7 @@ void get_position_from_regex(KCursor c, char *pattern_mb, wchar_t *wstr) {
 	// if there are no subpatterns, exit with an error
 	if (num_subpatterns == 0) {
 		printf("No subpatterns found in pattern: %s\n", pattern_mb);
-		return;
+		return 0;
 	}
 
 	// convert the pattern into wide character string
@@ -828,7 +836,7 @@ void get_position_from_regex(KCursor c, char *pattern_mb, wchar_t *wstr) {
 		PCRE2_UCHAR buffer[256];
 		pcre2_get_error_message(errorcode, buffer, sizeof(buffer));
 		fprintf(stderr, "PCRE2 compilation failed at offset %zu: %ls\n", erroffset, (wchar_t *)buffer);
-		return;
+		return 0;
 	}
 
 	// convert the text into PCRE2_UCHAR32
@@ -855,7 +863,8 @@ void get_position_from_regex(KCursor c, char *pattern_mb, wchar_t *wstr) {
 			wcsncpy(match_str, wstr + result.start, result.len);
 			match_str[result.len] = L'\0';
 			result.matched_substring = match_str;
-			apply_regex_result(c, result);
+			new_count = apply_regex_result(c, result);
+			label_need = label_need + new_count;
 			start_offset = ovector[1];
 		} else if (ret == PCRE2_ERROR_NOMATCH) {
 			break;
@@ -868,9 +877,10 @@ void get_position_from_regex(KCursor c, char *pattern_mb, wchar_t *wstr) {
 	pcre2_match_data_free(match_data);
 	pcre2_code_free(re);
 	free(wtext);
+	return label_need;
 }
 
-void
+int
 kbds_ismatch_regex(unsigned int begin, unsigned int end, unsigned int len)
 {
 	wchar_t *target_str;
@@ -880,13 +890,15 @@ kbds_ismatch_regex(unsigned int begin, unsigned int end, unsigned int len)
 	KCursor c,begin_c;
 
 	if (len == 0)
-		return;
+		return 0;
 
 	target_str = xmalloc((len + 1) * sizeof(wchar_t));
 	begin_c.y = begin;
 	begin_c.line = TLINE(begin);
 	begin_c.len = tlinelen(begin_c.line);
 	begin_c.x = 0;
+	int label_need = 0;
+	int new_count = 0;
 
 	for (c.y = begin; c.y <= end; c.y++) {
 		c.line = TLINE(c.y);
@@ -902,9 +914,11 @@ kbds_ismatch_regex(unsigned int begin, unsigned int end, unsigned int len)
 
 	for (i=0; pattern_list[i] != NULL; i++) {
 		pattern = pattern_list[i];
-		get_position_from_regex(begin_c,pattern, target_str);
+		new_count = get_position_from_regex(begin_c,pattern, target_str);
+		label_need = label_need + new_count;
 	}
 	free(target_str);
+	return label_need;
 }
 
 int
@@ -917,8 +931,11 @@ kbds_search_regex(void)
 	unsigned int count = 0;
 	unsigned int begin_y = 0;
 	unsigned int str_len = 0;
+	int label_need = 0;
+	int new_count = 0;
 
 	init_char_array(&flash_used_label, 1);
+	init_char_array(&flash_used_double_label, 1);
 	init_regex_kcursor_array(&regex_kcursor_record, 1);
 
 	// read a full line to match regex
@@ -927,25 +944,57 @@ kbds_search_regex(void)
 		c.len = tlinelen(c.line);
 		str_len = str_len + c.len;
 		if (!kbds_iswrapped(&c) || c.y == term.row - 1) {
-			kbds_ismatch_regex(begin_y,c.y,str_len);
+			new_count = kbds_ismatch_regex(begin_y,c.y,str_len);
+			label_need = label_need + new_count;
 			begin_y = c.y + 1;
 			str_len = 0;
 		}
 	}
 
+	Glyph *label_pos1, *label_pos2, *same_value_pos1,*same_value_pos2;
+	char label1, label2;
+
 	// assign label to the matched string
-	for ( i = 0; (count < LEN(flash_key_label)) && (i < regex_kcursor_record.used); i++) {
+	for ( i = 0; i < regex_kcursor_record.used; i++) {
+		// Check whether the label is used up
+		if (label_need > LEN(flash_key_label) - 1 && count >= LEN(flash_double_key_label)) {
+			break;
+		} else if(label_need <= LEN(flash_key_label) - 1 && count >= LEN(flash_double_key_label)) {
+			break;
+		}
+
 		is_exists_str = 0;
 
+		label_pos1 = &regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x];
+		label_pos2 = &regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x + 1];
+		label1 = flash_double_key_label[count][0];
+		label2 = flash_double_key_label[count][1];
+
 		if (i == 0) { // first match
-			regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].mode |= ATTR_FLASH_LABEL;
-			insert_char_array(&flash_used_label, *flash_key_label[count]);
-			regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].u = *flash_key_label[count];
-			count++;
-			continue;
+			if (label_need > LEN(flash_key_label) - 1) { // double label
+				label_pos1->mode |= ATTR_FLASH_LABEL;
+				label_pos1->ubk = label_pos1->u;
+				label_pos1->u = label1;
+				label_pos2->mode |= ATTR_FLASH_LABEL;
+				label_pos2->ubk = label_pos2->u;
+				label_pos2->u = label2;
+				insert_char_array(&flash_used_label, label1);
+				insert_char_array(&flash_used_double_label, label2);
+				count++;
+				continue;
+			} else { // single label
+				label_pos1->mode |= ATTR_FLASH_LABEL;
+				label_pos1->ubk = label_pos1->u;
+				label_pos1->u = *flash_key_label[count];
+				insert_char_array(&flash_used_label, *flash_key_label[count]);
+				count++;
+				continue;
+			}
 		}
 
 		for (int j = 0; j < i; j++) { // check if the matched string is already in the cache
+			if (enable_regex_same_label == 0)
+				break;
 			if(wcscmp(regex_kcursor_record.array[i].matched_substring,regex_kcursor_record.array[j].matched_substring) == 0) {
 				is_exists_str = 1;
 				is_exists_str_index = j;
@@ -953,14 +1002,38 @@ kbds_search_regex(void)
 			}
 		}
 
-		if (is_exists_str == 0) { // if new value match, use new label
-			regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].mode |= ATTR_FLASH_LABEL;
-			insert_char_array(&flash_used_label, *flash_key_label[count]);
-			regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].u = *flash_key_label[count];
-			count++;
-		} else { // if same value match, use same label of the first hit
-			regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].mode |= ATTR_FLASH_LABEL;
-			regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].u = regex_kcursor_record.array[is_exists_str_index].c.line[regex_kcursor_record.array[is_exists_str_index].c.x].u;
+		// record the first hit pos of the same url
+		same_value_pos1 = &regex_kcursor_record.array[is_exists_str_index].c.line[regex_kcursor_record.array[is_exists_str_index].c.x];
+		same_value_pos2 = &regex_kcursor_record.array[is_exists_str_index].c.line[regex_kcursor_record.array[is_exists_str_index].c.x+1];
+
+
+		if(label_need > LEN(flash_key_label) - 1) {  // double label
+			label_pos1->mode |= ATTR_FLASH_LABEL;
+			label_pos1->ubk = label_pos1->u;
+			label_pos2->mode |= ATTR_FLASH_LABEL;
+			label_pos2->ubk = label_pos2->u;
+
+			if (is_exists_str == 0) { // new value match, use new label
+				label_pos1->u = label1;
+				label_pos2->u = label2;
+				insert_char_array(&flash_used_label, label1);
+				insert_char_array(&flash_used_double_label, label2);
+				count++;
+			} else { // same value match, use same label of the first hit
+				label_pos1->u = same_value_pos1->u;
+				label_pos2->u = same_value_pos2->u;
+			}
+		} else {  // single label
+			label_pos1->mode |= ATTR_FLASH_LABEL;
+			label_pos1->ubk = label_pos1->u;
+			label_pos1->u = *flash_key_label[count];
+			if (is_exists_str == 0) { // new value match, use new label
+				label_pos1->u = *flash_key_label[count];
+				insert_char_array(&flash_used_label, *flash_key_label[count]);
+				count++;
+			} else { // same value match, use same label of the first hit
+				label_pos1->u = same_value_pos1->u;
+			}
 		}
 	}
 
@@ -977,6 +1050,7 @@ kbds_search_regex(void)
 		}
 	}
 
+	hit_input_first = 0; // begin hit first label
 	tfulldirt();
 
 	return count;
@@ -1035,7 +1109,7 @@ kbds_search_url(void)
 					is_exists_url = 0;
 					// check if the url is already in the cache
 					for (h = 0; h < url_kcursor_record.used; h++) {
-						if (enable_same_label == 0) // if disable same label
+						if (enable_url_same_label == 0) // if disable same label
 							break;
 						if (strcmp(url_kcursor_record.array[h].url, url) == 0) {
 							is_exists_url = 1;
@@ -1106,7 +1180,7 @@ kbds_search_url(void)
 
 		// check if the url is already in the cache
 		for (h = 0; h < i; h++) {
-			if (enable_same_label == 0)
+			if (enable_url_same_label == 0)
 				break;
 			if (strcmp(url_kcursor_record.array[h].url, url_kcursor_record.array[i].url) == 0) {
 				is_exists_url = 1;
@@ -1187,10 +1261,28 @@ jump_to_label(Rune label, int len) {
 		}
 	}
 
-	if (kbds_isregexmode()) {
+	// double label hit
+	if (kbds_isregexmode() && flash_used_double_label.used > 0) {
+		for ( i = 0; i < regex_kcursor_record.used; i++) {
+			// hit first label
+			if (hit_input_first == 0 && label == regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].u) {
+				hit_input_first = 1;
+				hit_input_first_label = label;
+				return;
+			}
+			// hit second label
+			if (hit_input_first == 1 && hit_input_first_label == regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].ubk && label == regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x + 1].u) {
+				hit_input_first = 0;
+				kbds_clearhighlights();
+				copy_regex_result(regex_kcursor_record.array[i].matched_substring);
+				return;
+			}
+		}
+	} else if (kbds_isregexmode()) { // single label hit
 		for ( i = 0; i < regex_kcursor_record.used; i++) {
 			if (label == regex_kcursor_record.array[i].c.line[regex_kcursor_record.array[i].c.x].u) {
 				kbds_clearhighlights();
+				hit_input_first = 0;
 				copy_regex_result(regex_kcursor_record.array[i].matched_substring);
 				return;
 			}
@@ -1216,6 +1308,7 @@ void
 clear_regex_cache() {
 	reset_regex_kcursor_array(&regex_kcursor_record);
 	reset_char_array(&flash_used_label);
+	reset_char_array(&flash_used_double_label);
 }
 
 void
@@ -1463,8 +1556,12 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		default:
 			if (len > 0) {
 				utf8decode(buf, &u, len);
-				if (is_in_flash_used_label(u) == 1) {
+				if ((is_in_flash_used_label(u) == 1 && hit_input_first == 0) || (is_in_flash_used_double_label(u) == 1 && hit_input_first == 1)) {
 					jump_to_label(u, kbds_searchobj.len);
+					if (hit_input_first == 1) {
+						kbds_clearhighlights();
+						return 0;
+					}
 					kbds_searchobj.len = 0;
 					kbds_setmode(kbds_mode & ~KBDS_MODE_REGEX);
 					clear_regex_cache();

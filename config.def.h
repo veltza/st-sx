@@ -16,7 +16,7 @@ static char *font2[] = {
  * use () sub-patterns to define the range to be copied*/
 char *pattern_list[] = {
 	// Markdown URL
-	"(\\[[^]]*\\]\\(([^)]+)\\))",
+	"\\[[^]]*\\]\\(([^)]+)\\)",
 	// URL
 	"((?:https?://|git@|git://|ssh://|ftp://|file://)\\S+)",
 	// Diff a
@@ -48,8 +48,11 @@ char *pattern_list[] = {
 	NULL
 };
 
-/* Use same label in url search when url is a same value */
-unsigned int enable_same_label = 0;
+/* use for url search when url is a same value*/
+unsigned int enable_url_same_label = 0;
+
+/* use for regex search when regex is a same value*/
+unsigned int enable_regex_same_label = 1;
 
 /* Disable bold and italic fonts globally */
 unsigned int disable_bold = 0;
