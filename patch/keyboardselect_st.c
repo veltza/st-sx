@@ -755,6 +755,9 @@ void apply_regex_result(KCursor c, RegexResult result) {
 
 	// get the real position of match cursor
 	for(i = 0; i < result.start; i++) {
+		if (target_cursor.line[target_cursor.x].mode & ATTR_WDUMMY) {
+			i--;
+		}
 		kbds_moveforward(&target_cursor, 1, KBDS_WRAP_LINE);
 	}
 
@@ -887,9 +890,6 @@ kbds_ismatch_regex(unsigned int begin, unsigned int end, unsigned int len)
 		for (j = 0; j < c.len; j++) {
 			if (!(c.line[j].mode & ATTR_WDUMMY) ) {
 				target_str[h] = (wchar_t)c.line[j].u;
-				h++;
-			} else {
-				target_str[h] = L' ';
 				h++;
 			}
 		}
