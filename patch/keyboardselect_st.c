@@ -528,7 +528,8 @@ kbds_clearhighlights(void)
 			if ((kbds_isurlmode()||kbds_isregexmode()) && line[x].mode & ATTR_FLASH_LABEL && hit_input_first == 1 && is_in_flash_used_double_label(line[x].u) == 1 && line[x-1].ubk == hit_input_first_label) {
 				continue;
 			}
-			line[x].mode &= ~ATTR_HIGHLIGHT;
+			if(hit_input_first == 0)
+				line[x].mode &= ~ATTR_HIGHLIGHT;
 			if (line[x].mode & ATTR_FLASH_LABEL) {
 				line[x].mode &= ~ATTR_FLASH_LABEL;
 				line[x].u = line[x].ubk;
