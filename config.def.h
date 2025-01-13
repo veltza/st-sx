@@ -42,7 +42,7 @@ char *pattern_list[] = {
 	// Hexadecimal address
 	"(0x[0-9a-fA-F]+)",
 	// Number (at least 4 digits)
-	"([0-9]{4,})",
+	"\\b([0-9]{4,})\\b",
 
 	// The NULL at the end is required, please do not remove it
 	NULL
