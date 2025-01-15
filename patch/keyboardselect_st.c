@@ -1313,6 +1313,7 @@ clear_flash_cache() {
 
 void
 clear_regex_cache() {
+	hit_input_first = 0;
 	reset_regex_kcursor_array(&regex_kcursor_record);
 	reset_char_array(&flash_used_label);
 	reset_char_array(&flash_used_double_label);
