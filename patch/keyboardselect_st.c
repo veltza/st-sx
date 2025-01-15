@@ -9,7 +9,7 @@ enum keyboardselect_mode {
 	KBDS_MODE_SEARCH  = 1<<4,
 	KBDS_MODE_FLASH   = 1<<5,
 	KBDS_MODE_REGEX   = 1<<6,
-	KBDS_MODE_URL   = 1<<7,
+	KBDS_MODE_URL     = 1<<7,
 };
 
 enum cursor_wrap {
@@ -773,8 +773,8 @@ int apply_regex_result(KCursor c, RegexResult result) {
 	for (i = 0; i < regex_kcursor_record.used; i++) {
 		rd = regex_kcursor_record.array[i];
 
-		if (regex_kcursor.c.y == rd.c.y && 
-			(regex_kcursor.c.x == rd.c.x || 
+		if (regex_kcursor.c.y == rd.c.y &&
+			(regex_kcursor.c.x == rd.c.x ||
 				(regex_kcursor.c.x > rd.c.x && regex_kcursor.c.x <= (rd.c.x + rd.len - 1)) ||
 				(regex_kcursor.c.x < rd.c.x && (regex_kcursor.c.x + regex_kcursor.len -1) >= rd.c.x)
 			)
@@ -786,7 +786,7 @@ int apply_regex_result(KCursor c, RegexResult result) {
 		// check if the matched string is already in the cache
 		if (enable_regex_same_label && wcscmp(regex_kcursor.matched_substring, regex_kcursor_record.array[i].matched_substring) == 0) {
 			is_same_value_regex = 1;
-		}		
+		}
 	}
 	if (is_cross_match == 0) { // if new position match, record it
 		insert_regex_kcursor_array(&regex_kcursor_record, regex_kcursor);
@@ -794,7 +794,7 @@ int apply_regex_result(KCursor c, RegexResult result) {
 		free(regex_kcursor.matched_substring);
 	}
 
-	if (is_same_value_regex || is_cross_match) 
+	if (is_same_value_regex || is_cross_match)
 		return 0;
 	else
 		return 1;
@@ -1536,14 +1536,13 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 					kbds_searchobj.len = 0;
 					kbds_setmode(kbds_mode & ~KBDS_MODE_URL);
 					clear_url_cache();
-					kbds_clearhighlights();
-					kbds_selecttext();
-					kbds_in_use = kbds_quant = 0;
-					free(kbds_searchobj.str);
-					return MODE_KBDSELECT;
-				} else {
-					return 0;
+					if (kbds_searchobj.directsearch) {
+						kbds_in_use = kbds_quant = 0;
+						free(kbds_searchobj.str);
+						return MODE_KBDSELECT;
+					}
 				}
+				return 0;
 			}
 			break;
 		}
@@ -1573,13 +1572,13 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 					kbds_searchobj.len = 0;
 					kbds_setmode(kbds_mode & ~KBDS_MODE_REGEX);
 					clear_regex_cache();
-					kbds_selecttext();
-					kbds_in_use = kbds_quant = 0;
-					free(kbds_searchobj.str);
-					return MODE_KBDSELECT;
-				} else {
-					return 0;
+					if (kbds_searchobj.directsearch) {
+						kbds_in_use = kbds_quant = 0;
+						free(kbds_searchobj.str);
+						return MODE_KBDSELECT;
+					}
 				}
+				return 0;
 			}
 			break;
 		}
@@ -1818,6 +1817,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		kbds_searchobj.dir = 1;
 		kbds_searchobj.cx = kbds_searchobj.len = 0;
 		kbds_searchobj.maxlen = term.col - 2;
+		kbds_quant = 0;
 		kbds_setmode(kbds_mode | KBDS_MODE_FLASH);
 		kbds_clearhighlights();
 		return 0;
@@ -1825,6 +1825,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 	case -5:
 		kbds_searchobj.directsearch = (ksym == -5);
 		kbds_searchobj.dir = 1;
+		kbds_quant = 0;
 		kbds_setmode(kbds_mode | KBDS_MODE_REGEX);
 		kbds_clearhighlights();
 		kbds_search_regex();
@@ -1834,6 +1835,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 	case -6:
 		kbds_searchobj.directsearch = (ksym == -6);
 		kbds_searchobj.dir = 1;
+		kbds_quant = 0;
 		kbds_setmode(kbds_mode | KBDS_MODE_URL);
 		kbds_clearhighlights();
 		kbds_search_url();
