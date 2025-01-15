@@ -741,10 +741,10 @@ kbds_searchall(void)
 
 int apply_regex_result(KCursor c, RegexResult result) {
 	KCursor m;
-	RegexKCursor regex_kcursor;
+	RegexKCursor regex_kcursor, rd;
 	KCursor target_cursor;
 	int i;
-	int is_exists_regex;
+	int is_cross_match;
 	int is_same_value_regex = 0;
 
 	target_cursor.y = c.y;
@@ -768,27 +768,33 @@ int apply_regex_result(KCursor c, RegexResult result) {
 	regex_kcursor.len = result.len;
 	regex_kcursor.matched_substring = result.matched_substring;
 	regex_kcursor.c.line[regex_kcursor.c.x].ubk = regex_kcursor.c.line[regex_kcursor.c.x].u;
-	is_exists_regex = 0;
-	// check the match position is already in the cache
+	is_cross_match = 0;
+	// check the match position is cross match
 	for (i = 0; i < regex_kcursor_record.used; i++) {
-		if (regex_kcursor.c.y == regex_kcursor_record.array[i].c.y && regex_kcursor.c.x == regex_kcursor_record.array[i].c.x) {
-			is_exists_regex = 1;
-			// update the length record of the position if the new match length is longer
-			if (regex_kcursor.len > regex_kcursor_record.array[i].len) {
-				free(regex_kcursor_record.array[i].matched_substring);
-				regex_kcursor_record.array[i] = regex_kcursor;
-			}
+		rd = regex_kcursor_record.array[i];
+
+		if (regex_kcursor.c.y == rd.c.y && 
+			(regex_kcursor.c.x == rd.c.x || 
+				(regex_kcursor.c.x > rd.c.x && regex_kcursor.c.x <= (rd.c.x + rd.len - 1)) ||
+				(regex_kcursor.c.x < rd.c.x && (regex_kcursor.c.x + regex_kcursor.len -1) >= rd.c.x)
+			)
+		   ) {
+			is_cross_match = 1;
+			break;
 		}
+
 		// check if the matched string is already in the cache
 		if (enable_regex_same_label && wcscmp(regex_kcursor.matched_substring, regex_kcursor_record.array[i].matched_substring) == 0) {
 			is_same_value_regex = 1;
 		}		
-
 	}
-	if (is_exists_regex == 0) { // if new position match, record it
+	if (is_cross_match == 0) { // if new position match, record it
 		insert_regex_kcursor_array(&regex_kcursor_record, regex_kcursor);
+	} else {
+		free(regex_kcursor.matched_substring);
 	}
-	if (is_same_value_regex)
+
+	if (is_same_value_regex || is_cross_match) 
 		return 0;
 	else
 		return 1;
