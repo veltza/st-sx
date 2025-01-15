@@ -12,6 +12,48 @@ static char *font2[] = {
 /*	"Hack Nerd Font Mono:pixelsize=11:antialias=true:autohint=true", */
 };
 
+/* pattern for regex mode,
+ * use () sub-patterns to define the range to be copied*/
+char *pattern_list[] = {
+	// Markdown URL
+	"\\[[^]]*\\]\\(([^)]+)\\)",
+	// URL
+	"((?:https?://|git@|git://|ssh://|ftp://|file://)\\S+)",
+	// Diff a
+	"(--- a/(\\S+))",
+	// Diff b
+	"(\\+\\+\\+ b/(\\S+))",
+	// Docker
+	"(sha256:([0-9a-f]{64}))",
+	// File path
+	"((?:[.\\pL\\pN_\\-@~]+)?(?:/+[.\\pL\\pN_\\-@]+)+)",
+	// Color hex code
+	"(#[0-9a-fA-F]{6})",
+	// UUID
+	"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
+	// IPFS
+	"(Qm[0-9a-zA-Z]{44})",
+	// SHA hash
+	"([0-9a-f]{7,40})",
+	// IPv4 address
+	"(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})",
+	// IPv6 address
+	"([A-f0-9:]+:+[A-f0-9:]+[%\\w\\d]+)",
+	// Hexadecimal address
+	"(0x[0-9a-fA-F]+)",
+	// Number (at least 4 digits)
+	"\\b([0-9]{4,})\\b",
+
+	// The NULL at the end is required, please do not remove it
+	NULL
+};
+
+/* use for url search when url is a same value*/
+unsigned int enable_url_same_label = 0;
+
+/* use for regex search when regex is a same value*/
+unsigned int enable_regex_same_label = 1;
+
 /* Disable bold and italic fonts globally */
 unsigned int disable_bold = 0;
 unsigned int disable_italic = 0;
@@ -391,6 +433,8 @@ static Shortcut shortcuts[] = {
 	{ TERMMOD,              XK_F,           searchforward,   { 0 } },
 	{ TERMMOD,              XK_B,           searchbackward,  { 0 } },
 	{ TERMMOD,              XK_I,           keyboard_flash,  { 0 } },
+	{ TERMMOD,              XK_N,           keyboard_regex,  { 0 } },
+	{ TERMMOD,              XK_M,           keyboard_url,    { 0 } },
 	{ TERMMOD,              XK_Z,           scrolltoprompt,  {.i = -1}, S_PRI },
 	{ TERMMOD,              XK_X,           scrolltoprompt,  {.i =  1}, S_PRI },
 	{ XK_NO_MOD,            XK_F11,         fullscreen,      {.i =  0} },

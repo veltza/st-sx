@@ -47,13 +47,13 @@ Branch drawing symbols are supported with built-in glyphs. (app/plugin: [vim-flo
 Arch:
 
 ```
-sudo pacman -S libx11 libxft imlib2 gd
+sudo pacman -S libx11 libxft imlib2 gd pcre2
 ```
 
 Ubuntu:
 
 ```
-sudo apt install libx11-xcb-dev libxft-dev libimlib2-dev libgd-dev libharfbuzz-dev
+sudo apt install libx11-xcb-dev libxft-dev libimlib2-dev libgd-dev libharfbuzz-dev libpcre2-dev
 ```
 
 You don't have to install `libharfbuzz-dev`, if you don't use ligatures. Edit config.h and config.mk to disable ligatures.
