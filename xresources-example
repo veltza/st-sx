@@ -97,6 +97,7 @@ St.vertcenter:      0
 St.boxdraw:         0
 St.boxdraw_bold:    0
 St.boxdraw_braille: 0
+St.boxdraw_extra:   1
 St.boxdraw_branch:  1
 St.boxdraw_branch_thickness: 0
 

@@ -28,7 +28,8 @@ int
 isboxdraw(Rune u)
 {
 	Rune block = u & ~0xff;
-	return (boxdraw && block == 0x2500 && boxdata[(uint8_t)u]) ||
+	return (boxdraw && boxdraw_extra && block == 0x2500 && boxdataextra[(uint8_t)u]) ||
+	       (boxdraw && block == 0x2500 && boxdata[(uint8_t)u]) ||
 	       (boxdraw_braille && block == 0x2800) ||
 	       (boxdraw_branch && u >= 0xf5d0 && u < 0xf5d0 + LEN(branchsymbols));
 }
@@ -37,13 +38,14 @@ isboxdraw(Rune u)
 ushort
 boxdrawindex(const Glyph *g)
 {
+	int bold = (boxdraw_bold && (g->mode & ATTR_BOLD)) ? BDB : 0;
 	if (g->u >= 0xf5d0 && g->u < 0xf5d0 + LEN(branchsymbols))
 		return BRS | (g->u - 0xf5d0);
 	if (boxdraw_braille && (g->u & ~0xff) == 0x2800)
 		return BRL | (uint8_t)g->u;
-	if (boxdraw_bold && (g->mode & ATTR_BOLD))
-		return BDB | boxdata[(uint8_t)g->u];
-	return boxdata[(uint8_t)g->u];
+	if (boxdraw_extra && boxdataextra[(uint8_t)g->u])
+		return BDE | bold | boxdataextra[(uint8_t)g->u];
+	return bold | boxdata[(uint8_t)g->u];
 }
 
 void
@@ -60,7 +62,10 @@ void
 drawbox(int x, int y, int w, int h, XftColor *fg, XftColor *bg, ushort bd)
 {
 	ushort cat = bd & ~(BDB | 0xff);  /* mask out bold and data */
-	if (cat == BRS) {
+	if (cat == BDE) {
+		drawextrasymbol(x, y, w, h, fg, bd & 0xff, bd & BDB);
+
+	} else if (cat == BRS) {
 		drawbranchsymbol(x, y, w, h, fg, bd & 0xff);
 
 	} else if (bd & (BDL | BDA)) {

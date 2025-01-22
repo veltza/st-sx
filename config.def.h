@@ -187,6 +187,10 @@ int boxdraw_bold = 0;
 /* braille (U28XX):  1: render as adjacent "pixels",  0: use font */
 int boxdraw_braille = 0;
 
+/* extra: if enabled, render dashes/diagonals and proper rounded corners.
+ *        (boxdraw has to be enabled as well) */
+int boxdraw_extra = 1;
+
 /* branch symbols (UF5D0..U+F60D). Ref. https://github.com/kovidgoyal/kitty/pull/7681 */
 int boxdraw_branch = 1;
 
@@ -813,6 +817,7 @@ ResourcePref resources[] = {
 		{ "boxdraw",             INTEGER, &boxdraw },
 		{ "boxdraw_bold",        INTEGER, &boxdraw_bold },
 		{ "boxdraw_braille",     INTEGER, &boxdraw_braille },
+		{ "boxdraw_extra",       INTEGER, &boxdraw_extra },
 		{ "boxdraw_branch",      INTEGER, &boxdraw_branch },
 		{ "boxdraw_branch_thickness", INTEGER, &boxdraw_branch_thickness },
 		{ "hidecursor",          INTEGER, &hidecursor },
