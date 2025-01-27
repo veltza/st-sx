@@ -3045,6 +3045,7 @@ eschandle(uchar ascii)
 		break;
 	case 'c': /* RIS -- Reset to initial state */
 		treset();
+		xsetcursor(0); /* reset cursor style */
 		xfreetitlestack();
 		resettitle();
 		xloadcols();
