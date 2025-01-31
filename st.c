@@ -2191,6 +2191,8 @@ csihandle(void)
 		tsetmode(csiescseq.priv, 1, csiescseq.arg, csiescseq.narg);
 		break;
 	case 'm': /* SGR -- Terminal attribute (color) */
+		if (csiescseq.priv)
+			goto unknown;
 		tsetattr(csiescseq.arg, csiescseq.narg);
 		break;
 	case 'n': /* DSR -- Device Status Report */
@@ -2245,6 +2247,8 @@ csihandle(void)
 		}
 		break;
 	case 's': /* DECSC -- Save cursor position (ANSI.SYS) */
+		if (csiescseq.priv)
+			goto unknown;
 		tcursor(CURSOR_SAVE);
 		break;
 	case 't': /* XTWINOPS */
