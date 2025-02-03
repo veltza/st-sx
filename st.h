@@ -67,8 +67,7 @@ enum glyph_attribute {
 	ATTR_HIGHLIGHT      = 1 << 13,
 	ATTR_HYPERLINK      = 1 << 14,
 	ATTR_BOLD_FAINT = ATTR_BOLD | ATTR_FAINT,
-	ATTR_SIXEL          = 1 << 15,
-	ATTR_FLASH_LABEL    = 1 << 16,
+	ATTR_FLASH_LABEL    = 1 << 15,
 };
 
 enum extra_attribute {
@@ -76,8 +75,9 @@ enum extra_attribute {
 	EXT_UNDERLINE_COLOR_RGB     = 1 << 24,
 	EXT_UNDERLINE_COLOR_PALETTE = 1 << 25,
 	/* bits 26 to 28 are reserved for underline type */
-	EXT_FTCS_PROMPT_PS1         = 1 << 30, /* OSC "133;A"     - start of initial shell prompt */
-	EXT_FTCS_PROMPT_PS2         = 1 << 31, /* OSC "133;A;k=s" - start of secondary shell prompt */
+	EXT_FTCS_PROMPT_PS1         = 1 << 29, /* OSC "133;A"     - start of initial shell prompt */
+	EXT_FTCS_PROMPT_PS2         = 1 << 30, /* OSC "133;A;k=s" - start of secondary shell prompt */
+	EXT_SIXEL                   = 1 << 31
 };
 
 typedef struct _ImageList {
@@ -137,7 +137,7 @@ typedef unsigned long ulong;
 typedef unsigned short ushort;
 
 typedef uint_least32_t Rune;
-typedef uint32_t Mode;
+typedef ushort Mode;
 
 typedef XftDraw *Draw;
 typedef XftColor Color;
@@ -146,12 +146,12 @@ typedef XftGlyphFontSpec GlyphFontSpec;
 #define Glyph Glyph_
 typedef struct {
 	Rune u;           /* character code */
-	Rune ubk;		/* character code for flash label */
-	Mode mode;   /* attribute flags */
+	Rune ubk;         /* character code for flash label */
+	Mode mode;        /* attribute flags */
 	ushort hlink;     /* hyperlink index */
 	uint32_t fg;      /* foreground  */
 	uint32_t bg;      /* background  */
-	uint32_t extra;   /* underline style and color + semantic prompts */
+	uint32_t extra;   /* underline style and color, semantic prompts, sixel */
 } Glyph;
 
 typedef Glyph *Line;

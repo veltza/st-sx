@@ -1095,7 +1095,7 @@ void
 tsetsixelattr(Line line, int x1, int x2)
 {
 	for (; x1 <= x2; x1++)
-		line[x1].mode |= ATTR_SIXEL;
+		line[x1].extra |= EXT_SIXEL;
 }
 
 void
@@ -2930,7 +2930,7 @@ createsixel(void)
 					line = term.line[y];
 					j = MIN(im->x + im->cols, term.col);
 					for (i = im->x; i < j; i++) {
-						if (line[i].mode & ATTR_SIXEL)
+						if (line[i].extra & EXT_SIXEL)
 							break;
 					}
 					if (i == j) {
@@ -3453,7 +3453,7 @@ treflow(int col, int row)
 		line = TLINE(im->y);
 		for (i = im->x; i < j; i++) {
 			if (!(line[i].mode & ATTR_SET))
-				line[i].mode |= ATTR_SIXEL;
+				line[i].extra |= EXT_SIXEL;
 		}
 	}
 

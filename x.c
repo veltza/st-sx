@@ -2506,9 +2506,9 @@ xfinishdraw(void)
 		line = TLINE(im->y) + im->x;
 		xend = MIN(im->x + im->cols, term.col);
 		for (del = 1, x1 = im->x; x1 < xend; x1 = x2) {
-			mode = line->mode & ATTR_SIXEL;
+			mode = line->extra & EXT_SIXEL;
 			for (x2 = x1 + 1; x2 < xend; x2++) {
-				if (((++line)->mode & ATTR_SIXEL) != mode)
+				if (((++line)->extra & EXT_SIXEL) != mode)
 					break;
 			}
 			if (mode) {
@@ -2527,7 +2527,7 @@ xfinishdraw(void)
 			delete_image(im);
 
 		/* Redraw the cursor if it is behind the image */
-		if (cy == im->y && (line[cx-xend+1].mode & ATTR_SIXEL)) {
+		if (cy == im->y && (line[cx-xend+1].extra & EXT_SIXEL)) {
 			g = (Glyph){ .u = ' ', mode = 0, .fg = defaultfg, .bg = defaultbg, .extra = 0 };
 			xdrawcursor(cx, cy, g, cx, cy, NULL);
 		}
