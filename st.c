@@ -128,13 +128,13 @@ typedef struct {
 /* CSI Escape sequence structs */
 /* ESC '[' [[ [<priv>] <arg> [;]] <mode> [<mode>]] */
 typedef struct {
-	char buf[ESC_BUF_SIZ]; /* raw string */
-	size_t len;            /* raw string length */
-	char priv;
+	char buf[ESC_BUF_SIZ];      /* raw string */
+	size_t len;                 /* raw string length */
 	int arg[ESC_ARG_SIZ];
-	int narg;              /* nb of args */
-	char mode[2];
+	int narg;                   /* nb of args */
 	Subarg subarg[ESC_ARG_SIZ]; /* colon-separated subarguments */
+	char mode[2];
+	char priv;
 } CSIEscape;
 
 /* STR Escape sequence structs */
@@ -161,7 +161,7 @@ static void initsixel(void);
 static void createsixel(void);
 static inline void readsubargs(char **, int);
 static void csiparse(void);
-static void csireset(void);
+static inline void csireset(void);
 static void osc_color_response(int, int, int);
 static int eschandle(uchar);
 static void strdump(void);
@@ -1435,6 +1435,7 @@ csiparse(void)
 	long int v;
 
 	csiescseq.narg = 0;
+	csiescseq.priv = 0;
 	if (*p == '?') {
 		csiescseq.priv = 1;
 		p++;
@@ -2339,7 +2340,8 @@ csidump(void)
 void
 csireset(void)
 {
-	memset(&csiescseq, 0, sizeof(csiescseq));
+	csiescseq.len = 0;
+	memset(&csiescseq.arg, 0, sizeof(csiescseq.arg));
 }
 
 void
