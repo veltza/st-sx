@@ -1730,7 +1730,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 	}
 
 	switch (ksym) {
-	case -1:
+	case XK_ACTIVATE:
 		kbds_searchobj.str = xmalloc(term.col * sizeof(Glyph));
 		kbds_searchobj.cx = kbds_searchobj.len = 0;
 		kbds_scrolldownonexit = 0;
@@ -1797,13 +1797,13 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 			kbds_setmode(kbds_mode & ~(KBDS_MODE_SELECT | KBDS_MODE_LSELECT));
 		}
 		break;
-	case -2:
-	case -3:
+	case XK_SEARCHFW:
+	case XK_SEARCHBW:
 	case XK_slash:
 	case XK_KP_Divide:
 	case XK_question:
-		kbds_searchobj.directsearch = (ksym == -2 || ksym == -3);
-		kbds_searchobj.dir = (ksym == XK_question || ksym == -3) ? -1 : 1;
+		kbds_searchobj.directsearch = (ksym == XK_SEARCHFW || ksym == XK_SEARCHBW);
+		kbds_searchobj.dir = (ksym == XK_question || ksym == XK_SEARCHBW) ? -1 : 1;
 		kbds_searchobj.cx = kbds_searchobj.len = 0;
 		kbds_searchobj.maxlen = term.col - 2;
 		if (kbds_searchobj.directsearch && term.scr == 0)
@@ -1811,9 +1811,9 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		kbds_setmode(kbds_mode | KBDS_MODE_SEARCH);
 		kbds_clearhighlights();
 		return 0;
-	case -4:
+	case XK_FLASH:
 	case XK_s:
-		kbds_searchobj.directsearch = (ksym == -4);
+		kbds_searchobj.directsearch = (ksym == XK_FLASH);
 		kbds_searchobj.dir = 1;
 		kbds_searchobj.cx = kbds_searchobj.len = 0;
 		kbds_searchobj.maxlen = term.col - 2;
@@ -1821,9 +1821,9 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		kbds_setmode(kbds_mode | KBDS_MODE_FLASH);
 		kbds_clearhighlights();
 		return 0;
+	case XK_REGEX:
 	case XK_p:
-	case -5:
-		kbds_searchobj.directsearch = (ksym == -5);
+		kbds_searchobj.directsearch = (ksym == XK_REGEX);
 		kbds_searchobj.dir = 1;
 		kbds_quant = 0;
 		kbds_setmode(kbds_mode | KBDS_MODE_REGEX);
@@ -1832,8 +1832,8 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 		if (kbds_searchobj.directsearch)
 			clearurl(1);
 		return 0;
-	case -6:
-		kbds_searchobj.directsearch = (ksym == -6);
+	case XK_URL:
+		kbds_searchobj.directsearch = (ksym == XK_URL);
 		kbds_searchobj.dir = 1;
 		kbds_quant = 0;
 		kbds_setmode(kbds_mode | KBDS_MODE_URL);
