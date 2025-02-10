@@ -1,0 +1,1 @@
+Rune casefold(Rune c);

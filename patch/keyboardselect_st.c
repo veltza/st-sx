@@ -661,7 +661,7 @@ kbds_ismatch(KCursor c)
 			continue;
 		if ((next++ && !kbds_moveforward(&c, 1, KBDS_WRAP_LINE)) ||
 		    (!kbds_searchobj.ignorecase && kbds_searchobj.str[i].u != c.line[c.x].u) ||
-		    (kbds_searchobj.ignorecase && kbds_searchobj.str[i].u != towlower(c.line[c.x].u)))
+		    (kbds_searchobj.ignorecase && casefold(kbds_searchobj.str[i].u) != casefold(c.line[c.x].u)))
 			return 0;
 	}
 
@@ -677,7 +677,7 @@ kbds_ismatch(KCursor c)
 
 	if (kbds_isflashmode()) {
 		m.line[m.x].ubk = m.line[m.x].u;
-		u = kbds_searchobj.ignorecase ? towlower(m.line[m.x].u) : m.line[m.x].u;
+		u = kbds_searchobj.ignorecase ? casefold(m.line[m.x].u) : m.line[m.x].u;
 		insert_char_array(&flash_next_char_record, u);
 		insert_kcursor_array(&flash_kcursor_record, m);
 	}
@@ -1391,7 +1391,7 @@ kbds_searchwordorselection(int dir)
 
 	kbds_searchobj.maxlen = term.col;
 	for (kbds_c = c; kbds_searchobj.len < kbds_searchobj.maxlen;) {
-		if (!kbds_insertchar(towlower(c.line[c.x].u)) ||
+		if (!kbds_insertchar(c.line[c.x].u) ||
 		    !kbds_moveforward(&c, 1, KBDS_WRAP_LINE) ||
 		    (kbds_isselectmode() && ((c.x > sel.ne.x && c.y == ney) || c.y > ney)) ||
 		    (!kbds_isselectmode() && kbds_isdelim(c, 0, kbds_sdelim)))
