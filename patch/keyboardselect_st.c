@@ -254,11 +254,14 @@ is_in_flash_used_double_label(Rune label) {
 
 int
 is_in_flash_next_char_record(Rune label) {
-	int i;
-	for ( i = 0; i < flash_next_char_record.used; i++) {
-		if (label == flash_next_char_record.array[i]) {
+	Rune nc;
+	int i, ignorecase = (kbds_searchobj.ignorecase && label == towlower(label));
+	label = ignorecase ? casefold(label) : label;
+	for (i = 0; i < flash_next_char_record.used; i++) {
+		nc = flash_next_char_record.array[i];
+		nc = ignorecase ? casefold(nc) : nc;
+		if (nc == label)
 			return 1;
-		}
 	}
 	return 0;
 }
@@ -648,7 +651,6 @@ kbds_ismatch(KCursor c)
 {
 	KCursor m = c;
 	int i, next;
-	Rune u;
 
 	if (c.x + kbds_searchobj.len > c.len && (!kbds_iswrapped(&c) || c.y >= kbds_bot()))
 		return 0;
@@ -677,8 +679,7 @@ kbds_ismatch(KCursor c)
 
 	if (kbds_isflashmode()) {
 		m.line[m.x].ubk = m.line[m.x].u;
-		u = kbds_searchobj.ignorecase ? casefold(m.line[m.x].u) : m.line[m.x].u;
-		insert_char_array(&flash_next_char_record, u);
+		insert_char_array(&flash_next_char_record, m.line[m.x].u);
 		insert_kcursor_array(&flash_kcursor_record, m);
 	}
 
@@ -692,6 +693,7 @@ kbds_searchall(void)
 	int count = 0;
 	int i, j, is_invalid_label;
 	CharArray valid_label;
+	Rune nc;
 
 	init_char_array(&flash_next_char_record, 1);
 	init_char_array(&valid_label, 1);
@@ -714,7 +716,9 @@ kbds_searchall(void)
 	for (i = 0; i < LEN(flash_key_label); i++) {
 		is_invalid_label = 0;
 		for ( j = 0; j < flash_next_char_record.used; j++) {
-			if (flash_next_char_record.array[j] == *flash_key_label[i]) {
+			nc = flash_next_char_record.array[j];
+			nc = kbds_searchobj.ignorecase ? casefold(nc) : nc;
+			if (nc == *flash_key_label[i]) {
 				is_invalid_label = 1;
 				break;
 			}
