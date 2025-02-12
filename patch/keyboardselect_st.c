@@ -86,6 +86,7 @@ static Rune kbds_findchar;
 static KCursor kbds_c, kbds_oc;
 static CharArray flash_next_char_record, flash_used_label, flash_used_double_label;
 static KCursorArray flash_kcursor_record;
+static KCursorArray flash_kcursor_match;
 static RegexKCursorArray regex_kcursor_record;
 static UrlKCursorArray url_kcursor_record;
 static int hit_input_first = 0;
@@ -649,7 +650,7 @@ found:
 int
 kbds_ismatch(KCursor c)
 {
-	KCursor m = c;
+	KCursor p, m = c;
 	int i, next;
 
 	if (c.x + kbds_searchobj.len > c.len && (!kbds_iswrapped(&c) || c.y >= kbds_bot()))
@@ -670,17 +671,29 @@ kbds_ismatch(KCursor c)
 	if (kbds_searchobj.wordonly && !kbds_isdelim(c, 1, kbds_sdelim))
 		return 0;
 
-	for (i = 0; i < kbds_searchobj.len; i++) {
+	for (c = m, i = 0; i < kbds_searchobj.len; i++) {
 		if (!(kbds_searchobj.str[i].mode & ATTR_WDUMMY)) {
-			m.line[m.x].mode |= ATTR_HIGHLIGHT;
-			kbds_moveforward(&m, 1, KBDS_WRAP_LINE);
+			c.line[c.x].mode |= ATTR_HIGHLIGHT;
+			kbds_moveforward(&c, 1, KBDS_WRAP_LINE | KBDS_WRAP_EDGE);
 		}
 	}
 
 	if (kbds_isflashmode()) {
-		m.line[m.x].ubk = m.line[m.x].u;
-		insert_char_array(&flash_next_char_record, m.line[m.x].u);
-		insert_kcursor_array(&flash_kcursor_record, m);
+		/* Move the cursor to the end of the previous line if the line
+		 * was not wrapped, because we want to keep the label on the
+		 * same line as the match. */
+		if (c.x == 0 || c.y == term.row-1) {
+			p = c;
+			p.x = 0;
+			if (kbds_moveforward(&p, -1, KBDS_WRAP_LINE | KBDS_WRAP_EDGE) &&
+			    (!kbds_iswrapped(&p) || c.y == term.row-1)) {
+				c = p;
+			}
+		}
+		c.line[c.x].ubk = c.line[c.x].u;
+		insert_char_array(&flash_next_char_record, c.line[c.x].u);
+		insert_kcursor_array(&flash_kcursor_record, c);
+		insert_kcursor_array(&flash_kcursor_match, m);
 	}
 
 	return 1;
@@ -699,12 +712,13 @@ kbds_searchall(void)
 	init_char_array(&valid_label, 1);
 	init_char_array(&flash_used_label, 1);
 	init_kcursor_array(&flash_kcursor_record, 1);
+	init_kcursor_array(&flash_kcursor_match, 1);
 
 	if (!kbds_searchobj.len)
 		return 0;
 
 	int begin = kbds_isflashmode() ? 0 : kbds_top();
-	int end = kbds_isflashmode() ? term.row - 1 : kbds_bot();
+	int end = kbds_isflashmode() ? MAX(term.row-2, 0) : kbds_bot();
 
 	for (c.y = begin; c.y <= end; c.y++) {
 		c.line = TLINE(c.y);
@@ -1241,7 +1255,7 @@ kbds_search_url(void)
 }
 
 void
-jump_to_label(Rune label, int len) {
+jump_to_label(Rune label) {
 	int i;
 
 	// double label hit
@@ -1303,7 +1317,7 @@ jump_to_label(Rune label, int len) {
 	for ( i = 0; i < flash_kcursor_record.used; i++) {
 		if (label == flash_kcursor_record.array[i].line[flash_kcursor_record.array[i].x].u) {
 			kbds_clearhighlights();
-			kbds_moveto(flash_kcursor_record.array[i].x-len, flash_kcursor_record.array[i].y);
+			kbds_moveto(flash_kcursor_match.array[i].x, flash_kcursor_match.array[i].y);
 		}
 	}
 }
@@ -1313,6 +1327,7 @@ clear_flash_cache() {
 	reset_char_array(&flash_next_char_record);
 	reset_char_array(&flash_used_label);
 	reset_kcursor_array(&flash_kcursor_record);
+	reset_kcursor_array(&flash_kcursor_match);
 }
 
 void
@@ -1532,7 +1547,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 			if (len > 0) {
 				utf8decode(buf, &u, len);
 				if ((is_in_flash_used_label(u) == 1 && hit_input_first == 0) || (is_in_flash_used_double_label(u) == 1 && hit_input_first == 1)) {
-					jump_to_label(u, kbds_searchobj.len);
+					jump_to_label(u);
 					if (hit_input_first == 1) {
 						kbds_clearhighlights();
 						return 0;
@@ -1568,7 +1583,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 			if (len > 0) {
 				utf8decode(buf, &u, len);
 				if ((is_in_flash_used_label(u) == 1 && hit_input_first == 0) || (is_in_flash_used_double_label(u) == 1 && hit_input_first == 1)) {
-					jump_to_label(u, kbds_searchobj.len);
+					jump_to_label(u);
 					if (hit_input_first == 1) {
 						kbds_clearhighlights();
 						return 0;
@@ -1622,7 +1637,7 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 			if (len > 0) {
 				utf8decode(buf, &u, len);
 				if (is_in_flash_used_label(u) == 1) {
-					jump_to_label(u, kbds_searchobj.len);
+					jump_to_label(u);
 					kbds_searchobj.len = 0;
 					kbds_setmode(kbds_mode & ~KBDS_MODE_FLASH);
 					clear_flash_cache();
