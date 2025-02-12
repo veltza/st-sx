@@ -717,8 +717,8 @@ kbds_searchall(void)
 		is_invalid_label = 0;
 		for ( j = 0; j < flash_next_char_record.used; j++) {
 			nc = flash_next_char_record.array[j];
-			nc = kbds_searchobj.ignorecase ? casefold(nc) : nc;
-			if (nc == *flash_key_label[i]) {
+			if ((!kbds_searchobj.ignorecase && nc == *flash_key_label[i]) ||
+			    (kbds_searchobj.ignorecase && casefold(nc) == casefold(*flash_key_label[i]))) {
 				is_invalid_label = 1;
 				break;
 			}
