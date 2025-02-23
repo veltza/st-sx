@@ -2,7 +2,7 @@
  * Common functions for creating box drawing characters.
  */
 
-void
+int
 bd_initbuffer(BDBuffer *buf, int cw, int ch, int cx, int cy, int lw, int xmargin, int numchars, int factor)
 {
 	buf->cw = cw * factor;
@@ -11,12 +11,19 @@ bd_initbuffer(BDBuffer *buf, int cw, int ch, int cx, int cy, int lw, int xmargin
 	buf->cy = cy * factor;
 	buf->lw = lw * factor;
 	buf->xmargin = xmargin * factor;
-	buf->width = buf->cw + buf->xmargin * 2;
+	buf->charwidth = buf->cw + buf->xmargin * 2;
 	buf->factor = factor;
 	buf->numchars = numchars;
-	buf->charoffset = buf->width * buf->ch;
-	buf->data = xmalloc(buf->charoffset * numchars);
-	memset(buf->data, 0, buf->charoffset * numchars);
+	buf->cols = MIN(DisplayWidth(xdpy, xw.scr) * factor / buf->charwidth, numchars);
+	if (buf->cols <= 0)
+		return 0;
+	buf->rows = (numchars + buf->cols - 1) / buf->cols;
+	buf->width = buf->cols * buf->charwidth;
+	buf->height = buf->rows * buf->ch;
+	if (!(buf->data = xmalloc(buf->width * buf->height)))
+		return 0;
+	memset(buf->data, 0, buf->width * buf->height);
+	return 1;
 }
 
 void
@@ -25,7 +32,7 @@ bd_createmask(BDBuffer *buf)
 	Pixmap maskpixmap;
 	XImage *ximage;
 	GC gc;
-	int w = buf->width, h = buf->ch * buf->numchars;
+	int w = buf->width, h = buf->height;
 
 	if (buf->mask)
 		XRenderFreePicture(xdpy, buf->mask);
@@ -35,7 +42,7 @@ bd_createmask(BDBuffer *buf)
 			XRenderFindStandardFormat(xdpy, PictStandardA8), 0, 0);
 
 	gc = XCreateGC(xdpy, maskpixmap, 0, 0);
-	ximage = XCreateImage(xdpy, xvis, 8, ZPixmap, 0, buf->data, w, h, 8, w);
+	ximage = XCreateImage(xdpy, xvis, 8, ZPixmap, 0, (char *)buf->data, w, h, 8, w);
 	XPutImage(xdpy, maskpixmap, gc, ximage, 0, 0, 0, 0, w, h);
 
 	XFreeGC(xdpy, gc);
@@ -43,45 +50,66 @@ bd_createmask(BDBuffer *buf)
 	XDestroyImage(ximage); /* frees buf->data as well */
 }
 
-char
-bd_avgintensity(char *data, int w, int f)
+void
+bd_getmaskcoords(BDBuffer *buf, int idx, int *x, int *y)
 {
-	int x, y, sum;
+	*x = idx % buf->cols * buf->charwidth;
+	*y = idx / buf->cols * buf->ch;
+}
+
+uchar *
+bd_getsymbol(BDBuffer *buf, int idx)
+{
+	int col = idx % buf->cols;
+	int row = idx / buf->cols;
+	return buf->data + col * buf->charwidth + row * buf->ch * buf->width;
+}
+
+
+uchar
+bd_avgintensity(uchar *data, int w, int f)
+{
+	uint x, y, sum;
 
 	for (sum = 0, y = 0; y < f; y++, data += w)
 		for (x = 0; x < f; x++)
-			sum += data[x];
+			sum += (uint)data[x];
 
-	return (255 * sum + (f * f / 2)) / (f * f);
+	return (sum + (f * f / 2)) / (f * f);
 }
 
 void
 bd_downsample(BDBuffer *dstbuf, int dstidx, BDBuffer *srcbuf, int srcidx, int numchars)
 {
-	char *dst = dstbuf->data + dstidx * dstbuf->charoffset;
-	char *src = srcbuf->data + srcidx * srcbuf->charoffset;
-	int x, y, f = srcbuf->factor, w = srcbuf->width, h = srcbuf->ch * numchars;
+	uchar *dst, *src;
+	int i, x, y;
+	int f = srcbuf->factor, cw = srcbuf->charwidth, ch = srcbuf->ch;
+	int sw = srcbuf->width, dw = dstbuf->width - dstbuf->charwidth;
 
-	for (y = 0; y < h; y += f, src += w * f)
-		for (x = 0; x < w; x += f)
-			*dst++ = bd_avgintensity(&src[x], w, f);
+	for (i = 0; i < numchars; i++) {
+		dst = bd_getsymbol(dstbuf, dstidx + i);
+		src = bd_getsymbol(srcbuf, srcidx + i);
+		for (y = 0; y < ch; y += f, src += sw * f, dst += dw)
+			for (x = 0; x < cw; x += f)
+				*dst++ = bd_avgintensity(&src[x], sw, f);
+	}
 }
 
 void
 bd_drawrect(BDBuffer *buf, int idx, int x, int y, int w, int h)
 {
-	char *data = buf->data + idx * buf->charoffset;
-	int x1 = MAX(0, x + buf->xmargin);
+	uchar *data = bd_getsymbol(buf, idx) + buf->xmargin;
+	int x1 = MAX(0, x);
 	int y1 = MAX(0, y);
-	int x2 = MIN(buf->width, x + w + buf->xmargin);
+	int x2 = MIN(buf->cw, x + w);
 	int y2 = MIN(buf->ch, y + h);
 
-	if (x1 >= buf->width || y1 >= buf->ch || x2 < 0 || y2 < 0)
+	if (x1 >= buf->cw || y1 >= buf->ch || x2 < 0 || y2 < 0)
 		return;
 
 	data += y1 * buf->width + x1;
 	for (y = y1; y < y2; y++, data += buf->width)
-		memset(data, 1, x2 - x1);
+		memset(data, 255, x2 - x1);
 }
 
 void
@@ -113,16 +141,16 @@ bd_drawlineright(BDBuffer *buf, int idx)
 }
 
 void
-bd_drawcorners(BDBuffer *buf, int br, int bl, int tl, int tr)
+bd_drawroundedcorners(BDBuffer *buf, int br, int bl, int tl, int tr)
 {
 	int lw = buf->lw, f = buf->factor;
 	int ox1 = buf->cx, oy1 = buf->cy;
 	int ox2 = ox1 + lw - 1, oy2 = oy1 + lw - 1;
 	int c, cx, cy, d, d1, d2, rw, rh, r, x, y;
-	char *abr = buf->data + br * buf->charoffset + buf->xmargin;
-	char *abl = buf->data + bl * buf->charoffset + buf->xmargin;
-	char *atl = buf->data + tl * buf->charoffset + buf->xmargin;
-	char *atr = buf->data + tr * buf->charoffset + buf->xmargin;
+	uchar *cbr = bd_getsymbol(buf, br) + buf->xmargin;
+	uchar *cbl = bd_getsymbol(buf, bl) + buf->xmargin;
+	uchar *ctl = bd_getsymbol(buf, tl) + buf->xmargin;
+	uchar *ctr = bd_getsymbol(buf, tr) + buf->xmargin;
 
 	bd_drawlineup(buf, tl);
 	bd_drawlineup(buf, tr);
@@ -137,7 +165,7 @@ bd_drawcorners(BDBuffer *buf, int br, int bl, int tl, int tr)
 	rh = buf->ch - oy1;
 	r = MIN(rw, rh);
 
-	d1 = (r - lw - (f / 2));
+	d1 = r - lw - (f / 4);
 	d1 = d1 * d1;
 	d2 = r * r;
 
@@ -146,11 +174,11 @@ bd_drawcorners(BDBuffer *buf, int br, int bl, int tl, int tr)
 	for (y = 0; y < r; y++) {
 		for (x = 0; x < r; x++) {
 			d = (cx-x)*(cx-x) + (cy-y)*(cy-y);
-			c = (d1 <= d && d <= d2);
-			abr[(oy1 + y) * buf->width + ox1 + x] = c;
-			abl[(oy1 + y) * buf->width + ox2 - x] = c;
-			atr[(oy2 - y) * buf->width + ox1 + x] = c;
-			atl[(oy2 - y) * buf->width + ox2 - x] = c;
+			c = (d1 <= d && d <= d2) ? 255 : 0;
+			cbr[(oy1 + y) * buf->width + ox1 + x] = c;
+			cbl[(oy1 + y) * buf->width + ox2 - x] = c;
+			ctr[(oy2 - y) * buf->width + ox1 + x] = c;
+			ctl[(oy2 - y) * buf->width + ox2 - x] = c;
 		}
 	}
 }
@@ -158,7 +186,7 @@ bd_drawcorners(BDBuffer *buf, int br, int bl, int tl, int tr)
 void
 bd_drawcircle(BDBuffer *buf, int idx, int fill)
 {
-	char *data = buf->data + idx * buf->charoffset + buf->xmargin;
+	uchar *data = bd_getsymbol(buf, idx) + buf->xmargin;
 	int f = buf->factor, lw = buf->lw / f;
 	int cw = buf->cw / f, ch = buf->ch / f;
 	int d, d1, d2, ox, oy, scale, rw, rh, r, x, y;
@@ -177,14 +205,23 @@ bd_drawcircle(BDBuffer *buf, int idx, int fill)
 	rh = buf->ch - oy;
 	r = MIN(rw, rh) * scale / 100 - 1;
 
-	d1 = fill ? 0 : (r - lw * f) * (r - lw * f);
+	d1 = 0;
+	if (!fill) {
+		d1 = r - lw * f;
+		if (lw == 1 && cw > 8)
+			d1 = (d1 - f / 4) * (d1 - f / 4);
+		else if (lw == 1 && cw > 6)
+			d1 = d1 * d1 - f * 3;
+		else
+			d1 = d1 * d1;
+	}
 	d2 = r * r;
 
 	for (y = 0; y < buf->ch; y++, data += buf->width) {
 		for (x = 0; x < buf->cw; x++) {
 			d = (ox-x)*(ox-x) + (oy-y)*(oy-y);
 			if (d1 <= d && d <= d2)
-				data[x] = 1;
+				data[x] = 255;
 			else if (d < d1)
 				data[x] = 0;
 		}
@@ -271,17 +308,18 @@ bd_drawvdashes(BDBuffer *buf, int idx, int n, int heavy)
 void
 bd_drawdiagonals(BDBuffer *buf, int lr, int rl, int cross)
 {
-	char *datalr = buf->data + lr * buf->charoffset;
-	char *datarl = buf->data + rl * buf->charoffset;
+	uchar *datalr = bd_getsymbol(buf, lr);
+	uchar *datarl = bd_getsymbol(buf, rl);
 	int w = MAX(1, buf->cw), h = MAX(1, buf->ch);
 	int j, x, y, lw = buf->lw * ((buf->lw / buf->factor > 1) ? 10 : 11) / 4;
+	int cw = buf->charwidth, ch = buf->ch;
 
-	for (x = 0; x < buf->width; x++) {
+	for (x = 0; x < cw; x++) {
 		y = (x - buf->xmargin) * h / w;
 		for (j = y - lw/2; j < y + lw - lw/2; j++) {
-			if (j >= 0 && j < buf->ch) {
-				datalr[j * buf->width + x] = 1;
-				datarl[j * buf->width + buf->width - x - 1] = 1;
+			if (j >= 0 && j < ch) {
+				datalr[j * buf->width + x] = 255;
+				datarl[j * buf->width + cw - x - 1] = 255;
 			}
 		}
 	}
@@ -290,12 +328,43 @@ bd_drawdiagonals(BDBuffer *buf, int lr, int rl, int cross)
 }
 
 void
+bd_drawblockpatterns(BDBuffer *buf, int idx, uchar *blockpatterns, int len, int rows)
+{
+	int i, row, x1, x2, y1, y2;
+	uchar pattern;
+
+	for (i = 0; i < len; i++) {
+		pattern = blockpatterns[i];
+		for (row = 0; row < rows; row++, pattern >>= 2) {
+			if (pattern & 3) {
+				x1 = (pattern & 1) ? 0 : DIV(buf->cw, 2);
+				x2 = (pattern & 2) ? buf->cw : DIV(buf->cw, 2);
+				y1 = row * buf->ch / rows;
+				y2 = (row + 1) * buf->ch / rows;
+				bd_drawrect(buf, idx + i, x1, y1, x2 - x1, y2 - y1);
+			}
+		}
+	}
+}
+
+void
 bd_copysymbol(BDBuffer *buf, int dstidx, int srcidx)
 {
-	char *dst = buf->data + dstidx * buf->charoffset;
-	char *src = buf->data + srcidx * buf->charoffset;
-	int i, size = buf->width * buf->ch;
+	uchar *dst = bd_getsymbol(buf, dstidx);
+	uchar *src = bd_getsymbol(buf, srcidx);
+	int x, y, cw = buf->charwidth, ch = buf->ch, w = buf->width - cw;
 
-	for (i = 0; i < size; i++)
-		dst[i] |= src[i];
+	for (y = 0; y < ch; y++, dst += w, src += w)
+		for (x = 0; x < cw; x++, dst++, src++)
+			*dst |= *src;
+}
+
+void
+bd_errormsg(char *msg)
+{
+	static int errorsent;
+
+	if (!errorsent)
+		fprintf(stderr, "%s\n", msg);
+	errorsent = 1;
 }

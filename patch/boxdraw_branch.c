@@ -30,6 +30,7 @@ void
 drawbranchsymbol(int x, int y, int w, int h, XftColor *fg, ushort symbol)
 {
 	Picture src;
+	int maskx, masky;
 
 	if (!bs_generatesymbols())
 		return;
@@ -45,10 +46,12 @@ drawbranchsymbol(int x, int y, int w, int h, XftColor *fg, ushort symbol)
 	}
 
 	/* Draw the rest of the symbols with XRender and anti-aliasing */
-	if ((src = XftDrawSrcPicture(xd, fg)))
+	if ((src = XftDrawSrcPicture(xd, fg))) {
+		bd_getmaskcoords(&bsyms, symbol, &maskx, &masky);
 		XRenderComposite(xdpy, PictOpOver,
 			src, bsyms.mask, XftDrawPicture(xd),
-			0, 0, 0, bsyms.ch * symbol, x, y, bsyms.cw, bsyms.ch);
+			0, 0, maskx, masky, x, y, bsyms.cw, bsyms.ch);
+	}
 }
 
 /* implementation */
@@ -56,7 +59,6 @@ drawbranchsymbol(int x, int y, int w, int h, XftColor *fg, ushort symbol)
 int
 bs_generatesymbols(void)
 {
-	static int errorsent;
 	int i, s, cx, cy, lw;
 	BDBuffer ssbuf;
 
@@ -68,19 +70,23 @@ bs_generatesymbols(void)
 		return 1;
 
 	if (!XftDefaultHasRender(xdpy)) {
-		if (!errorsent)
-			fprintf(stderr, "boxdraw_branch: XRender is not available\n");
-		errorsent = 1;
+		bd_errormsg("boxdraw_extra: XRender is not available");
 		return 0;
 	}
 
 	cx = DIV(win.cw - lw, 2);
 	cy = DIV(win.ch - lw, 2);
-	bd_initbuffer(&bsyms, win.cw, win.ch, cx, cy, lw, 0, LEN(branchsymbols), 1);
-	bd_initbuffer(&ssbuf, win.cw, win.ch, cx, cy, lw, 0, LEN(branchsymbols), SS_FACTOR);
+	if (!bd_initbuffer(&bsyms, win.cw, win.ch, cx, cy, lw, 0, LEN(branchsymbols), 1)) {
+		bd_errormsg("boxdraw_extra: cannot allocate character buffer");
+		return 0;
+	} else if (!bd_initbuffer(&ssbuf, win.cw, win.ch, cx, cy, lw, 0, LEN(branchsymbols), SS_FACTOR)) {
+		bd_errormsg("boxdraw_extra: cannot allocate mask buffer");
+		free(bsyms.data);
+		return 0;
+	}
 
 	bd_drawcircle(&ssbuf, BSCM_INDX, 1);
-	bd_drawcorners(&ssbuf, BSABR_INDX, BSABL_INDX, BSATL_INDX, BSATR_INDX);
+	bd_drawroundedcorners(&ssbuf, BSABR_INDX, BSABL_INDX, BSATL_INDX, BSATR_INDX);
 
 	for (i = 0; i < LEN(branchsymbols); i++) {
 		s = branchsymbols[i];
