@@ -22,6 +22,7 @@ void
 boxdraw_xinit(Display *dpy, Colormap cmap, XftDraw *draw, Visual *vis)
 {
 	xdpy = dpy; xcmap = cmap; xd = draw, xvis = vis;
+	initextrasymbols();
 }
 
 int
@@ -30,8 +31,8 @@ isboxdraw(Rune u)
 	Rune block = u & ~0xff;
 	return (boxdraw && block == 0x2500 && boxdata[(uint8_t)u]) ||
 	       (boxdraw_braille && block == 0x2800) ||
-	       (boxdraw && boxdraw_extra && block == 0x2500 && boxdataextra[(uint8_t)u]) ||
-	       (boxdraw && boxdraw_extra && u >= 0x1fb00 && u < 0x1fb00 + BE_SEXTANTS_LEN) ||
+	       (boxdraw && boxdraw_extra && block == 0x2500 && boxmisc[(uint8_t)u]) ||
+	       (boxdraw && boxdraw_extra && block == 0x1fb00 && boxlegacy[(uint8_t)u]) ||
 	       (boxdraw && boxdraw_extra && u >= 0x1cd00 && u < 0x1cd00 + BE_OCTANTS_LEN) ||
 	       (boxdraw_branch && u >= 0xf5d0 && u < 0xf5d0 + LEN(branchsymbols));
 }
@@ -41,16 +42,22 @@ ushort
 boxdrawindex(const Glyph *g)
 {
 	int bold = (boxdraw_bold && (g->mode & ATTR_BOLD)) ? BDB : 0;
+
 	if (boxdraw_braille && (g->u & ~0xff) == 0x2800)
 		return BRL | (uint8_t)g->u;
-	if (boxdraw_extra && g->u >= 0x1fb00 && g->u < 0x1fb00 + BE_SEXTANTS_LEN)
-		return BDE | (g->u - 0x1fb00 + BE_SEXTANTS_IDX);
+
+	if (boxdraw_extra &&  (g->u & ~0xff) == 0x1fb00 && boxlegacy[(uint8_t)g->u])
+		return BDE | (boxlegacy[(uint8_t)g->u] + BE_LEGACY_IDX - 1);
+
 	if (boxdraw_extra && g->u >= 0x1cd00 && g->u < 0x1cd00 + BE_OCTANTS_LEN)
 		return BDE | (g->u - 0x1cd00 + BE_OCTANTS_IDX);
-	if (boxdraw_extra && boxdataextra[(uint8_t)g->u])
-		return BDE | bold | boxdataextra[(uint8_t)g->u];
+
 	if (boxdraw_branch && g->u >= 0xf5d0 && g->u < 0xf5d0 + LEN(branchsymbols))
 		return BRS | (g->u - 0xf5d0);
+
+	if (boxdraw_extra && boxmisc[(uint8_t)g->u])
+		return BDE | bold | boxmisc[(uint8_t)g->u];
+
 	return bold | boxdata[(uint8_t)g->u];
 }
 

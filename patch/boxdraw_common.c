@@ -96,7 +96,7 @@ bd_downsample(BDBuffer *dstbuf, int dstidx, BDBuffer *srcbuf, int srcidx, int nu
 }
 
 void
-bd_drawrect(BDBuffer *buf, int idx, int x, int y, int w, int h)
+bd_drawrect(BDBuffer *buf, int idx, int x, int y, int w, int h, int alpha)
 {
 	uchar *data = bd_getsymbol(buf, idx) + buf->xmargin;
 	int x1 = MAX(0, x);
@@ -109,35 +109,35 @@ bd_drawrect(BDBuffer *buf, int idx, int x, int y, int w, int h)
 
 	data += y1 * buf->width + x1;
 	for (y = y1; y < y2; y++, data += buf->width)
-		memset(data, 255, x2 - x1);
+		memset(data, alpha, x2 - x1);
 }
 
 void
 bd_drawlineup(BDBuffer *buf, int idx)
 {
 	int cx = buf->cx, cy = buf->cy, lw = buf->lw;
-	bd_drawrect(buf, idx, cx, 0, lw, cy + lw);
+	bd_drawrect(buf, idx, cx, 0, lw, cy + lw, 255);
 }
 
 void
 bd_drawlinedown(BDBuffer *buf, int idx)
 {
 	int cx = buf->cx, cy = buf->cy, ch = buf->ch, lw = buf->lw;
-	bd_drawrect(buf, idx, cx, cy, lw, ch - cy);
+	bd_drawrect(buf, idx, cx, cy, lw, ch - cy, 255);
 }
 
 void
 bd_drawlineleft(BDBuffer *buf, int idx)
 {
 	int cx = buf->cx, cy = buf->cy, lw = buf->lw;
-	bd_drawrect(buf, idx, 0, cy, cx + lw, lw);
+	bd_drawrect(buf, idx, 0, cy, cx + lw, lw, 255);
 }
 
 void
 bd_drawlineright(BDBuffer *buf, int idx)
 {
 	int cx = buf->cx, cy = buf->cy, cw = buf->cw, lw = buf->lw;
-	bd_drawrect(buf, idx, cx, cy, cw - cx, lw);
+	bd_drawrect(buf, idx, cx, cy, cw - cx, lw, 255);
 }
 
 void
@@ -239,7 +239,7 @@ bd_drawhorizfadingline(BDBuffer *buf, int idx, int left)
 		x = i * cw / steps;
 		if (left)
 			x = cw - x - sz;
-		bd_drawrect(buf, idx, x, cy, sz, lw);
+		bd_drawrect(buf, idx, x, cy, sz, lw, 255);
 	}
 }
 
@@ -254,7 +254,7 @@ bd_drawvertfadingline(BDBuffer *buf, int idx, int up)
 		y = i * ch / steps;
 		if (up)
 			y = ch - y - sz;
-		bd_drawrect(buf, idx, cx, y, lw, sz);
+		bd_drawrect(buf, idx, cx, y, lw, sz, 255);
 	}
 }
 
@@ -266,7 +266,7 @@ bd_drawhdashes(BDBuffer *buf, int idx, int n, int heavy)
 	int y2 = buf->cy + (heavy ? buf->lw : 0) + buf->lw;
 
 	if (cw < 4)
-		return bd_drawrect(buf, idx, 0, y1, buf->cw, y2 - y1);
+		return bd_drawrect(buf, idx, 0, y1, buf->cw, y2 - y1, 255);
 
 	if (cw < 7 || (cw < 12 && n >= 3) || (cw <= 16 && n == 4)) {
 		n = (cw < 6) ? 2 : n;
@@ -275,7 +275,7 @@ bd_drawhdashes(BDBuffer *buf, int idx, int n, int heavy)
 		for (i = 0; i < n; i++) {
 			x1 = i * cw / n;
 			x2 = (i + 1) * cw / n;
-			bd_drawrect(buf, idx, x1 * f, y1, (x2 - x1 - s) * f, y2 - y1);
+			bd_drawrect(buf, idx, x1 * f, y1, (x2 - x1 - s) * f, y2 - y1, 255);
 		}
 		return;
 	}
@@ -285,7 +285,7 @@ bd_drawhdashes(BDBuffer *buf, int idx, int n, int heavy)
 		x2 = (i + 1) * buf->cw / n;
 		w = x2 - x1;
 		s = w * 30 / 100;
-		bd_drawrect(buf, idx, x1, y1, w - s, y2 - y1);
+		bd_drawrect(buf, idx, x1, y1, w - s, y2 - y1, 255);
 	}
 }
 
@@ -301,7 +301,7 @@ bd_drawvdashes(BDBuffer *buf, int idx, int n, int heavy)
 		y2 = (i + 1) * ch / n;
 		h = y2 - y1;
 		s = h * 40 / 100;
-		bd_drawrect(buf, idx, x1, y1 + s/2, x2 - x1, h - s);
+		bd_drawrect(buf, idx, x1, y1 + s/2, x2 - x1, h - s, 255);
 	}
 }
 
@@ -341,10 +341,70 @@ bd_drawblockpatterns(BDBuffer *buf, int idx, uchar *blockpatterns, int len, int 
 				x2 = (pattern & 2) ? buf->cw : DIV(buf->cw, 2);
 				y1 = row * buf->ch / rows;
 				y2 = (row + 1) * buf->ch / rows;
-				bd_drawrect(buf, idx + i, x1, y1, x2 - x1, y2 - y1);
+				bd_drawrect(buf, idx + i, x1, y1, x2 - x1, y2 - y1, 255);
 			}
 		}
 	}
+}
+
+void
+bd_drawtriangle(BDBuffer *buf, int idx, int ax, int ay, int bx, int by, int cx, int cy, int alpha)
+{
+	uchar *data = bd_getsymbol(buf, idx) + buf->xmargin;
+	int xl, xr, y;
+	double x1 = ax, y1 = ay;
+	double x2 = bx, y2 = by;
+	double x3 = cx, y3 = cy;
+	double sx1, sx2, dx1, dx2, t;
+
+	#define SWAP(a, b) { t = a; a = b; b = t; }
+	#define RENDERLINE(a, b) { \
+			xl = MIN(a, b); \
+			xr = MAX(a, b); \
+			memset(data + xl, alpha, xr - xl + 1); \
+		}
+
+	if (y1 > y2) {
+		SWAP(y1, y2); SWAP(x1, x2);
+	}
+	if (y2 > y3) {
+		SWAP(y2, y3); SWAP(x2, x3);
+		if (y1 > y2) {
+			SWAP(y1, y2); SWAP(x1, x2);
+		}
+	}
+	data += (int)y1 * buf->width;
+
+	if (y1 == y2 == y3) {
+		RENDERLINE(MIN(MIN(x1, x2), x3), MAX(MAX(x1, x2), x3));
+		return;
+	}
+
+	/* top half of triangle */
+	sx1 = x1;
+	dx1 = (x3 - x1) / (y3 - y1);
+	if (y1 < y2) {
+		sx2 = x1;
+		dx2 = (x2 - x1) / (y2 - y1);
+		for (y = y1; y < (int)y2; y++, sx1 += dx1, sx2 += dx2, data += buf->width) {
+			RENDERLINE(sx1, sx2);
+		}
+		if (y2 == y3) {
+			RENDERLINE(x2, x3);
+			return;
+		}
+	}
+
+	/* bottom half of triangle */
+	sx2 = x2;
+	dx2 = (x3 - x2) / (y3 - y2);
+	for (y = y2; y < (int)y3; y++, sx1 += dx1, sx2 += dx2, data += buf->width) {
+		RENDERLINE(sx1, sx2);
+	}
+	data[(int)x3] = alpha;
+
+	#undef SWAP
+	#undef RENDERLINE
 }
 
 void
@@ -357,6 +417,16 @@ bd_copysymbol(BDBuffer *buf, int dstidx, int srcidx)
 	for (y = 0; y < ch; y++, dst += w, src += w)
 		for (x = 0; x < cw; x++, dst++, src++)
 			*dst |= *src;
+}
+
+void
+bd_erasesymbol(BDBuffer *buf, int idx)
+{
+	int y;
+	uchar *data = bd_getsymbol(buf, idx);
+
+	for (y = 0; y < buf->ch; y++, data += buf->width)
+		memset(data, 0, buf->charwidth);
 }
 
 void

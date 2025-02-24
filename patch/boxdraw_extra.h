@@ -3,6 +3,7 @@
  */
 
 void drawextrasymbol(int x, int y, int w, int h, XftColor *fg, ushort symbol, int bold);
+void initextrasymbols(void);
 
 /* Box draw category (see boxdraw.h): */
 #define BDE (8<<10)  /* Box extra */
@@ -35,19 +36,27 @@ void drawextrasymbol(int x, int y, int w, int h, XftColor *fg, ushort symbol, in
 #define BE_SEXTANTS_IDX  BE_MISC_LEN
 #define BE_SEXTANTS_LEN  60
 
+/* Index and number of wedges (U+1FB3C..U+1FB6F and U+1FB9A..U+1FB9B) */
+#define BE_WEDGES_IDX  (BE_SEXTANTS_IDX + BE_SEXTANTS_LEN)
+#define BE_WEDGES_LEN  54
+
+/* Index and number of legacy characters (sextants + wedges) */
+#define BE_LEGACY_IDX  BE_SEXTANTS_IDX
+#define BE_LEGACY_LEN  (BE_SEXTANTS_LEN + BE_WEDGES_LEN)
+
 /* Index and number of octant characters */
-#define BE_OCTANTS_IDX  (BE_SEXTANTS_IDX + BE_SEXTANTS_LEN)
+#define BE_OCTANTS_IDX  (BE_LEGACY_IDX + BE_LEGACY_LEN)
 #define BE_OCTANTS_LEN  230
 
 /* Total number of extra characters */
-#define BE_EXTRA_LEN  (BE_MISC_LEN + BE_SEXTANTS_LEN + BE_OCTANTS_LEN)
+#define BE_EXTRA_LEN  (BE_MISC_LEN + BE_LEGACY_LEN + BE_OCTANTS_LEN)
 
 /**
- * The order of characters in the mask picture. The first character starts at
- * position one, because in this table zero means that the character is not
+ * The order of misc characters in the mask picture. The first character starts
+ * at position one, because in this table zero means that the character is not
  * implemented.
  */
-static const uchar boxdataextra[256] = {
+static const uchar boxmisc[256] = {
 	[BE_HDASH3]       = 1,
 	[BE_HDASH3_HEAVY] = 2,
 	[BE_VDASH3]       = 3,
@@ -69,6 +78,12 @@ static const uchar boxdataextra[256] = {
 	[BE_DIAG_CROSS]   = 19
 };
 
+/**
+ * The order of legacy characters in the mask picture.
+ * (BE_LEGACY_IDX-1 must be added to the values when reading the array)
+ */
+uchar boxlegacy[256];
+
 #define BLK1  (1 << 0)
 #define BLK2  (1 << 1)
 #define BLK3  (1 << 2)
@@ -88,7 +103,7 @@ static const uchar boxdataextra[256] = {
  *           | 5 | 6 |
  *           +---+---+
  */
-static uchar boxsextants[BE_SEXTANTS_LEN] = {
+static uchar boxdatasextants[BE_SEXTANTS_LEN] = {
 	BLK1,
 	BLK2,
 	BLK1 | BLK2,
@@ -163,7 +178,7 @@ static uchar boxsextants[BE_SEXTANTS_LEN] = {
  *          | 7 | 8 |
  *          +---+---+
  */
-static uchar boxoctants[BE_OCTANTS_LEN] = {
+static uchar boxdataoctants[BE_OCTANTS_LEN] = {
 	/* 00 .. 1F */
 	BLK3,
 	BLK2 | BLK3,
