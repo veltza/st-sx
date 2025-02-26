@@ -36,6 +36,6 @@ void bd_drawvdashes(BDBuffer *buf, int idx, int n, int heavy);
 void bd_drawdiagonals(BDBuffer *buf, int lr, int rl, int cross);
 void bd_drawblockpatterns(BDBuffer *buf, int idx, uchar *blockpatterns, int len, int rows);
 void bd_drawtriangle(BDBuffer *buf, int idx, int ax, int ay, int bx, int by, int cx, int cy, int alpha);
-void bd_copysymbol(BDBuffer *buf, int dstidx, int srcidx);
+void bd_copysymbol(BDBuffer *buf, int dstidx, int srcidx, int fliphoriz);
 void bd_erasesymbol(BDBuffer *buf, int idx);
 void bd_errormsg(char *msg);

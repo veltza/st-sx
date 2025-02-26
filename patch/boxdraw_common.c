@@ -323,24 +323,24 @@ bd_drawdiagonals(BDBuffer *buf, int lr, int rl, int cross)
 			}
 		}
 	}
-	bd_copysymbol(buf, cross, lr);
-	bd_copysymbol(buf, cross, rl);
+	bd_copysymbol(buf, cross, lr, 0);
+	bd_copysymbol(buf, cross, rl, 0);
 }
 
 void
 bd_drawblockpatterns(BDBuffer *buf, int idx, uchar *blockpatterns, int len, int rows)
 {
-	int i, row, x1, x2, y1, y2;
+	int i, row, x1, x2, y1, y2, cx = DIV(buf->cw, 2);
 	uchar pattern;
 
 	for (i = 0; i < len; i++) {
 		pattern = blockpatterns[i];
 		for (row = 0; row < rows; row++, pattern >>= 2) {
 			if (pattern & 3) {
-				x1 = (pattern & 1) ? 0 : DIV(buf->cw, 2);
-				x2 = (pattern & 2) ? buf->cw : DIV(buf->cw, 2);
-				y1 = row * buf->ch / rows;
-				y2 = (row + 1) * buf->ch / rows;
+				x1 = (pattern & 1) ? 0 : cx;
+				x2 = (pattern & 2) ? buf->cw : cx;
+				y1 = DIV(buf->ch * row, rows);
+				y2 = DIV(buf->ch * (row + 1), rows);
 				bd_drawrect(buf, idx + i, x1, y1, x2 - x1, y2 - y1, 255);
 			}
 		}
@@ -408,14 +408,17 @@ bd_drawtriangle(BDBuffer *buf, int idx, int ax, int ay, int bx, int by, int cx, 
 }
 
 void
-bd_copysymbol(BDBuffer *buf, int dstidx, int srcidx)
+bd_copysymbol(BDBuffer *buf, int dstidx, int srcidx, int fliphoriz)
 {
-	uchar *dst = bd_getsymbol(buf, dstidx);
+	uchar *dst = bd_getsymbol(buf, dstidx) + (fliphoriz ? buf->charwidth-1 : 0);
 	uchar *src = bd_getsymbol(buf, srcidx);
-	int x, y, cw = buf->charwidth, ch = buf->ch, w = buf->width - cw;
+	int x, y, cw = buf->charwidth, ch = buf->ch;
+	int srcw = buf->width - cw;
+	int dstw = fliphoriz ? buf->width + cw : srcw;
+	int dstinc = fliphoriz ? -1 : 1;
 
-	for (y = 0; y < ch; y++, dst += w, src += w)
-		for (x = 0; x < cw; x++, dst++, src++)
+	for (y = 0; y < ch; y++, dst += dstw, src += srcw)
+		for (x = 0; x < cw; x++, dst += dstinc, src++)
 			*dst |= *src;
 }
 

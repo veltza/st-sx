@@ -103,15 +103,15 @@ bs_generatesymbols(void)
 		if (s & (BSFD | BSFU))
 			bd_drawvertfadingline(&ssbuf, i, s & BSFU);
 		if (s & BSABR)
-			bd_copysymbol(&ssbuf, i, BSABR_INDX);
+			bd_copysymbol(&ssbuf, i, BSABR_INDX, 0);
 		if (s & BSABL)
-			bd_copysymbol(&ssbuf, i, BSABL_INDX);
+			bd_copysymbol(&ssbuf, i, BSABL_INDX, 0);
 		if (s & BSATR)
-			bd_copysymbol(&ssbuf, i, BSATR_INDX);
+			bd_copysymbol(&ssbuf, i, BSATR_INDX, 0);
 		if (s & BSATL)
-			bd_copysymbol(&ssbuf, i, BSATL_INDX);
+			bd_copysymbol(&ssbuf, i, BSATL_INDX, 0);
 		if (s & BSCM)
-			bd_copysymbol(&ssbuf, i,  BSCM_INDX);
+			bd_copysymbol(&ssbuf, i,  BSCM_INDX, 0);
 		if (s & BSCN)
 			bd_drawcircle(&ssbuf, i, 0);
 	}

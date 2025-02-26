@@ -32,17 +32,15 @@ void initextrasymbols(void);
 /* Number of misc characters (dashes/diagonals/rounded corners) plus one */
 #define BE_MISC_LEN     (19+1)
 
-/* Index and number of sextant characters */
-#define BE_SEXTANTS_IDX  BE_MISC_LEN
+/* Number of sextant characters */
 #define BE_SEXTANTS_LEN  60
 
-/* Index and number of wedges (U+1FB3C..U+1FB6F and U+1FB9A..U+1FB9B) */
-#define BE_WEDGES_IDX  (BE_SEXTANTS_IDX + BE_SEXTANTS_LEN)
+/* Number of wedges (U+1FB3C..U+1FB6F and U+1FB9A..U+1FB9B) */
 #define BE_WEDGES_LEN  54
 
-/* Index and number of legacy characters (sextants + wedges) */
-#define BE_LEGACY_IDX  BE_SEXTANTS_IDX
-#define BE_LEGACY_LEN  (BE_SEXTANTS_LEN + BE_WEDGES_LEN)
+/* Index and number of legacy characters */
+#define BE_LEGACY_IDX  BE_MISC_LEN
+#define BE_LEGACY_LEN  (BE_SEXTANTS_LEN + BE_WEDGES_LEN + 52)
 
 /* Index and number of octant characters */
 #define BE_OCTANTS_IDX  (BE_LEGACY_IDX + BE_LEGACY_LEN)
