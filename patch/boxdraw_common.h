@@ -10,8 +10,8 @@ typedef struct {
 	int numchars;  /* number of characters */
 	int cols;      /* number of columns in buffer */
 	int rows;      /* number of rows in buffer */
-	int width;     /* buffer width */
-	int height;    /* buffer height */
+	int width;     /* buffer width in pixels */
+	int height;    /* buffer height in pixels */
 	uchar *data;   /* picture data */
 	Picture mask;  /* picture mask */
 } BDBuffer;

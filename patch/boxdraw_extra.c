@@ -4,9 +4,8 @@
  */
 static int be_generatesymbols(BDBuffer *buf, int bold);
 static void be_drawlegacy(BDBuffer *ssbuf, BDBuffer *buf);
-static void be_drawwedge(BDBuffer *ssbuf, BDBuffer *buf, int idx, int x1, int y1, int x2, int y2, int x3, int y3, int invert);
-static void be_drawwedgerect(BDBuffer *ssbuf, BDBuffer *buf, int idx, int x1, int y1, int x2, int y2, int x3, int y3, int recty, int invert);
 static int be_drawwedges(BDBuffer *ssbuf, BDBuffer *buf, int idx);
+static void be_drawwedge(BDBuffer *ssbuf, BDBuffer *buf, int idx, int x1, int y1, int x2, int y2, int x3, int y3, int block, int invert);
 static int be_draw_vertical_one_eighth_blocks(BDBuffer *buf, int idx);
 static int be_draw_horizontal_one_eighth_blocks(BDBuffer *buf, int idx);
 static int be_draw_one_eighth_frames(BDBuffer *buf, int idx);
@@ -149,23 +148,6 @@ be_drawlegacy(BDBuffer *ssbuf, BDBuffer *buf)
 	idx = be_draw_one_quarter_blocks(buf, idx);                /* U+1FBE4..U+1FBE7 */
 }
 
-void
-be_drawwedge(BDBuffer *ssbuf, BDBuffer *buf, int idx, int x1, int y1, int x2, int y2, int x3, int y3, int invert)
-{
-	bd_drawrect(ssbuf, 0, 0, 0, ssbuf->cw, ssbuf->ch, invert ? 255 : 0);
-	bd_drawtriangle(ssbuf, 0, x1, y1, x2, y2, x3, y3, invert ? 0 : 255);
-	bd_downsample(buf, idx, ssbuf, 0, 1);
-}
-
-void
-be_drawwedgerect(BDBuffer *ssbuf, BDBuffer *buf, int idx, int x1, int y1, int x2, int y2, int x3, int y3, int recty, int invert)
-{
-	int ry1 = buf->ch * recty / 3, ry2 = buf->ch * (recty + 1) / 3;
-
-	be_drawwedge(ssbuf, buf, idx, x1, y1, x2, y2, x3, y3, invert);
-	bd_drawrect(buf, idx, 0, ry1, buf->cw, ry2 - ry1, invert ? 0 : 255);
-}
-
 int
 be_drawwedges(BDBuffer *ssbuf, BDBuffer *buf, int idx)
 {
@@ -174,59 +156,72 @@ be_drawwedges(BDBuffer *ssbuf, BDBuffer *buf, int idx)
 	int y0 = 0, y1 = ch / 3, y2 = ch * 2 / 3;
 	int x0e = x1 - 1, x1e = cw - 1;
 	int y0e = y1 - 1, y1e = y2 - 1, y2e = ch - 1;
-	int j, invert = 0;
+	int i, invert;
 
 	bd_erasesymbol(ssbuf, 0);
-	for (invert = 0, j = 0; j < 2; j++, invert ^= 1) {
-		be_drawwedge(ssbuf, buf, idx++, x0, y2, x0, y2e, x0e, y2e, invert);  /* U+1FB3C, U+1FB52 */
-		be_drawwedge(ssbuf, buf, idx++, x0, y2, x0, y2e, x1e, y2e, invert);  /* U+1FB3D, U+1FB53 */
-		be_drawwedge(ssbuf, buf, idx++, x0, y1, x0, y2e, x0e, y2e, invert);  /* U+1FB3E, U+1FB54 */
-		be_drawwedge(ssbuf, buf, idx++, x0, y1, x0, y2e, x1e, y2e, invert);  /* U+1FB3F, U+1FB55 */
-		be_drawwedge(ssbuf, buf, idx++, x0, y0, x0, y2e, x0e, y2e, invert);  /* U+1FB40, U+1FB56 */
-		be_drawwedge(ssbuf, buf, idx++, x0, y0, x0, y0e, x0e, y0, invert ^ 1);  /* U+1FB41, U+1FB57 */
-		be_drawwedge(ssbuf, buf, idx++, x0, y0, x0, y0e, x1e, y0, invert ^ 1);  /* U+1FB42, U+1FB58 */
-		be_drawwedge(ssbuf, buf, idx++, x0, y0, x0, y1e, x0e, y0, invert ^ 1);  /* U+1FB43, U+1FB59 */
-		be_drawwedge(ssbuf, buf, idx++, x0, y0, x0, y1e, x1e, y0, invert ^ 1);  /* U+1FB44, U+1FB5A */
-		be_drawwedge(ssbuf, buf, idx++, x0, y0, x0, y2e, x0e, y0, invert ^ 1);  /* U+1FB45, U+1FB5B */
-		if (j == 0)
-			be_drawwedgerect(ssbuf, buf, idx++, x1e, y1, x0, y1e, x1e, y1e, 2, 0);  /* U+1FB46 */
+	for (invert = 0, i = 0; i < 2; i++, invert ^= 1) {
+		be_drawwedge(ssbuf, buf, idx++, x0, y2, x0, y2e, x0e, y2e, 0, invert);     /* U+1FB3C: '🬼', U+1FB52: '🭒' */
+		be_drawwedge(ssbuf, buf, idx++, x0, y2, x0, y2e, x1e, y2e, 0, invert);     /* U+1FB3D: '🬽', U+1FB53; '🭓' */
+		be_drawwedge(ssbuf, buf, idx++, x0, y1, x0, y2e, x0e, y2e, 0, invert);     /* U+1FB3E: '🬾', U+1FB54: '🭔' */
+		be_drawwedge(ssbuf, buf, idx++, x0, y1, x0, y2e, x1e, y2e, 0, invert);     /* U+1FB3F: '🬿', U+1FB55: '🭕' */
+		be_drawwedge(ssbuf, buf, idx++, x0, y0, x0, y2e, x0e, y2e, 0, invert);     /* U+1FB40: '🭀', U+1FB56: '🭖' */
+		be_drawwedge(ssbuf, buf, idx++, x0, y0, x0, y0e, x0e, y0, 0, invert ^ 1);  /* U+1FB41: '🭁', U+1FB57: '🭗' */
+		be_drawwedge(ssbuf, buf, idx++, x0, y0, x0, y0e, x1e, y0, 0, invert ^ 1);  /* U+1FB42: '🭂', U+1FB58: '🭘' */
+		be_drawwedge(ssbuf, buf, idx++, x0, y0, x0, y1e, x0e, y0, 0, invert ^ 1);  /* U+1FB43: '🭃', U+1FB59: '🭙' */
+		be_drawwedge(ssbuf, buf, idx++, x0, y0, x0, y1e, x1e, y0, 0, invert ^ 1);  /* U+1FB44: '🭄', U+1FB5A: '🭚' */
+		be_drawwedge(ssbuf, buf, idx++, x0, y0, x0, y2e, x0e, y0, 0, invert ^ 1);  /* U+1FB45: '🭅', U+1FB5B: '🭛' */
+		if (i == 0)
+			be_drawwedge(ssbuf, buf, idx++, x1e, y1, x0, y1e, x1e, y1e, 3, 0); /* U+1FB46: '🭆' */
 		else
-			be_drawwedgerect(ssbuf, buf, idx++, x0, y1, x0, y1e, x1e, y1, 0, 0);  /* U+1FB5C */
-		be_drawwedge(ssbuf, buf, idx++, x1e, y2, x1, y2e, x1e, y2e, invert);  /* U+1FB47, U+1FB5D */
-		be_drawwedge(ssbuf, buf, idx++, x1e, y2, x0, y2e, x1e, y2e, invert);  /* U+1FB48, U+1FB5E */
-		be_drawwedge(ssbuf, buf, idx++, x1e, y1, x1, y2e, x1e, y2e, invert);  /* U+1FB49, U+1FB5F */
-		be_drawwedge(ssbuf, buf, idx++, x1e, y1, x0, y2e, x1e, y2e, invert);  /* U+1FB4A, U+1FB60 */
-		be_drawwedge(ssbuf, buf, idx++, x1e, y0, x1, y2e, x1e, y2e, invert);  /* U+1FB4B, U+1FB61 */
-		be_drawwedge(ssbuf, buf, idx++, x1, y0, x1e, y0, x1e, y0e, invert ^ 1);  /* U+1FB4C, U+1FB62 */
-		be_drawwedge(ssbuf, buf, idx++, x0, y0, x1e, y0, x1e, y0e, invert ^ 1);  /* U+1FB4D, U+1FB63 */
-		be_drawwedge(ssbuf, buf, idx++, x1, y0, x1e, y0, x1e, y1e, invert ^ 1);  /* U+1FB4E, U+1FB64 */
-		be_drawwedge(ssbuf, buf, idx++, x0, y0, x1e, y0, x1e, y1e, invert ^ 1);  /* U+1FB4F, U+1FB65 */
-		be_drawwedge(ssbuf, buf, idx++, x1, y0, x1e, y2e, x1e, y0, invert ^ 1);  /* U+1FB50, U+1FB66 */
-		if (j == 0)
-			be_drawwedgerect(ssbuf, buf, idx++, x0, y1, x0, y1e, x1e, y1e, 2, 0);  /* U+1FB51 */
+			be_drawwedge(ssbuf, buf, idx++, x0, y1, x0, y1e, x1e, y1, 1, 0);   /* U+1FB5C: '🭜' */
+		be_drawwedge(ssbuf, buf, idx++, x1e, y2, x1, y2e, x1e, y2e, 0, invert);    /* U+1FB47: '🭇', U+1FB5D: '🭝' */
+		be_drawwedge(ssbuf, buf, idx++, x1e, y2, x0, y2e, x1e, y2e, 0, invert);    /* U+1FB48: '🭈', U+1FB5E: '🭞' */
+		be_drawwedge(ssbuf, buf, idx++, x1e, y1, x1, y2e, x1e, y2e, 0, invert);    /* U+1FB49: '🭉', U+1FB5F: '🭟' */
+		be_drawwedge(ssbuf, buf, idx++, x1e, y1, x0, y2e, x1e, y2e, 0, invert);    /* U+1FB4A: '🭊', U+1FB60: '🭠' */
+		be_drawwedge(ssbuf, buf, idx++, x1e, y0, x1, y2e, x1e, y2e, 0, invert);    /* U+1FB4B: '🭋', U+1FB61: '🭡' */
+		be_drawwedge(ssbuf, buf, idx++, x1, y0, x1e, y0, x1e, y0e, 0, invert ^ 1); /* U+1FB4C: '🭌', U+1FB62: '🭢' */
+		be_drawwedge(ssbuf, buf, idx++, x0, y0, x1e, y0, x1e, y0e, 0, invert ^ 1); /* U+1FB4D: '🭍', U+1FB63: '🭣' */
+		be_drawwedge(ssbuf, buf, idx++, x1, y0, x1e, y0, x1e, y1e, 0, invert ^ 1); /* U+1FB4E: '🭎', U+1FB64: '🭤' */
+		be_drawwedge(ssbuf, buf, idx++, x0, y0, x1e, y0, x1e, y1e, 0, invert ^ 1); /* U+1FB4F: '🭏', U+1FB65: '🭥' */
+		be_drawwedge(ssbuf, buf, idx++, x1, y0, x1e, y2e, x1e, y0, 0, invert ^ 1); /* U+1FB50: '🭐', U+1FB66: '🭦' */
+		if (i == 0)
+			be_drawwedge(ssbuf, buf, idx++, x0, y1, x0, y1e, x1e, y1e, 3, 0);  /* U+1FB51: '🭑' */
 		else
-			be_drawwedgerect(ssbuf, buf, idx++, x0, y1, x1e, y1e, x1e, y1, 0, 0);  /* U+1FB67 */
+			be_drawwedge(ssbuf, buf, idx++, x0, y1, x1e, y1e, x1e, y1, 1, 0);  /* U+1FB67: '🭧' */
 	}
-	for (invert = 1, j = 0; j < 2; j++, invert ^= 1) {
-		be_drawwedge(ssbuf, buf, idx++, x0, y0, x0, y2e, x1, cy, invert);  /* U+1FB68, U+1FB6C */
-		be_drawwedge(ssbuf, buf, idx++, x0, y0, x1, cy, x1e, y0, invert);  /* U+1FB69, U+1FB6D */
-		be_drawwedge(ssbuf, buf, idx++, x1e, y0, x1, cy, x1e, y2e, invert);  /* U+1FB6A, U+1FB6E */
-		be_drawwedge(ssbuf, buf, idx++, x0, y2e, x1, cy, x1e, y2e, invert);  /* U+1FB6B, U+1FB6F */
+	for (invert = 1, i = 0; i < 2; i++, invert ^= 1) {
+		be_drawwedge(ssbuf, buf, idx++, x0, y0, x0, y2e, x1, cy, 0, invert);       /* U+1FB68: '🭨', U+1FB6C: '🭬' */
+		be_drawwedge(ssbuf, buf, idx++, x0, y0, x1, cy, x1e, y0, 0, invert);       /* U+1FB69: '🭩', U+1FB6D: '🭭' */
+		be_drawwedge(ssbuf, buf, idx++, x1e, y0, x1, cy, x1e, y2e, 0, invert);     /* U+1FB6A: '🭪', U+1FB6E: '🭮' */
+		be_drawwedge(ssbuf, buf, idx++, x0, y2e, x1, cy, x1e, y2e, 0, invert);     /* U+1FB6B: '🭫', U+1FB6F: '🭯' */
 	}
 
-	/* U+1FB9A */
+	/* U+1FB9A: '🮚' */
 	bd_drawrect(ssbuf, 0, 0, 0, ssbuf->cw, ssbuf->ch, 0);
 	bd_drawtriangle(ssbuf, 0, x0, y0, x1, cy, x1e, y0, 255);
 	bd_drawtriangle(ssbuf, 0, x0, y2e, x1, cy, x1e, y2e, 255);
 	bd_downsample(buf, idx + 42, ssbuf, 0, 1);
 
-	/* U+1FB9B */
+	/* U+1FB9B: '🮛' */
 	bd_drawrect(ssbuf, 0, 0, 0, ssbuf->cw, ssbuf->ch, 0);
 	bd_drawtriangle(ssbuf, 0, x0, y0, x0, y2e, x1, cy, 255);
 	bd_drawtriangle(ssbuf, 0, x1e, y0, x1, cy, x1e, y2e, 255);
 	bd_downsample(buf, idx + 43, ssbuf, 0, 1);
 
 	return idx;
+}
+
+void
+be_drawwedge(BDBuffer *ssbuf, BDBuffer *buf, int idx, int x1, int y1, int x2, int y2, int x3, int y3, int block, int invert)
+{
+	bd_drawrect(ssbuf, 0, 0, 0, ssbuf->cw, ssbuf->ch, invert ? 255 : 0);
+	bd_drawtriangle(ssbuf, 0, x1, y1, x2, y2, x3, y3, invert ? 0 : 255);
+	if (block) {
+		y1 = ssbuf->ch * (block - 1) / 3;
+		y2 = ssbuf->ch * block / 3;
+		bd_drawrect(ssbuf, 0, 0, y1, ssbuf->cw, y2 - y1, invert ? 0 : 255);
+	}
+	bd_downsample(buf, idx, ssbuf, 0, 1);
 }
 
 int
