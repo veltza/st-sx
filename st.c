@@ -1547,8 +1547,8 @@ tclearregion(int x1, int y1, int x2, int y2, int usecurattr)
 	int x, y;
 
 	/* regionselected() takes relative coordinates */
-	if (regionselected(x1+term.scr, y1+term.scr, x2+term.scr, y2+term.scr))
-		selremove();
+	if (regionselected(x1, y1+term.scr, x2, y2+term.scr))
+		selclear();
 
 	for (y = y1; y <= y2; y++) {
 		term.dirty[y] = 1;
@@ -3211,7 +3211,7 @@ check_control_code:
 		return;
 	}
 	/* selected() takes relative coordinates */
-	if (selected(term.c.x + term.scr, term.c.y + term.scr))
+	if (selected(term.c.x, term.c.y + term.scr))
 		selclear();
 
 	gp = &term.line[term.c.y][term.c.x];
