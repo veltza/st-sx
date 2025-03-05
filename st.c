@@ -1573,6 +1573,8 @@ tdeletechar(int n)
 		line = term.line[term.c.y];
 		memmove(&line[dst], &line[src], size * sizeof(Glyph));
 	}
+	if (regionselected(term.c.x, term.c.y+term.scr, term.col-1, term.c.y+term.scr))
+		selclear();
 	tclearregion(dst + size, term.c.y, term.col - 1, term.c.y, 1);
 }
 
@@ -1592,6 +1594,8 @@ tinsertblank(int n)
 		line = term.line[term.c.y];
 		memmove(&line[dst], &line[src], size * sizeof(Glyph));
 	}
+	if (regionselected(term.c.x, term.c.y+term.scr, term.col-1, term.c.y+term.scr))
+		selclear();
 	tclearregion(src, term.c.y, dst - 1, term.c.y, 1);
 }
 
