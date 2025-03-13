@@ -72,6 +72,9 @@ St.hyperlinkhintbg: 258
 St.kbselectfg: 0
 St.kbselectbg: 258
 
+! Foreground color for the scrollback indicator
+St.scrollbackindicatorfg: 258
+
 ! Dynamic cursor color:
 ! 0 = the cursor color is fixed (default st behavior)
 ! 1 = the cursor uses reverse colors based on the colors of the text cell
@@ -151,3 +154,4 @@ St.showhyperlinkhint:       1
 St.disablehyperlinks:       0
 St.autoscrolltimeout:       200
 St.autoscrollacceleration:  1.0
+St.scrollbackindicator:     1

@@ -309,6 +309,9 @@ unsigned int hyperlinkhintbg = 258;
 unsigned int kbselectfg = 0;
 unsigned int kbselectbg = 258;
 
+/* Foreground color for the scrollback indicator */
+unsigned int scrollbackindicatorfg = 258;
+
 /* Bold text is not rendered in bright color. 0: off, 1: on */
 unsigned int bold_is_not_bright = 1;
 
@@ -371,6 +374,10 @@ unsigned int hyperlinkcache_pri = 8192;
 /* Specifies how many hyperlinks can be cached on the alternate screen.
  * Default value is 1024, maximum value is 65536. */
 unsigned int hyperlinkcache_alt = 1024;
+
+/* Show a scrollback indicator on the right edge of the screen to indicate how far
+ * you have scrolled. 0: off, 1: on, 2: only when keyboard selection mode is on */
+unsigned int scrollbackindicator = 1;
 
 /*
  * Default colour and shape of the mouse cursor
@@ -789,6 +796,7 @@ ResourcePref resources[] = {
 		{ "hyperlinkhintbg",     INTEGER, &hyperlinkhintbg },
 		{ "kbselectfg",          INTEGER, &kbselectfg },
 		{ "kbselectbg",          INTEGER, &kbselectbg },
+		{ "scrollbackindicatorfg", INTEGER, &scrollbackindicatorfg },
 		{ "bold_is_not_bright",  INTEGER, &bold_is_not_bright },
 		{ "dynamic_cursor_color",INTEGER, &dynamic_cursor_color },
 		{ "cursorstyle",         INTEGER, &cursorstyle },
@@ -838,4 +846,5 @@ ResourcePref resources[] = {
 		{ "undercurl_height_scale",        FLOAT,   &undercurl_height_scale },
 		{ "autoscrolltimeout",             INTEGER, &autoscrolltimeout },
 		{ "autoscrollacceleration",        FLOAT,   &autoscrollacceleration },
+		{ "scrollbackindicator",           INTEGER, &scrollbackindicator },
 };

@@ -94,6 +94,7 @@ static void xunloadfonts(void);
 static void xsetenv(void);
 static void xseturgency(int);
 static inline void lerpvisualbellcolor(Color *, Color *);
+static void drawscrollbackindicator(void);
 static int evcol(XEvent *);
 static int evrow(XEvent *);
 
@@ -2531,8 +2532,30 @@ xfinishdraw(void)
 		memset(term.dirtyimg, 0, term.row * sizeof(*term.dirtyimg));
 	}
 
+	drawscrollbackindicator();
+
 	XCopyArea(xw.dpy, xw.buf, xw.win, dc.gc, 0, 0, win.w, win.h, 0, 0);
 	XSetForeground(xw.dpy, dc.gc, dc.col[IS_SET(MODE_REVERSE) ? defaultfg : defaultbg].pixel);
+}
+
+void
+drawscrollbackindicator(void)
+{
+	int barw, barh, barx, bary;
+	Color *barcol = &dc.col[scrollbackindicatorfg];
+	Color *bordercol = &dc.col[defaultbg];
+
+	if (!scrollbackindicator || !term.scr || !term.histf || tisaltscr() ||
+	    (scrollbackindicator > 1 && !IS_SET(MODE_KBDSELECT)))
+		return;
+
+	barw = win.cw / 2;
+	barh = win.ch;
+	barx = win.w - barw - borderpx;
+	bary = win.ch * term.row - barh;
+	bary -= bary * term.scr / term.histf - borderpx;
+	XftDrawRect(xw.draw, bordercol, barx-1, bary-1, barw+2, barh+2);
+	XftDrawRect(xw.draw, barcol, barx, bary, barw, barh);
 }
 
 void
