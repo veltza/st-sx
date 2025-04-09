@@ -324,14 +324,14 @@ drawhyperlinkhint(void)
 			break;
 		w = wcwidth(g.u);
 		MODBIT(g.mode, (w > 1), ATTR_WIDE);
-		xdrawglyph(g, x, y);
+		xdrawglyph(&g, x, y);
 	}
 
 	if (x >= term.col && i < ulen) {
 		/* ellipsis */
 		g.u = 0x2026;
 		g.mode &= ~ATTR_WIDE;
-		xdrawglyph(g, term.col - 1, y);
+		xdrawglyph(&g, term.col - 1, y);
 	} else if (x < term.col) {
 		/* right padding and separator */
 		w = MAX(win.cw/2, 1);

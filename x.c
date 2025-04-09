@@ -73,9 +73,9 @@ static inline void xresetfontsettings(Mode mode, Font **font, int *frcflags);
 static int xmakeglyphfontspecs_ligatures(XftGlyphFontSpec *, const Glyph *, int, int, int);
 static inline void xdrawline_ligatures(Line, int, int, int);
 #endif
-static int xmakeglyphfontspecs_noligatures(XftGlyphFontSpec *, const Glyph *, int, int, int);
+static int xmakeglyphfontspecs_noligatures(GlyphFontSeq *, XftGlyphFontSpec *, const Glyph *, int, int, int);
 static inline void xdrawline_noligatures(Line, int, int, int);
-static void xdrawglyphfontspecs(const XftGlyphFontSpec *, Glyph, int, int, int, int, int);
+static void xdrawglyphfontspecs(const XftGlyphFontSpec *, GlyphFontSeq *, int, int);
 static void xclear(int, int, int, int);
 static int xgeommasktogravity(int);
 static int ximopen(Display *);
@@ -898,10 +898,10 @@ xresize(int col, int row)
 	/* resize to new width */
 	#if !DISABLE_LIGATURES
 	xw.specbuf = xrealloc(xw.specbuf, col * sizeof(GlyphFontSpec) * 4);
-	xw.specseq = xrealloc(xw.specseq, col * sizeof(GlyphFontSeq));
 	#else
 	xw.specbuf = xrealloc(xw.specbuf, col * sizeof(GlyphFontSpec));
 	#endif
+	xw.specseq = xrealloc(xw.specseq, col * sizeof(GlyphFontSeq));
 }
 
 ushort
@@ -1383,10 +1383,10 @@ xinit(int cols, int rows)
 	/* font spec buffer */
 	#if !DISABLE_LIGATURES
 	xw.specbuf = xmalloc(cols * sizeof(GlyphFontSpec) * 4);
-	xw.specseq = xmalloc(cols * sizeof(GlyphFontSeq));
 	#else
 	xw.specbuf = xmalloc(cols * sizeof(GlyphFontSpec));
 	#endif
+	xw.specseq = xmalloc(cols * sizeof(GlyphFontSeq));
 
 	/* Xft rendering context */
 	xw.draw = XftDrawCreate(xw.dpy, xw.buf, xw.vis, xw.cmap);
@@ -1636,10 +1636,9 @@ xmakeglyphfontspecs_ligatures(XftGlyphFontSpec *specs, const Glyph *glyphs, int 
 #endif
 
 int
-xmakeglyphfontspecs_noligatures(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x, int y)
+xmakeglyphfontspecs_noligatures(GlyphFontSeq *seq, XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x, int y)
 {
 	float winx = borderpx + x * win.cw, winy = borderpx + y * win.ch, xp, yp;
-	Mode mode, prevmode = -1;
 	Font *font = &dc.font;
 	int frcflags = FRC_NORMAL;
 	float runewidth = win.cw;
@@ -1649,39 +1648,53 @@ xmakeglyphfontspecs_noligatures(XftGlyphFontSpec *specs, const Glyph *glyphs, in
 	FcPattern *fcpattern, *fontpattern;
 	FcFontSet *fcsets[] = { NULL };
 	FcCharSet *fccharset;
-	int i, f, numspecs = 0;
+	Glyph new;
+	int i, f, oi = -1, numspecs = 0, numseqs = 0;
 
-	for (i = 0, xp = winx, yp = winy + font->ascent + win.cyo; i < len; ++i) {
-		/* Fetch rune and mode for current glyph. */
-		rune = glyphs[i].u;
-		mode = glyphs[i].mode;
-
+	for (i = 0, xp = winx, yp = winy + font->ascent + win.cyo; i < len; ++i, ++x) {
 		/* Skip dummy wide-character spacing. */
-		if (mode & ATTR_WDUMMY)
+		if (glyphs[i].mode & ATTR_WDUMMY)
 			continue;
 
+		/* Fetch current glyph. */
+		new = glyphs[i];
+		new.mode ^= (selected(x, y) ? ATTR_REVERSE : 0);
+		rune = new.u;
+
 		/* Determine font for glyph if different from previous glyph. */
-		if (prevmode != mode) {
-			prevmode = mode;
+		if (oi < 0 || ATTRCMP(seq[numseqs].base, new)) {
+			if (oi >= 0) {
+				seq[numseqs].charlen = i - oi;
+				seq[numseqs++].numspecs = numspecs;
+				specs += numspecs;
+				numspecs = 0;
+			}
+			seq[numseqs].x = x;
+			seq[numseqs].base = new;
+			oi = i;
 			font = &dc.font;
 			frcflags = FRC_NORMAL;
-			runewidth = win.cw * ((mode & ATTR_WIDE) ? 2.0f : 1.0f);
-			if ((mode & ATTR_ITALIC) && (mode & ATTR_BOLD)) {
+			runewidth = win.cw * ((new.mode & ATTR_WIDE) ? 2.0f : 1.0f);
+			if ((new.mode & ATTR_ITALIC) && (new.mode & ATTR_BOLD)) {
 				font = &dc.ibfont;
 				frcflags = FRC_ITALICBOLD;
-			} else if (mode & ATTR_ITALIC) {
+			} else if (new.mode & ATTR_ITALIC) {
 				font = &dc.ifont;
 				frcflags = FRC_ITALIC;
-			} else if (mode & ATTR_BOLD) {
+			} else if (new.mode & ATTR_BOLD) {
 				font = &dc.bfont;
 				frcflags = FRC_BOLD;
 			}
 			yp = winy + font->ascent + win.cyo;
 		}
 
-		if (mode & ATTR_BOXDRAW) {
+		if (rune == ' ') {
+			/* Improve rendering speed by not drawing spaces. */
+			xp += runewidth;
+			continue;
+		} else if (new.mode & ATTR_BOXDRAW) {
 			/* minor shoehorning: boxdraw uses only this ushort */
-			glyphidx = boxdrawindex(&glyphs[i]);
+			glyphidx = boxdrawindex(&new);
 		} else {
 			/* Lookup character index with default font. */
 			glyphidx = XftCharIndex(xw.dpy, font->match, rune);
@@ -1769,55 +1782,70 @@ xmakeglyphfontspecs_noligatures(XftGlyphFontSpec *specs, const Glyph *glyphs, in
 		numspecs++;
 	}
 
-	return numspecs;
+	if (oi >= 0) {
+		seq[numseqs].charlen = i - oi;
+		seq[numseqs++].numspecs = numspecs;
+	} else if (len > 0) {
+		seq[0].x = x - len;
+		seq[0].base = glyphs[0];
+		seq[0].base.mode ^= (selected(x - len, y) ? ATTR_REVERSE : 0);
+		seq[0].charlen = len;
+		seq[0].numspecs = 0;
+		numseqs = 1;
+	}
+
+	return numseqs;
 }
 
 void
-xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, int y, int dmode, int charlen)
+xdrawglyphfontspecs(const XftGlyphFontSpec *specs, GlyphFontSeq *seq, int y, int dmode)
 {
+	int x = seq->x;
 	int winx = borderpx + x * win.cw, winy = borderpx + y * win.ch;
-	int width = charlen * win.cw;
+	int width = seq->charlen * win.cw;
 	Color *fg, *bg, *temp, revfg, revbg, truefg, truebg, bellfg, bellbg;
 	XRenderColor colfg, colbg;
+	Mode mode = seq->base.mode;
+	Glyph *base = &seq->base;
 	static GC ugc;
 	static XGCValues ugcv;
 	static int ugc_clip;
 
 	/* Fallback on color display for attributes not supported by the font */
-	if (base.mode & ATTR_ITALIC && base.mode & ATTR_BOLD) {
+	if (mode & ATTR_ITALIC && mode & ATTR_BOLD) {
 		if (dc.ibfont.badslant || dc.ibfont.badweight)
-			base.fg = defaultattr;
-	} else if ((base.mode & ATTR_ITALIC && dc.ifont.badslant) ||
-	    (base.mode & ATTR_BOLD && dc.bfont.badweight)) {
-		base.fg = defaultattr;
+			base->fg = defaultattr;
+	} else if ((mode & ATTR_ITALIC && dc.ifont.badslant) ||
+	    (mode & ATTR_BOLD && dc.bfont.badweight)) {
+		base->fg = defaultattr;
 	}
 
-	if (IS_TRUECOL(base.fg)) {
+	if (IS_TRUECOL(base->fg)) {
 		colfg.alpha = 0xffff;
-		colfg.red = TRUERED(base.fg);
-		colfg.green = TRUEGREEN(base.fg);
-		colfg.blue = TRUEBLUE(base.fg);
+		colfg.red = TRUERED(base->fg);
+		colfg.green = TRUEGREEN(base->fg);
+		colfg.blue = TRUEBLUE(base->fg);
 		XftColorAllocValue(xw.dpy, xw.vis, xw.cmap, &colfg, &truefg);
 		fg = &truefg;
 	} else {
-		fg = &dc.col[base.fg];
+		fg = &dc.col[base->fg];
 	}
 
-	if (IS_TRUECOL(base.bg)) {
+	if (IS_TRUECOL(base->bg)) {
 		colbg.alpha = 0xffff;
-		colbg.green = TRUEGREEN(base.bg);
-		colbg.red = TRUERED(base.bg);
-		colbg.blue = TRUEBLUE(base.bg);
+		colbg.green = TRUEGREEN(base->bg);
+		colbg.red = TRUERED(base->bg);
+		colbg.blue = TRUEBLUE(base->bg);
 		XftColorAllocValue(xw.dpy, xw.vis, xw.cmap, &colbg, &truebg);
 		bg = &truebg;
 	} else {
-		bg = &dc.col[base.bg];
+		bg = &dc.col[base->bg];
 	}
 
 	/* Change basic system colors [0-7] to bright system colors [8-15] */
 	if (!bold_is_not_bright &&
-	    (base.mode & ATTR_BOLD_FAINT) == ATTR_BOLD && BETWEEN(base.fg, 0, 7))
-		fg = &dc.col[base.fg + 8];
+	    (mode & ATTR_BOLD_FAINT) == ATTR_BOLD && BETWEEN(base->fg, 0, 7))
+		fg = &dc.col[base->fg + 8];
 
 	if (IS_SET(MODE_REVERSE)) {
 		if (fg == &dc.col[defaultfg]) {
@@ -1845,7 +1873,7 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 		}
 	}
 
-	if ((base.mode & ATTR_BOLD_FAINT) == ATTR_FAINT) {
+	if ((mode & ATTR_BOLD_FAINT) == ATTR_FAINT) {
 		colfg.red = fg->color.red / 2;
 		colfg.green = fg->color.green / 2;
 		colfg.blue = fg->color.blue / 2;
@@ -1854,21 +1882,21 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 		fg = &revfg;
 	}
 
-	if (base.mode & ATTR_REVERSE) {
+	if (mode & ATTR_REVERSE) {
 		temp = fg;
 		fg = bg;
 		bg = temp;
 	}
 
-	if (base.mode & ATTR_BLINK && win.mode & MODE_BLINK)
+	if (mode & ATTR_BLINK && win.mode & MODE_BLINK)
 		fg = bg;
 
-	if (base.mode & ATTR_INVISIBLE)
+	if (mode & ATTR_INVISIBLE)
 		fg = bg;
 
-	if (base.mode & ATTR_HIGHLIGHT) {
-		fg = &dc.col[(base.mode & ATTR_REVERSE) ? highlightbg : highlightfg];
-		bg = &dc.col[(base.mode & ATTR_REVERSE) ? highlightfg : highlightbg];
+	if (mode & ATTR_HIGHLIGHT) {
+		fg = &dc.col[(mode & ATTR_REVERSE) ? highlightbg : highlightfg];
+		bg = &dc.col[(mode & ATTR_REVERSE) ? highlightfg : highlightbg];
 	}
 
 	if (visualbell.active && visualbellstyle == VISUALBELL_COLOR) {
@@ -1878,14 +1906,14 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 		bg = &bellbg;
 	}
 
-	if (base.mode & ATTR_FLASH_LABEL) {
-		fg = &dc.col[(base.mode & ATTR_REVERSE) ? flashlabelbg : flashlabelfg];
-		bg = &dc.col[(base.mode & ATTR_REVERSE) ? flashlabelfg : flashlabelbg];
+	if (mode & ATTR_FLASH_LABEL) {
+		fg = &dc.col[(mode & ATTR_REVERSE) ? flashlabelbg : flashlabelfg];
+		bg = &dc.col[(mode & ATTR_REVERSE) ? flashlabelfg : flashlabelbg];
 	}
 	
-	if (!(base.mode & (ATTR_HIGHLIGHT | ATTR_REVERSE | ATTR_WDUMMY | ATTR_FLASH_LABEL)) && kbds_isflashmode()) {
+	if (!(mode & (ATTR_HIGHLIGHT | ATTR_REVERSE | ATTR_WDUMMY | ATTR_FLASH_LABEL)) && kbds_isflashmode()) {
 		fg = &dc.col[flashtextfg];
-		if (base.bg != defaultbg)
+		if (base->bg != defaultbg)
 			bg = &dc.col[flashtextbg];
 	}
 
@@ -1910,39 +1938,39 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 	}
 
 	if (dmode & DRAW_FG) {
-		if (base.mode & ATTR_BOXDRAW) {
-			drawboxes(winx, winy, width / len, win.ch, fg, bg, specs, len);
-		} else {
+		if (mode & ATTR_BOXDRAW) {
+			drawboxes(winx, winy, win.cw, win.ch, fg, bg, specs, seq->numspecs);
+		} else if (seq->numspecs) {
 			/* Render the glyphs. */
-			XftDrawGlyphFontSpec(xw.draw, fg, specs, len);
+			XftDrawGlyphFontSpec(xw.draw, fg, specs, seq->numspecs);
 		}
 
 		/* Render underline and strikethrough. */
 		int url_yoffset = 2;
 		int url_ascent = winy + win.cyo + dc.font.ascent;
 		const int underline_thickness = (dc.font.height / undercurl_thickness_threshold) + 1;
-		if (base.mode & ATTR_UNDERLINE || base.mode & ATTR_HYPERLINK) {
+		if (mode & ATTR_UNDERLINE || mode & ATTR_HYPERLINK) {
 			/* Underline Color */
 			int wlw = underline_thickness; /* Wave Line Width (thickness) */
 			int wh = MAX((int)((dc.font.descent - wlw/2 - 1) * undercurl_height_scale + 0.5), 1);
 			int wy = url_ascent + undercurl_yoffset;
 			int linecolor;
-			if ((base.extra & (EXT_UNDERLINE_COLOR_PALETTE | EXT_UNDERLINE_COLOR_RGB)) &&
-				!(base.mode & ATTR_BLINK && win.mode & MODE_BLINK) &&
-				!(base.mode & ATTR_INVISIBLE)
+			if ((base->extra & (EXT_UNDERLINE_COLOR_PALETTE | EXT_UNDERLINE_COLOR_RGB)) &&
+				!(mode & ATTR_BLINK && win.mode & MODE_BLINK) &&
+				!(mode & ATTR_INVISIBLE)
 			) {
 				/* Special color for underline */
-				if (base.extra & EXT_UNDERLINE_COLOR_PALETTE) {
+				if (base->extra & EXT_UNDERLINE_COLOR_PALETTE) {
 					/* Index */
-					linecolor = dc.col[base.extra & 255].pixel;
+					linecolor = dc.col[base->extra & 255].pixel;
 				} else {
 					/* RGB */
 					Color lcolor;
 					XRenderColor lcol;
 					lcol.alpha = 0xffff;
-					lcol.red = TRUERED(base.extra);
-					lcol.green = TRUEGREEN(base.extra);
-					lcol.blue = TRUEBLUE(base.extra);
+					lcol.red = TRUERED(base->extra);
+					lcol.green = TRUEGREEN(base->extra);
+					lcol.blue = TRUEBLUE(base->extra);
 					XftColorAllocValue(xw.dpy, xw.vis, xw.cmap, &lcol, &lcolor);
 					linecolor = lcolor.pixel;
 				}
@@ -1953,10 +1981,10 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 			linecolor |= 0xff000000;
 
 			/* Underline type */
-			int utype = (base.extra & UNDERLINE_TYPE_MASK) >> UNDERLINE_TYPE_SHIFT;
+			int utype = (base->extra & UNDERLINE_TYPE_MASK) >> UNDERLINE_TYPE_SHIFT;
 			int hyperlink = 0;
-			if (base.mode & ATTR_HYPERLINK) {
-				if (!(base.mode & ATTR_UNDERLINE) ||
+			if (mode & ATTR_HYPERLINK) {
+				if (!(mode & ATTR_UNDERLINE) ||
 				    (utype == UNDERLINE_DOTTED && ((fg->pixel | 0xff000000) == linecolor))) {
 					utype = UNDERLINE_DOTTED;
 					hyperlink = 1;
@@ -1997,10 +2025,10 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 				break;
 			case UNDERLINE_DOTTED:
 				if (!hyperlink || hyperlinkstyle)
-					undercurldotted(ugc, winx, wy, wlw, charlen, hyperlink);
+					undercurldotted(ugc, winx, wy, wlw, seq->charlen, hyperlink);
 				break;
 			case UNDERLINE_DASHED:
-				undercurldashed(ugc, winx, wy, wlw, charlen);
+				undercurldashed(ugc, winx, wy, wlw, seq->charlen);
 				break;
 			case UNDERLINE_SINGLE:
 			case UNDERLINE_DOUBLE:
@@ -2016,38 +2044,43 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 			}
 		}
 
-		if (base.mode & ATTR_STRUCK) {
+		if (mode & ATTR_STRUCK) {
 			XftDrawRect(xw.draw, fg, winx, winy + win.cyo + 2 * dc.font.ascent / 3,
 					width, underline_thickness);
 		}
 
 		/* underline url (openurlonclick patch) */
 		if (activeurl.draw && y >= activeurl.y1 && y <= activeurl.y2)
-			drawurl(fg, base.mode, x, y, charlen, url_yoffset, underline_thickness);
+			drawurl(fg, mode, x, y, seq->charlen, url_yoffset, underline_thickness);
 	}
 }
 
 void
-xdrawglyph(Glyph g, int x, int y)
+xdrawglyph(Glyph *g, int x, int y)
 {
-	int numspecs, charlen = (g.mode & ATTR_WIDE) ? 2 : 1;
+	int numspecs, numseqs, charlen = (g->mode & ATTR_WIDE) ? 2 : 1;
 	XRectangle r = {
 		.x = borderpx + x * win.cw,
 		.y = borderpx + y * win.ch,
 		.width = win.cw * charlen,
 		.height = win.ch
 	};
+	GlyphFontSeq *seq = xw.specseq;
 	XftGlyphFontSpec *specs = xw.specbuf;
 
 	#if !DISABLE_LIGATURES
 	if (ligatures)
-		numspecs = xmakeglyphfontspecs_ligatures(specs, &g, 1, x, y);
+		seq->numspecs = xmakeglyphfontspecs_ligatures(specs, g, 1, x, y);
 	else
 	#endif
-		numspecs = xmakeglyphfontspecs_noligatures(specs, &g, 1, x, y);
+		xmakeglyphfontspecs_noligatures(seq, specs, g, 1, x, y);
+
+	seq->x = x;
+	seq->base = *g;
+	seq->charlen = charlen;
 
 	XftDrawSetClipRectangles(xw.draw, 0, 0, &r, 1);
-	xdrawglyphfontspecs(specs, g, numspecs, x, y, DRAW_BG | DRAW_FG, charlen);
+	xdrawglyphfontspecs(specs, seq, y, DRAW_BG | DRAW_FG);
 	XftDrawSetClip(xw.draw, 0);
 	term.dirtyimg[y] = 1;
 }
@@ -2159,7 +2192,7 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Line oline)
 		default:
 		case 1: /* blinking block */
 		case 2: /* steady block */
-			xdrawglyph(g, cx, cy);
+			xdrawglyph(&g, cx, cy);
 			break;
 		case 3: /* blinking underline */
 		case 4: /* steady underline */
@@ -2179,7 +2212,7 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Line oline)
 		case 7: /* blinking st cursor */
 		case 8: /* steady st cursor */
 			g.u = stcursor;
-			xdrawglyph(g, cx, cy);
+			xdrawglyph(&g, cx, cy);
 			break;
 		}
 		term.dirtyimg[cy] = 1;
@@ -2266,7 +2299,7 @@ xstartdraw(void)
 void
 xdrawline_ligatures(Line line, int x1, int y1, int x2)
 {
-	int i, j, x, ox, numspecs;
+	int i, j, x, ox, numspecs, begin, end;
 	Glyph new;
 	GlyphFontSeq *seq = xw.specseq;
 	XftGlyphFontSpec *specs = xw.specbuf;
@@ -2289,34 +2322,44 @@ xdrawline_ligatures(Line line, int x1, int y1, int x2)
 		if (selected(x, y1))
 			new.mode ^= ATTR_REVERSE;
 		if ((i > 0) && ATTRCMP(seq[j].base, new)) {
-			numspecs = xmakeglyphfontspecs_ligatures(specs, &line[ox], x - ox, ox, y1);
-			xdrawglyphfontspecs(specs, seq[j].base, numspecs, ox, y1, DRAW_BG, x - ox);
+			numspecs = 0;
+			if (begin >= 0)
+				numspecs = xmakeglyphfontspecs_ligatures(specs, &line[begin], end-begin+1, begin, y1);
 			seq[j].charlen = x - ox;
-			seq[j++].numspecs = numspecs;
+			seq[j].numspecs = numspecs;
+			xdrawglyphfontspecs(specs, &seq[j], y1, DRAW_BG);
 			specs += numspecs;
 			i = 0;
+			j++;
 		}
 		if (i == 0) {
 			ox = x;
-			seq[j].ox = ox;
+			seq[j].x = ox;
 			seq[j].base = new;
+			begin = -1;
 		}
+		end = (new.u != ' ') ? x : end;
+		begin = (new.u != ' ' && begin < 0) ? x : begin;
 		i++;
 	}
 	if (i > 0) {
-		numspecs = xmakeglyphfontspecs_ligatures(specs, &line[ox], x2 - ox, ox, y1);
-		xdrawglyphfontspecs(specs, seq[j].base, numspecs, ox, y1, DRAW_BG, x2 - ox);
+		numspecs = 0;
+		if (begin >= 0)
+			numspecs = xmakeglyphfontspecs_ligatures(specs, &line[begin], end-begin+1, begin, y1);
 		seq[j].charlen = x2 - ox;
-		seq[j++].numspecs = numspecs;
+		seq[j].numspecs = numspecs;
+		xdrawglyphfontspecs(specs, &seq[j], y1, DRAW_BG);
+		j++;
 	}
 
-	/* Set the clipping region for fonts */
+	/* Set the clipping region for text */
 	XftDrawSetClipRectangles(xw.draw, 0, 0, &r, 1);
 
 	/* foreground */
 	specs = xw.specbuf;
 	for (i = 0; i < j; i++) {
-		xdrawglyphfontspecs(specs, seq[i].base, seq[i].numspecs, seq[i].ox, y1, DRAW_FG, seq[i].charlen);
+		if (seq[i].numspecs || (seq[i].base.mode & (ATTR_UNDERLINE|ATTR_STRUCK|ATTR_HYPERLINK)))
+			xdrawglyphfontspecs(specs, &seq[i], y1, DRAW_FG);
 		specs += seq[i].numspecs;
 	}
 
@@ -2328,10 +2371,9 @@ xdrawline_ligatures(Line line, int x1, int y1, int x2)
 void
 xdrawline_noligatures(Line line, int x1, int y1, int x2)
 {
-	int i, x, ox, numspecs;
-	int numspecs_cached;
-	Glyph base, new;
-	XftGlyphFontSpec *specs;
+	int i, numseqs;
+	GlyphFontSeq *seq = xw.specseq;
+	XftGlyphFontSpec *specs = xw.specbuf;
 	XRectangle r = {
 		.x = borderpx,
 		.y = borderpx + y1 * win.ch,
@@ -2339,38 +2381,26 @@ xdrawline_noligatures(Line line, int x1, int y1, int x2)
 		.height = win.ch
 	};
 
-	numspecs_cached = xmakeglyphfontspecs_noligatures(xw.specbuf, &line[x1], x2 - x1, x1, y1);
+	numseqs = xmakeglyphfontspecs_noligatures(seq, specs, &line[x1], x2 - x1, x1, y1);
 
 	/* Draw line in 2 passes: background and foreground. This way wide glyphs
 	   won't get truncated (#223) */
-	for (int dmode = DRAW_BG; dmode <= DRAW_FG; dmode <<= 1) {
-		if (dmode == DRAW_FG) {
-			/* Set the clipping region for fonts */
-			XftDrawSetClipRectangles(xw.draw, 0, 0, &r, 1);
-		}
-		specs = xw.specbuf;
-		numspecs = numspecs_cached;
-		i = ox = 0;
-		for (x = x1; x < x2 && i < numspecs; x++) {
-			new = line[x];
-			if (new.mode & ATTR_WDUMMY)
-				continue;
-			if (selected(x, y1))
-				new.mode ^= ATTR_REVERSE;
-			if (i > 0 && ATTRCMP(base, new)) {
-				xdrawglyphfontspecs(specs, base, i, ox, y1, dmode, x - ox);
-				specs += i;
-				numspecs -= i;
-				i = 0;
-			}
-			if (i == 0) {
-				ox = x;
-				base = new;
-			}
-			i++;
-		}
-		if (i > 0)
-			xdrawglyphfontspecs(specs, base, i, ox, y1, dmode, x2 - ox);
+
+	/* background */
+	for (i = 0; i < numseqs; i++) {
+		xdrawglyphfontspecs(specs, &seq[i], y1, DRAW_BG);
+		specs += seq[i].numspecs;
+	}
+
+	/* Set the clipping region for text */
+	XftDrawSetClipRectangles(xw.draw, 0, 0, &r, 1);
+
+	/* foreground */
+	specs = xw.specbuf;
+	for (i = 0; i < numseqs; i++) {
+		if (seq[i].numspecs || (seq[i].base.mode & (ATTR_UNDERLINE|ATTR_STRUCK|ATTR_HYPERLINK)))
+			xdrawglyphfontspecs(specs, &seq[i], y1, DRAW_FG);
+		specs += seq[i].numspecs;
 	}
 
 	/* Reset the clipping region */

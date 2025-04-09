@@ -309,11 +309,11 @@ kbds_drawstatusbar(int y)
 		if (kbds_c.y != y || kbds_c.x < term.col - qlen - mlen) {
 			for (n = mlen, i = term.col-1; i >= 0 && n > 0; i--) {
 				g.u = modes[m][--n];
-				xdrawglyph(g, i, y);
+				xdrawglyph(&g, i, y);
 			}
 			for (n = qlen; i >= 0 && n > 0; i--) {
 				g.u = quant[--n];
-				xdrawglyph(g, i, y);
+				xdrawglyph(&g, i, y);
 			}
 		}
 	}
@@ -322,10 +322,10 @@ kbds_drawstatusbar(int y)
 	if (y == term.row-1 && (kbds_issearchmode() || kbds_isflashmode())) {
 		/* search bar */
 		for (g.u = ' ', i = 0; i < term.col; i++)
-			xdrawglyph(g, i, y);
+			xdrawglyph(&g, i, y);
 		/* search direction */
 		g.u = (kbds_searchobj.dir > 0) ? '/' : '?';
-		xdrawglyph(g, 0, y);
+		xdrawglyph(&g, 0, y);
 		/* search string and cursor */
 		for (i = 0; i < kbds_searchobj.len; i++) {
 			g.u = kbds_searchobj.str[i].u;
@@ -334,20 +334,20 @@ kbds_drawstatusbar(int y)
 				continue;
 			if (g.mode & ATTR_WIDE) {
 				MODBIT(g.mode, i == kbds_searchobj.cx, ATTR_REVERSE);
-				xdrawglyph(g, i + 1, y);
+				xdrawglyph(&g, i + 1, y);
 			} else if (i == kbds_searchobj.cx) {
 				g.mode = ATTR_WIDE;
-				xdrawglyph(g, i + 1, y);
+				xdrawglyph(&g, i + 1, y);
 				g.mode = ATTR_REVERSE;
-				xdrawglyph(g, i + 1, y);
+				xdrawglyph(&g, i + 1, y);
 			} else if (g.u != ' ') {
 				g.mode = ATTR_WIDE;
-				xdrawglyph(g, i + 1, y);
+				xdrawglyph(&g, i + 1, y);
 			}
 		}
 		g.u = ' ';
 		g.mode = (i == kbds_searchobj.cx) ? ATTR_REVERSE : 0;
-		xdrawglyph(g, i + 1, y);
+		xdrawglyph(&g, i + 1, y);
 	}
 }
 

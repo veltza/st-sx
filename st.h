@@ -157,7 +157,7 @@ typedef struct {
 typedef Glyph *Line;
 
 typedef struct {
-	int ox;
+	int x;
 	int charlen;
 	int numspecs;
 	Glyph base;
