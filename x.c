@@ -226,6 +226,9 @@ static int opt_borderperc = -1;
 
 static int focused = 0;
 
+static float alpha_def;
+static float alphaUnfocused_def;
+
 static uint buttons; /* bit field of pressed buttons */
 static Cursor cursor;
 static XColor xmousefg, xmousebg;
@@ -1341,6 +1344,10 @@ xinit(int cols, int rows)
 
 	/* spare fonts */
 	xloadsparefonts();
+
+	/* save alpha defaults */
+	alpha_def = alpha;
+	alphaUnfocused_def = alphaUnfocused;
 
 	/* colors */
 	xw.cmap = XCreateColormap(xw.dpy, parent, xw.vis, None);
