@@ -23,9 +23,13 @@ newterm(const Arg* a)
 					setenv("PWD", term.cwd, 1);
 				}
 			} else if (a->i & NEWTERM_FG_CWD) {
-				chdir(get_foreground_cwd());
+				if (chdir(get_foreground_cwd()) != 0) {
+					fprintf(stderr, "newterm failed to change directory to: %s\n", get_foreground_cwd());
+				}
 			} else {
-				chdir(getcwd_by_pid(pid));
+				if (chdir(getcwd_by_pid(pid)) != 0) {
+					fprintf(stderr, "newterm failed to change directory to: %s\n", getcwd_by_pid(pid));
+				}
 			}
 			setsid();
 			execl("/proc/self/exe", argv0, NULL);
