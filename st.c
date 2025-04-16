@@ -1848,7 +1848,6 @@ tsetscroll(int t, int b)
 void
 tsetmode(int priv, int set, const int *args, int narg)
 {
-	int alt;
 	const int *lim;
 
 	for (lim = args + narg; args < lim; ++args) {

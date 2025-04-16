@@ -1525,9 +1525,8 @@ kbds_getcursor(int *cx, int *cy)
 int
 kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 {
-	int i, q, dy, ox, oy, eol, islast, prevscr, count, wrap;
+	int i, q, dy, ox, oy, eol, islast, prevscr, count;
 	int alt = IS_SET(MODE_ALTSCREEN);
-	char *url;
 	Line line;
 	Rune u;
 

@@ -347,12 +347,9 @@ sixel_parser_parse(sixel_state_t *st, const unsigned char *p, size_t len)
 	int n = 0;
 	int i;
 	int x;
-	int y;
 	int bits;
 	int sx;
 	int sy;
-	int c;
-	int pos;
 	int width;
 	const unsigned char *p0 = p, *p2 = p + len;
 	sixel_image_t *image = &st->image;

@@ -5,5 +5,3 @@ enum newterm_options {
 };
 
 void newterm(const Arg *);
-static char* getcwd_by_pid(pid_t);
-static char *get_foreground_cwd(void);

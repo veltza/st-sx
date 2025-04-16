@@ -1,6 +1,8 @@
 #include <dirent.h>
 
 extern char *argv0;
+static char *getcwd_by_pid(pid_t);
+static char *get_foreground_cwd(void);
 
 void
 newterm(const Arg* a)
@@ -43,8 +45,9 @@ newterm(const Arg* a)
 	}
 }
 
-static char*
-getcwd_by_pid(pid_t pid) {
+char *
+getcwd_by_pid(pid_t pid)
+{
 	static char cwd[32];
 
 	snprintf(cwd, sizeof cwd, "/proc/%d/cwd", pid);
@@ -52,7 +55,7 @@ getcwd_by_pid(pid_t pid) {
 }
 
 /* Get the current working directory of the foreground process */
-static char *
+char *
 get_foreground_cwd(void)
 {
 	struct dirent *entry;

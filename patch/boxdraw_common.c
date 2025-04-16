@@ -375,7 +375,7 @@ bd_drawtriangle(BDBuffer *buf, int idx, int ax, int ay, int bx, int by, int cx, 
 	}
 	data += (int)y1 * buf->width;
 
-	if (y1 == y2 == y3) {
+	if (y1 == y2 && y2 == y3) {
 		RENDERLINE(MIN(MIN(x1, x2), x3), MAX(MAX(x1, x2), x3));
 		return;
 	}

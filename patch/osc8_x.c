@@ -9,7 +9,7 @@ inithyperlinks(void)
 		memset(term.hyperlinks, 0, sizeof(Hyperlinks));
 
 		term.hyperlinks->capacity = (i == 0) ? hyperlinkcache_pri : hyperlinkcache_alt;
-		term.hyperlinks->capacity = LIMIT(term.hyperlinks->capacity, 0, 65536);
+		LIMIT(term.hyperlinks->capacity, 0, 65536);
 
 		cap = MAX(term.hyperlinks->capacity, 1);
 		term.hyperlinks->urls = xmalloc(cap * sizeof(*term.hyperlinks->urls));
