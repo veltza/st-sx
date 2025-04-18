@@ -1,5 +1,6 @@
 /* Patches */
 #include "casefold.h"
+#include "externalpipe.h"
 #include "keyboardselect_st.h"
 #include "newterm.h"
 #include "openurlonclick.h"
