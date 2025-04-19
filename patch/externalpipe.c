@@ -1,25 +1,11 @@
-int
-tlinehistlen(int y)
-{
-	int i = term.col;
-
-	if (TLINE_HIST(y)[i - 1].mode & ATTR_WRAP)
-		return i;
-
-	while (i > 0 && TLINE_HIST(y)[i - 1].u == ' ')
-		--i;
-
-	return i;
-}
-
 void
 extpipe(const Arg *arg, int in)
 {
 	int to[2];
 	char buf[UTF_SIZ];
 	void (*oldsigpipe)(int);
-	Glyph *bp, *end;
-	int lastpos, n, newline;
+	int x, y, y1, y2, len, newline;
+	Line line;
 
 	if (pipe(to) == -1)
 		return;
@@ -43,30 +29,34 @@ extpipe(const Arg *arg, int in)
 	}
 
 	close(to[0]);
+
 	/* ignore sigpipe for now, in case child exists early */
 	oldsigpipe = signal(SIGPIPE, SIG_IGN);
+
+	y1 = IS_SET(MODE_ALTSCREEN) ? 0 : -term.histf;
+	for (y2 = term.row-1; y2 >= 0 && tlinelen(term.line[y2]) == 0; y2--)
+		;
 	newline = 0;
-	for (n = 0; n <= HISTSIZE + 2; n++) {
-		bp = TLINE_HIST(n);
-		lastpos = MIN(tlinehistlen(n) + 1, term.col) - 1;
-		if (lastpos < 0)
-			break;
-        if (lastpos == 0)
-        	continue;
-		end = &bp[lastpos + 1];
-		for (; bp < end; ++bp)
-			if (xwrite(to[1], buf, utf8encode(bp->u, buf)) < 0)
+
+	for (y = y1; y <= y2; y++) {
+		line = TLINEABS(y);
+		len = tlinelen(line);
+		for (x = 0; x < len; x++) {
+			if (xwrite(to[1], buf, utf8encode(line[x].u, buf)) < 0)
 				break;
-		if ((newline = TLINE_HIST(n)[lastpos].mode & ATTR_WRAP))
+		}
+		if ((newline = len > 0 && (line[len-1].mode & ATTR_WRAP)))
 			continue;
 		if (xwrite(to[1], "\n", 1) < 0)
 			break;
 		newline = 0;
 	}
+
 	if (newline)
 		(void)xwrite(to[1], "\n", 1);
 	close(to[1]);
-	/* restore */
+
+	/* restore old sigpipe handler */
 	signal(SIGPIPE, oldsigpipe);
 }
 
