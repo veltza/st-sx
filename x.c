@@ -2964,8 +2964,9 @@ run(void)
 
 		xev = 0;
 		while (XPending(xw.dpy)) {
-			xev = 1;
 			XNextEvent(xw.dpy, &ev);
+			if (!xev || xev == SelectionRequest)
+				xev = ev.type;
 			if (XFilterEvent(&ev, None))
 				continue;
 			if (handler[ev.type])
@@ -2986,8 +2987,10 @@ run(void)
 		if (ttyin || xev) {
 			if (!drawing) {
 				trigger = now;
-				win.mode &= ~MODE_CURSORBLINK;
-				cursorlastblink = now;
+				if (xev != SelectionRequest) {
+					win.mode &= ~MODE_CURSORBLINK;
+					cursorlastblink = now;
+				}
 				drawing = 1;
 			}
 			timeout = (maxlatency - TIMEDIFF(now, trigger)) \
