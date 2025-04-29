@@ -242,7 +242,11 @@ char *termname = "st-256color";
  */
 unsigned int tabspaces = 8;
 
-/* bg opacity */
+/* bg opacity
+ *
+ * To disable the unfocused bg opacity, set alphaUnfocused=-1. This will
+ * cause alpha to be used for both the focused and unfocused bg opacity.
+ */
 float alpha = 0.93;
 float alphaUnfocused = 0.6;
 

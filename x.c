@@ -940,7 +940,7 @@ void
 xloadalpha(void)
 {
 	float usedAlpha = (opt_alpha) ? strtof(opt_alpha, NULL)
-	                              : focused ? alpha : alphaUnfocused;
+	                              : focused || alphaUnfocused == -1 ? alpha : alphaUnfocused;
 
 	dc.col[defaultbg] = focused ? dc.col[bg] : dc.col[bgUnfocused];
 	dc.col[defaultbg].color.alpha = (unsigned short)(0xffff * usedAlpha);
@@ -2964,8 +2964,9 @@ run(void)
 
 		xev = 0;
 		while (XPending(xw.dpy)) {
-			xev = 1;
 			XNextEvent(xw.dpy, &ev);
+			if (!xev || xev == SelectionRequest)
+				xev = ev.type;
 			if (XFilterEvent(&ev, None))
 				continue;
 			if (handler[ev.type])
@@ -2986,8 +2987,10 @@ run(void)
 		if (ttyin || xev) {
 			if (!drawing) {
 				trigger = now;
-				win.mode &= ~MODE_CURSORBLINK;
-				cursorlastblink = now;
+				if (xev != SelectionRequest) {
+					win.mode &= ~MODE_CURSORBLINK;
+					cursorlastblink = now;
+				}
 				drawing = 1;
 			}
 			timeout = (maxlatency - TIMEDIFF(now, trigger)) \
