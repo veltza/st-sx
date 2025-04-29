@@ -423,6 +423,12 @@ static MouseShortcut mshortcuts[] = {
 #define MODKEY Mod1Mask
 #define TERMMOD (ControlMask|ShiftMask)
 
+/* External pipe script */
+static char *copyoutput[]    = { "/bin/sh", "-c", "st-copyout", "externalpipe", NULL };
+
+/* Example of externalpipein */
+// static char *setbgcolorcmd[] = { "/bin/sh", "-c", "printf '\033]11;#008000\007'", "externalpipein", NULL };
+
 static Shortcut shortcuts[] = {
 	/* mask                 keysym          function         argument   screen */
 	{ XK_ANY_MOD,           XK_Break,       sendbreak,       {.i =  0} },
@@ -456,6 +462,7 @@ static Shortcut shortcuts[] = {
 	{ TERMMOD,              XK_X,           scrolltoprompt,  {.i =  1}, S_PRI },
 	{ XK_NO_MOD,            XK_F11,         fullscreen,      {.i =  0} },
 	{ MODKEY,               XK_Return,      fullscreen,      {.i =  0} },
+	{ MODKEY,               XK_o,           externalpipe,    {.v = copyoutput }, S_PRI },
 };
 
 /*

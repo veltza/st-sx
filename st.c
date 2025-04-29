@@ -235,6 +235,7 @@ static CSIEscape csiescseq;
 static STREscape strescseq;
 static int iofd = 1;
 static int cmdfd;
+static int csdfd;
 static pid_t pid;
 sixel_state_t sixel_st;
 
@@ -799,6 +800,9 @@ sigchld(int a)
 
 	while ((p = waitpid(-1, &stat, WNOHANG)) > 0) {
 		if (p == pid) {
+			
+			close(csdfd);
+
 			if (WIFEXITED(stat) && WEXITSTATUS(stat))
 				die("child exited with status %d\n", WEXITSTATUS(stat));
 			else if (WIFSIGNALED(stat))
@@ -888,7 +892,7 @@ ttynew(const char *line, char *cmd, const char *out, char **args)
 			die("pledge\n");
 #endif
 		fcntl(m, F_SETFD, FD_CLOEXEC);
-		close(s);
+		csdfd = s;
 		cmdfd = m;
 		memset(&sa, 0, sizeof(sa));
 		sigemptyset(&sa.sa_mask);

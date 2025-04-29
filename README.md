@@ -22,6 +22,7 @@ Branch drawing symbols are supported with built-in glyphs. (app/plugin: [vim-flo
 - Clipboard
 - CSI 22 23
 - Dynamic cursor color
+- Externalpipe
 - Font2
 - Fullscreen
 - Hidecursor
