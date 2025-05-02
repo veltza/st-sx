@@ -3,7 +3,7 @@
 st \- simple terminal
 .SH SYNOPSIS
 .B st
-.RB [ \-aivF ]
+.RB [ \-aivFH ]
 .RB [ \-A
 .IR alpha ]
 .RB [ \-b
@@ -33,7 +33,7 @@ st \- simple terminal
 .RI [ arguments ...]]
 .PP
 .B st
-.RB [ \-aivF ]
+.RB [ \-aivFH ]
 .RB [ \-A
 .IR alpha ]
 .RB [ \-b
@@ -93,6 +93,9 @@ defines the X11 geometry string.
 The form is [=][<cols>{xX}<rows>][{+-}<xoffset>{+-}<yoffset>]. See
 .BR XParseGeometry (3)
 for further details.
+.TP
+.B \-H
+remain open after child process exits.
 .TP
 .B \-i
 will fixate the position given with the -g option.

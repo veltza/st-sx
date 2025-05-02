@@ -795,19 +795,24 @@ execsh(char *cmd, char **args)
 void
 sigchld(int a)
 {
-	int stat;
+	int stat, exitcode = 0;
 	pid_t p;
 
 	while ((p = waitpid(-1, &stat, WNOHANG)) > 0) {
 		if (p == pid) {
-			
+			if (WIFEXITED(stat) && WEXITSTATUS(stat)) {
+				fprintf(stderr, "child exited with status %d\n", WEXITSTATUS(stat));
+				exitcode = 1;
+			} else if (WIFSIGNALED(stat)) {
+				fprintf(stderr, "child terminated due to signal %d\n", WTERMSIG(stat));
+				exitcode = 1;
+			}
+			if (term.hold_at_exit) {
+				tsethold(TTYWRITE);
+				return;
+			}
 			close(csdfd);
-
-			if (WIFEXITED(stat) && WEXITSTATUS(stat))
-				die("child exited with status %d\n", WEXITSTATUS(stat));
-			else if (WIFSIGNALED(stat))
-				die("child terminated due to signal %d\n", WTERMSIG(stat));
-			_exit(0);
+			_exit(exitcode);
 		}
 	}
 }
@@ -907,7 +912,7 @@ ttynew(const char *line, char *cmd, const char *out, char **args)
 int
 ttyread_pending()
 {
-	return twrite_aborted;
+	return twrite_aborted && !(term.hold & TTYREAD);
 }
 
 size_t
@@ -920,20 +925,23 @@ ttyread(void)
 	/* append read bytes to unprocessed bytes */
 	ret = twrite_aborted ? 1 : read(cmdfd, buf+buflen, LEN(buf)-buflen);
 
-	switch (ret) {
-	case 0:
+	if (ret <= 0) {
+		if (term.hold_at_exit) {
+			tsethold(TTYREAD|TTYWRITE);
+			return 1;
+		}
+		if (ret < 0)
+			die("couldn't read from shell: %s\n", strerror(errno));
 		exit(0);
-	case -1:
-		die("couldn't read from shell: %s\n", strerror(errno));
-	default:
-		buflen += twrite_aborted ? 0 : ret;
-		written = twrite(buf, buflen, 0);
-		buflen -= written;
-		/* keep any incomplete UTF-8 byte sequence for the next call */
-		if (buflen > 0)
-			memmove(buf, buf + written, buflen);
-		return ret;
 	}
+
+	buflen += twrite_aborted ? 0 : ret;
+	written = twrite(buf, buflen, 0);
+	buflen -= written;
+	/* keep any incomplete UTF-8 byte sequence for the next call */
+	if (buflen > 0)
+		memmove(buf, buf + written, buflen);
+	return ret;
 }
 
 void
@@ -942,6 +950,9 @@ ttywrite(const char *s, size_t n, int may_echo)
 	const char *next;
 
 	kscrolldown(&((Arg){ .i = term.scr }));
+
+	if (term.hold & TTYWRITE)
+		return;
 
 	if (may_echo && IS_SET(MODE_ECHO))
 		twrite(s, n, 1);
@@ -989,6 +1000,8 @@ ttywriteraw(const char *s, size_t n)
 		if (pselect(cmdfd+1, &rfd, &wfd, NULL, NULL, NULL) < 0) {
 			if (errno == EINTR)
 				continue;
+			if (term.hold_at_exit)
+				goto write_error;
 			die("select failed: %s\n", strerror(errno));
 		}
 		if (FD_ISSET(cmdfd, &wfd)) {
@@ -1020,6 +1033,10 @@ ttywriteraw(const char *s, size_t n)
 	return;
 
 write_error:
+	if (term.hold_at_exit) {
+		tsethold(TTYWRITE);
+		return;
+	}
 	die("write error on tty: %s\n", strerror(errno));
 }
 
@@ -1027,6 +1044,9 @@ void
 ttyresize(int tw, int th)
 {
 	struct winsize w;
+
+	if (term.hold)
+		return;
 
 	w.ws_row = term.row;
 	w.ws_col = term.col;
@@ -1064,6 +1084,13 @@ int
 tisaltscr(void)
 {
 	return IS_SET(MODE_ALTSCREEN);
+}
+
+void
+tsethold(int state)
+{
+	term.hold |= state;
+	tsync_end();
 }
 
 void
@@ -2617,7 +2644,7 @@ strreset(void)
 void
 sendbreak(const Arg *arg)
 {
-	if (tcsendbreak(cmdfd, 0))
+	if (!term.hold && tcsendbreak(cmdfd, 0))
 		perror("Error sending break");
 }
 

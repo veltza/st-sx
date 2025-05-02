@@ -2911,7 +2911,7 @@ run(void)
 	XEvent ev;
 	int rev, w = win.w, h = win.h;
 	fd_set rfd;
-	int xfd = XConnectionNumber(xw.dpy), ttyfd, xev, drawing;
+	int xfd = XConnectionNumber(xw.dpy), ttyfd, maxfd, xev, drawing;
 	struct timespec seltv, *tv, now, trigger;
 	struct timespec lastscroll, lastblink, cursorlastblink;
 	double timeout, cursortimeout, scrolltimeout, vbelltimeout;
@@ -2941,8 +2941,13 @@ run(void)
 
 	for (timeout = -1, drawing = 0;;) {
 		FD_ZERO(&rfd);
-		FD_SET(ttyfd, &rfd);
 		FD_SET(xfd, &rfd);
+		maxfd = xfd;
+
+		if (!(term.hold & TTYREAD)) {
+			FD_SET(ttyfd, &rfd);
+			maxfd = MAX(xfd, ttyfd);
+		}
 
 		if (XPending(xw.dpy) || ttyread_pending())
 			timeout = 0;  /* existing events might not set xfd */
@@ -2951,9 +2956,13 @@ run(void)
 		seltv.tv_nsec = 1E6 * (timeout - 1E3 * seltv.tv_sec);
 		tv = timeout >= 0 ? &seltv : NULL;
 
-		if (pselect(MAX(xfd, ttyfd)+1, &rfd, NULL, NULL, tv, NULL) < 0) {
+		if (pselect(maxfd+1, &rfd, NULL, NULL, tv, NULL) < 0) {
 			if (errno == EINTR)
 				continue;
+			if (term.hold_at_exit && !(term.hold & TTYREAD)) {
+				tsethold(TTYWRITE);
+				continue;
+			}
 			die("select failed: %s\n", strerror(errno));
 		}
 		clock_gettime(CLOCK_MONOTONIC, &now);
@@ -3079,13 +3088,13 @@ run(void)
 void
 usage(void)
 {
-	die("usage: %s [-aivF] [-A alpha] [-b border] [-c class]"
+	die("usage: %s [-aivFH] [-A alpha] [-b border] [-c class]"
 		" [-d path]"
 		" [-f font] [-g geometry]"
 	    " [-n name] [-o file]\n"
 	    "          [-T title] [-t title] [-w windowid]"
 	    " [[-e] command [args ...]]\n"
-	    "       %s [-aivF] [-A alpha] [-b border] [-c class]"
+	    "       %s [-aivFH] [-A alpha] [-b border] [-c class]"
 		" [-d path]"
 		" [-f font] [-g geometry]"
 	    " [-n name] [-o file]\n"
@@ -3133,6 +3142,9 @@ main(int argc, char *argv[])
 				&xw.l, &xw.t, &cols, &rows);
 		opt_geometry_cols = cols;
 		opt_geometry_rows = rows;
+		break;
+	case 'H':
+		term.hold_at_exit = 1;
 		break;
 	case 'i':
 		xw.isfixed = 1;

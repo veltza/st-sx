@@ -131,6 +131,11 @@ enum visualbell_style {
 	VISUALBELL_INVERT = 2
 };
 
+enum hold_state {
+	TTYREAD  = 1 << 0,
+	TTYWRITE = 1 << 1
+};
+
 typedef unsigned char uchar;
 typedef unsigned int uint;
 typedef unsigned long ulong;
@@ -207,6 +212,8 @@ typedef struct {
 	Hyperlinks *hyperlinks_alt;
 	Rune lastc;   /* last printed char outside of sequence, 0 if control */
 	char *cwd;    /* current working directory */
+	int hold_at_exit; /* remain open after child process exits */
+	int hold;         /* hold state */
 } Term;
 
 typedef union {
@@ -331,6 +338,7 @@ void toggleprinter(const Arg *);
 
 int tattrset(int);
 int tisaltscr(void);
+void tsethold(int);
 void tnew(int, int);
 void tresize(int, int);
 void tsetdirtattr(int);
