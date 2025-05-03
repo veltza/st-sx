@@ -49,8 +49,8 @@ install: st
 	sed "s/VERSION/$(VERSION)/g" < st.1 > $(DESTDIR)$(MANPREFIX)/man1/st.1
 	chmod 644 $(DESTDIR)$(MANPREFIX)/man1/st.1
 	tic -sx st.info
-	mkdir -p $(DESTDIR)$(PREFIX)/share/applications # desktop-entry patch
-	test -f ${DESTDIR}${PREFIX}/share/applications/st.desktop || cp -n st.desktop $(DESTDIR)$(PREFIX)/share/applications # desktop-entry patch
+	mkdir -p $(DESTDIR)$(PREFIX)/share/applications
+	cp -f st.desktop $(DESTDIR)$(PREFIX)/share/applications
 	mkdir -p $(DESTDIR)$(ICONPREFIX)
 	test -f $(ICONNAME) && test ! -f $(DESTDIR)$(ICONPREFIX)/$(ICONNAME) && cp -f $(ICONNAME) $(DESTDIR)$(ICONPREFIX) || :
 	@echo Please see the README file regarding the terminfo entry of st.
