@@ -10,7 +10,6 @@
 #include "st.h"
 #include "hb.h"
 
-#define FEATURE(c1,c2,c3,c4) { .tag = HB_TAG(c1,c2,c3,c4), .value = 1, .start = HB_FEATURE_GLOBAL_START, .end = HB_FEATURE_GLOBAL_END }
 #define BUFFER_STEP 256
 
 hb_font_t *hbfindfont(XftFont *match);
@@ -34,13 +33,8 @@ typedef struct {
 
 static RuneBuffer hbrunebuffer = { 0, NULL };
 static hb_buffer_t *hbbuffer;
-
-/*
- * Poplulate the array with a list of font features, wrapped in FEATURE macro,
- * e. g.
- * FEATURE('c', 'a', 'l', 't'), FEATURE('d', 'l', 'i', 'g')
- */
-hb_feature_t features[] = { };
+extern hb_feature_t hbfeatures[];
+extern unsigned int hbfeaturecount;
 
 void
 hbcreatebuffer(void)
@@ -125,7 +119,7 @@ hbtransform(HbTransformData *data, XftFont *xfont, const Glyph *glyphs, int star
 	hb_buffer_add_codepoints(buffer, hbrunebuffer.runes, length, 0, length);
 
 	/* Shape the segment. */
-	hb_shape(font, buffer, features, sizeof(features)/sizeof(hb_feature_t));
+	hb_shape(font, buffer, hbfeatures, hbfeaturecount);
 
 	/* Get new glyph info. */
 	hb_glyph_info_t *info = hb_buffer_get_glyph_infos(buffer, &glyph_count);

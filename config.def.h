@@ -170,10 +170,21 @@ int hidecursor = 0;
 int ligatures = 0;
 
 /*
- * Permanently disable ligatures so that they won't be compiled in. You should
- * also edit config.mk file so that the HarfBuzz library won't be linked either.
+ * Permanently disable ligatures so that they won't be compiled in. You also
+ * need to comment out the ligature lines in config.mk to avoid compiling and
+ * linking the HarfBuzz code.
  */
 #define DISABLE_LIGATURES 0
+
+/*
+ * Font features for ligatures.
+ * Populate the array with a list of font features, wrapped in FEATURE macro,
+ * e. g.
+ * FEATURE('c', 'a', 'l', 't'), FEATURE('d', 'l', 'i', 'g')
+ */
+#if !DISABLE_LIGATURES
+hb_feature_t hbfeatures[] = { };
+#endif
 
 /*
  * 1: render most of the lines/blocks characters without using the font for
