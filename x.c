@@ -221,6 +221,7 @@ static char *opt_io    = NULL;
 static char *opt_line  = NULL;
 static char *opt_name  = NULL;
 static char *opt_title = NULL;
+static char *opt_permanent_title = NULL;
 static char *opt_dir   = NULL;
 static int opt_geometry_cols;
 static int opt_geometry_rows;
@@ -2260,7 +2261,10 @@ xsettitle(char *p, int pop)
 	XTextProperty prop;
 
 	free(titlestack[tstki]);
-	if (pop) {
+	if(opt_permanent_title) {
+		titlestack[tstki] = NULL;
+		p = opt_permanent_title;
+	} else if (pop) {
 		titlestack[tstki] = NULL;
 		tstki = (tstki - 1 + TITLESTACKSIZE) % TITLESTACKSIZE;
 		p = titlestack[tstki] ? titlestack[tstki] : opt_title;
@@ -3163,8 +3167,10 @@ main(int argc, char *argv[])
 		opt_name = EARGF(usage());
 		break;
 	case 't':
-	case 'T':
 		opt_title = EARGF(usage());
+		break;
+	case 'T':
+		opt_permanent_title = EARGF(usage());
 		break;
 	case 'w':
 		opt_embed = EARGF(usage());
