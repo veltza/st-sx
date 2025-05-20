@@ -2105,6 +2105,7 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Line oline)
 	int blink = IS_SET(MODE_CURSORBLINK);
 	int hidden = IS_SET(MODE_HIDE) && !IS_SET(MODE_KBDSELECT);
 	int cursor = hidden ? -1 : !IS_SET(MODE_FOCUSED) ? -2 : win.cursor;
+	int cwidth = win.cw * (g.mode & ATTR_WIDE ? 2 : 1);
 
 	/* Redraw the line where cursor was previously.
 	 * It will restore the ligatures broken by the cursor. */
@@ -2183,19 +2184,19 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Line oline)
 		XftDrawRect(xw.draw, &drawcol,
 				borderpx + cx * win.cw,
 				borderpx + cy * win.ch,
-				win.cw - 1, 1);
+				cwidth - 1, 1);
 		XftDrawRect(xw.draw, &drawcol,
 				borderpx + cx * win.cw,
 				borderpx + cy * win.ch,
 				1, win.ch - 1);
 		XftDrawRect(xw.draw, &drawcol,
-				borderpx + (cx + 1) * win.cw - 1,
+				borderpx + cx * win.cw + cwidth - 1,
 				borderpx + cy * win.ch,
 				1, win.ch - 1);
 		XftDrawRect(xw.draw, &drawcol,
 				borderpx + cx * win.cw,
 				borderpx + (cy + 1) * win.ch - 1,
-				win.cw, 1);
+				cwidth, 1);
 		term.dirtyimg[cy] = 1;
 	} else if (!blink) {
 		switch (win.cursor) {
@@ -2210,7 +2211,7 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Line oline)
 					borderpx + cx * win.cw,
 					borderpx + (cy + 1) * win.ch - \
 						cursorthickness,
-					win.cw, cursorthickness);
+					cwidth, cursorthickness);
 			break;
 		case 5: /* blinking bar */
 		case 6: /* steady bar */
