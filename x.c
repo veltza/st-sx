@@ -99,6 +99,7 @@ static void xsetenv(void);
 static void xseturgency(int);
 static inline void lerpvisualbellcolor(Color *, Color *);
 static void drawscrollbackindicator(void);
+static int drawunderline(Glyph *, Color *, int, int, int, int, int);
 static int evcol(XEvent *);
 static int evrow(XEvent *);
 
@@ -1817,9 +1818,6 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, GlyphFontSeq *seq, int y, int
 	XRenderColor colfg, colbg;
 	Mode mode = seq->base.mode;
 	Glyph *base = &seq->base;
-	static GC ugc;
-	static XGCValues ugcv;
-	static int ugc_clip;
 
 	/* Fallback on color display for attributes not supported by the font */
 	if (mode & ATTR_ITALIC && mode & ATTR_BOLD) {
@@ -1955,105 +1953,13 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, GlyphFontSeq *seq, int y, int
 			XftDrawGlyphFontSpec(xw.draw, fg, specs, seq->numspecs);
 		}
 
-		/* Render underline and strikethrough. */
+		/* Render underline */
 		int url_yoffset = 2;
-		int url_ascent = winy + win.cyo + dc.font.ascent;
-		const int underline_thickness = (dc.font.height / undercurl_thickness_threshold) + 1;
-		if (mode & ATTR_UNDERLINE || mode & ATTR_HYPERLINK) {
-			/* Underline Color */
-			int wlw = underline_thickness; /* Wave Line Width (thickness) */
-			int wh = MAX((int)((dc.font.descent - wlw/2 - 1) * undercurl_height_scale + 0.5), 1);
-			int wy = url_ascent + undercurl_yoffset;
-			int linecolor;
-			if ((base->extra & (EXT_UNDERLINE_COLOR_PALETTE | EXT_UNDERLINE_COLOR_RGB)) &&
-				!(mode & ATTR_BLINK && win.mode & MODE_BLINK) &&
-				!(mode & ATTR_INVISIBLE)
-			) {
-				/* Special color for underline */
-				if (base->extra & EXT_UNDERLINE_COLOR_PALETTE) {
-					/* Index */
-					linecolor = dc.col[base->extra & 255].pixel;
-				} else {
-					/* RGB */
-					Color lcolor;
-					XRenderColor lcol;
-					lcol.alpha = 0xffff;
-					lcol.red = TRUERED(base->extra);
-					lcol.green = TRUEGREEN(base->extra);
-					lcol.blue = TRUEBLUE(base->extra);
-					XftColorAllocValue(xw.dpy, xw.vis, xw.cmap, &lcol, &lcolor);
-					linecolor = lcolor.pixel;
-				}
-			} else {
-				/* Foreground color for underline */
-				linecolor = fg->pixel;
-			}
-			linecolor |= 0xff000000;
+		int underline_thickness = (dc.font.height / undercurl_thickness_threshold) + 1;
+		if (mode & ATTR_UNDERLINE || mode & ATTR_HYPERLINK)
+			url_yoffset = drawunderline(base, fg, winx, winy, seq->charlen, underline_thickness, url_yoffset);
 
-			/* Underline type */
-			int utype = (base->extra & UNDERLINE_TYPE_MASK) >> UNDERLINE_TYPE_SHIFT;
-			int hyperlink = 0;
-			if (mode & ATTR_HYPERLINK) {
-				if (!(mode & ATTR_UNDERLINE) ||
-				    (utype == UNDERLINE_DOTTED && ((fg->pixel | 0xff000000) == linecolor))) {
-					utype = UNDERLINE_DOTTED;
-					hyperlink = 1;
-					wy = url_ascent + url_yoffset;
-					linecolor = fg->pixel | 0xff000000;
-				}
-			}
-
-			if (ugcv.foreground != linecolor || ugcv.line_width != wlw) {
-				ugcv.foreground = linecolor;
-				ugcv.line_width = wlw;
-				if (ugc)
-					XChangeGC(xw.dpy, ugc, GCForeground | GCLineWidth, &ugcv);
-				else
-					ugc = XCreateGC(xw.dpy, XftDrawDrawable(xw.draw),
-						GCForeground | GCLineWidth, &ugcv);
-			}
-			if (utype != UNDERLINE_CURLY && ugc_clip) {
-				XSetClipMask(xw.dpy, ugc, None);
-				ugc_clip = 0;
-			}
-
-			switch (utype) {
-			case UNDERLINE_CURLY:
-				switch (undercurl_style) {
-				case UNDERCURL_NONE:
-					break;
-				case UNDERCURL_SPIKY:
-					undercurlspiky(ugc, winx, wy, wh, winy, width);
-					ugc_clip = 1;
-					break;
-				case UNDERCURL_CAPPED:
-				default:
-					undercurlcapped(ugc, winx, wy, wh, winy, width);
-					ugc_clip = 1;
-					break;
-				}
-				break;
-			case UNDERLINE_DOTTED:
-				if (!hyperlink || hyperlinkstyle)
-					undercurldotted(ugc, winx, wy, wlw, seq->charlen, hyperlink);
-				break;
-			case UNDERLINE_DASHED:
-				undercurldashed(ugc, winx, wy, wlw, seq->charlen);
-				break;
-			case UNDERLINE_SINGLE:
-			case UNDERLINE_DOUBLE:
-			default:
-				XFillRectangle(xw.dpy, XftDrawDrawable(xw.draw), ugc, winx,
-					winy + win.cyo + dc.font.ascent + 1, width, wlw);
-				if (utype == UNDERLINE_DOUBLE) {
-					XFillRectangle(xw.dpy, XftDrawDrawable(xw.draw), ugc, winx,
-						winy + win.cyo + dc.font.ascent + 1 + wlw*2, width, wlw);
-				}
-				url_yoffset = wlw*2 + 1;
-				break;
-			}
-		}
-
+		/* Render strikethrough */
 		if (mode & ATTR_STRUCK) {
 			XftDrawRect(xw.draw, fg, winx, winy + win.cyo + 2 * dc.font.ascent / 3,
 					width, underline_thickness);
@@ -2064,6 +1970,119 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, GlyphFontSeq *seq, int y, int
 			drawurl(fg, mode, x, y, seq->charlen, url_yoffset, underline_thickness);
 	}
 }
+
+int
+drawunderline(Glyph *base, Color *fg, int winx, int winy, int charlen, int lw, int url_yoffset)
+{
+	static GC ugc;
+	static XGCValues ugcv;
+	static int ugc_clip;
+	Color linecolor;
+	XRenderColor lcol;
+	Mode mode = base->mode;
+	int ascent = MIN(win.cyo + dc.font.ascent + undercurl_yoffset, win.ch - 1);
+	int maxwh = MAX(win.ch - ascent, 1);
+	int wh = MIN((int)(dc.font.descent * undercurl_height_scale + 0.5), maxwh);
+	int wy = winy + ascent;
+	int width = charlen * win.cw;
+	int utype, hyperlink;
+
+	/* Underline Color */
+	if ((base->extra & (EXT_UNDERLINE_COLOR_PALETTE | EXT_UNDERLINE_COLOR_RGB)) &&
+		!(mode & ATTR_BLINK && win.mode & MODE_BLINK) &&
+		!(mode & ATTR_INVISIBLE)
+	) {
+		/* Special color for underline */
+		if (base->extra & EXT_UNDERLINE_COLOR_PALETTE) {
+			/* Index */
+			linecolor = dc.col[base->extra & 255];
+		} else {
+			/* RGB */
+			lcol.alpha = 0xffff;
+			lcol.red = TRUERED(base->extra);
+			lcol.green = TRUEGREEN(base->extra);
+			lcol.blue = TRUEBLUE(base->extra);
+			XftColorAllocValue(xw.dpy, xw.vis, xw.cmap, &lcol, &linecolor);
+		}
+	} else {
+		/* Foreground color for underline */
+		linecolor = *fg;
+	}
+	linecolor.pixel |= 0xff000000;
+
+	/* Underline type */
+	utype = (base->extra & UNDERLINE_TYPE_MASK) >> UNDERLINE_TYPE_SHIFT;
+	hyperlink = 0;
+	if (mode & ATTR_HYPERLINK) {
+		if (!(mode & ATTR_UNDERLINE) || (utype == UNDERLINE_DOTTED)) {
+			if (utype != UNDERLINE_DOTTED) {
+				linecolor = *fg;
+				linecolor.pixel |= 0xff000000;
+			}
+			utype = UNDERLINE_DOTTED;
+			hyperlink = 1;
+			wy = winy + win.cyo + dc.font.ascent + url_yoffset;
+		}
+	}
+
+	if (utype != UNDERLINE_CURLY || undercurl_style != UNDERCURL_CURLY) {
+		if (ugcv.foreground != linecolor.pixel || ugcv.line_width != lw) {
+			ugcv.foreground = linecolor.pixel;
+			ugcv.line_width = lw;
+			if (ugc)
+				XChangeGC(xw.dpy, ugc, GCForeground | GCLineWidth, &ugcv);
+			else
+				ugc = XCreateGC(xw.dpy, XftDrawDrawable(xw.draw),
+					GCForeground | GCLineWidth, &ugcv);
+		}
+		if (utype != UNDERLINE_CURLY && ugc_clip) {
+			XSetClipMask(xw.dpy, ugc, None);
+			ugc_clip = 0;
+		}
+	}
+
+	switch (utype) {
+	case UNDERLINE_CURLY:
+		switch (undercurl_style) {
+		case UNDERCURL_NONE:
+			break;
+		case UNDERCURL_CURLY:
+			undercurlcurly(&linecolor, winx, wy, wh, charlen, lw);
+			break;
+		case UNDERCURL_SPIKY:
+			undercurlspiky(ugc, winx, wy, wh, winy, width);
+			ugc_clip = 1;
+			break;
+		case UNDERCURL_CAPPED:
+		default:
+			undercurlcapped(ugc, winx, wy, wh, winy, width);
+			ugc_clip = 1;
+			break;
+		}
+		break;
+	case UNDERLINE_DOTTED:
+		if (!hyperlink || hyperlinkstyle)
+			undercurldotted(ugc, winx, wy, lw, charlen, hyperlink);
+		break;
+	case UNDERLINE_DASHED:
+		undercurldashed(ugc, winx, wy, lw, charlen);
+		break;
+	case UNDERLINE_SINGLE:
+	case UNDERLINE_DOUBLE:
+	default:
+		XFillRectangle(xw.dpy, XftDrawDrawable(xw.draw), ugc, winx,
+			winy + win.cyo + dc.font.ascent + 1, width, lw);
+		if (utype == UNDERLINE_DOUBLE) {
+			XFillRectangle(xw.dpy, XftDrawDrawable(xw.draw), ugc, winx,
+				winy + win.cyo + dc.font.ascent + 1 + lw*2, width, lw);
+		}
+		url_yoffset = lw*2 + 1;
+		break;
+	}
+
+	return url_yoffset;
+}
+
 
 void
 xdrawglyph(Glyph *g, int x, int y)

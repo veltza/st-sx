@@ -2,6 +2,7 @@ static int maxpoints;
 static int maxrects;
 static XPoint *points;
 XRectangle *rects;
+BDBuffer curlbuf;
 
 static inline void
 allocpoints(int wavelen, int wavepoints)
@@ -38,11 +39,96 @@ drawuclines(GC gc, int npoints, int wx, int winy, int width)
 	}
 }
 
+static int
+createcurlmask(int ch, int lw)
+{
+	BDBuffer ssbuf;
+	int f, x, y, y1, y2, wy, cols;
+	double wa, cosx;
+	uchar *src, *dst;
+
+	if (curlbuf.cw == win.cw && curlbuf.ch == ch && curlbuf.lw == lw)
+		return 1;
+
+	if (!XftDefaultHasRender(xdpy)) {
+		bd_errormsg("undercurl: XRender is not available");
+		return 0;
+	}
+
+	/* If the curl height is small, we use a higher subpixel resolution to improve
+	 * roundness. Otherwise, we prefer a lower resolution because it improves
+	 * brightness. */
+	f = (ch < 4) ? 5 : 4;
+
+	cols = DisplayWidth(xdpy, xw.scr) / win.cw;
+	if (!bd_initbuffer(&curlbuf, win.cw, ch, 0, 0, lw, 0, cols, 1)) {
+		bd_errormsg("undercurl: cannot allocate character buffer");
+		return 0;
+	} else if (!bd_initbuffer(&ssbuf, win.cw, ch, 0, 0, lw, 0, 1, f)) {
+		bd_errormsg("undercurl: cannot allocate supersample buffer");
+		free(curlbuf.data);
+		return 0;
+	}
+
+	/* The curl is rendered with a line width that is a couple of subpixels larger
+	 * than the thickness, because downsampling tends to dim the brightness and we
+	 * need to compensate for that. Other terminals prefer to use the Xiaolin Wu's
+	 * line algorithm instead of downsampling, which may produce better brightness
+	 * and quality.*/
+	lw = ssbuf.lw + 2;
+	wa = (ssbuf.ch - lw) / 2.0;
+	for (x = 0; x < ssbuf.cw; x++) {
+		cosx = cos(2.0 * M_PI * x / ssbuf.cw);
+		wy = wa - wa * cosx + (cosx < 0 ? 0.5 : 0);
+		y1 = MAX(wy, 0);
+		y2 = MIN(wy + lw, ssbuf.ch);
+		for (y = y1;  y < y2; y++)
+			ssbuf.data[y * ssbuf.width + x] = 255;
+	}
+	bd_downsample(&curlbuf, 0, &ssbuf, 0, 1);
+
+	/* Repeat the curl */
+	src = curlbuf.data;
+	for (y = 0; y < curlbuf.ch; y++, src = dst) {
+		dst = src + curlbuf.cw;
+		for (x = curlbuf.width - curlbuf.cw; x > 0; x--)
+			*dst++ = *src++;
+	}
+
+	bd_createmask(&curlbuf);
+	free(ssbuf.data);
+	return 1;
+}
+
+/* public API */
+
+static void
+undercurlcurly(Color *fg, int x, int y, int h, int len, int lw)
+{
+	Picture src;
+	int n, w;
+
+	if (!createcurlmask(h, lw))
+		return;
+
+	if (!(src = XftDrawSrcPicture(xd, fg)))
+		return;
+
+	while (len > 0) {
+		n = MIN(len, curlbuf.cols);
+		w = curlbuf.cw * n;
+		XRenderComposite(xdpy, PictOpOver, src, curlbuf.mask,
+			XftDrawPicture(xd), 0, 0, 0, 0, x, y, w, h);
+		x += w;
+		len -= n;
+	}
+}
+
 static void
 undercurlspiky(GC gc, int wx, int wy, int wh, int winy, int width)
 {
 	int i, x, x2 = wx + width;
-	int ds = wh, dy = -ds, wl = ds * 2;
+	int ds = wh - 1, dy = -ds, wl = ds * 2;
 
 	allocpoints(wl, 2);
 
@@ -61,7 +147,7 @@ static void
 undercurlcapped(GC gc, int wx, int wy, int wh, int winy, int width)
 {
 	int i, x, x2 = wx + width;
-	int ds = wh, dp = MAX((ds+1)/2, 2), dy = ds, wl = ds*2 + dp*2;
+	int ds = wh - 1, dp = MAX((ds+1)/2, 2), dy = ds, wl = ds*2 + dp*2;
 
 	allocpoints(wl, 4);
 

@@ -116,8 +116,8 @@ St.url_opener: xdg-open
 ! List of URL protocols to search for when detecting a URL under the mouse
 St.url_protocols: https:\/\/,http:\/\/,file:\/,ftp:\/\/,mailto:,vscode:\/\/
 
-! Undercurl style: 0 = none, 2 = spiky, 3 = capped
-St.undercurl_style: 2
+! Undercurl style: 0 = none, 1 = curly, 2 = spiky, 3 = capped
+St.undercurl_style: 1
 
 ! Adds 1 pixel of thickness for every undercurl_thickness_threshold pixels of font size
 St.undercurl_thickness_threshold:   28
