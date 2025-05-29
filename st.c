@@ -39,7 +39,7 @@
 #define ESC_ARG_SIZ   16
 #define SUB_ARG_SIZ   5
 #define STR_BUF_SIZ   ESC_BUF_SIZ
-#define STR_ARG_SIZ   ESC_ARG_SIZ
+#define STR_ARG_SIZ   40
 #define STR_TERM_ST   "\033\\"
 #define STR_TERM_BEL  "\007"
 
@@ -2431,7 +2431,7 @@ void
 strhandle(void)
 {
 	char *p = NULL, *dec;
-	int i, j, narg, par;
+	int i, j, narg, par, dirty;
 	const struct { int idx; char *str; } osc_table[] = {
 		{ defaultfg, "foreground" },
 		{ defaultbg, "background" },
@@ -2489,36 +2489,46 @@ strhandle(void)
 			if (!strcmp(p, "?")) {
 				osc_color_response(par, osc_table[j].idx, 0);
 			} else if (xsetcolorname(osc_table[j].idx, p)) {
-				fprintf(stderr, "erresc: invalid %s color: %s\n",
-				        osc_table[j].str, p);
+				fprintf(stderr, "erresc (OSC %d): invalid %s color: %s\n",
+				        par, osc_table[j].str, p);
 			} else {
 				tfulldirt();
 			}
 			return;
 		case 4: /* color set */
-			if (narg < 3)
-				break;
-			p = strescseq.args[2];
-			/* FALLTHROUGH */
-		case 104: /* color reset */
-			j = (narg > 1 && strescseq.args[1][0]) ? atoi(strescseq.args[1]) : -1;
-
-			if (p && !strcmp(p, "?")) {
-				osc_color_response(j, 0, 1);
-			} else if (xsetcolorname(j, p)) {
-				if (par == 104 && (narg <= 1 || !strescseq.args[1][0])) {
-					xloadcols();
+			for (dirty = 0, i = 1; i < narg; i += 2) {
+				j = atoi(strescseq.args[i]);
+				p = (i + 1 < narg) ? strescseq.args[i+1] : NULL;
+				if (p && !strcmp(p, "?")) {
+					osc_color_response(j, 0, 1);
+				} else if (!p || xsetcolorname(j, p)) {
+					fprintf(stderr, "erresc (OSC 4): invalid color j=%d, p=%s\n",
+					        j, p ? p : "(null)");
+				} else if (!dirty) {
 					tfulldirt();
-					return; /* color reset without parameter */
+					dirty = 1;
 				}
-				fprintf(stderr, "erresc: invalid color j=%d, p=%s\n",
-				        j, p ? p : "(null)");
-			} else {
-				/*
-				 * TODO if defaultbg color is changed, borders
-				 * are dirty
-				 */
+			}
+			return;
+		case 104: /* color reset */
+			if (narg == 1 || (narg == 2 && !strescseq.args[1][0])) {
+				/* if no parameters, reset all 256 colors */
+				for (i = 0; i < 256; i++)
+					xsetcolorname(i, NULL);
 				tfulldirt();
+				return;
+			}
+
+			for (dirty = 0, i = 1; i < narg; i++) {
+				if (!strescseq.args[i][0])
+					continue;
+				j = atoi(strescseq.args[i]);
+				if (xsetcolorname(j, NULL)) {
+					fprintf(stderr, "erresc (OSC 104): invalid color j=%d\n", j);
+				} else if (!dirty) {
+					tfulldirt();
+					dirty = 1;
+				}
 			}
 			return;
 		case 133: /* semantic prompts */
