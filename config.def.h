@@ -515,7 +515,9 @@ static uint ignoremod = Mod2Mask|XK_SWITCH_MOD;
  */
 static Key key[] = {
 	/* keysym           mask            string      appkey appcursor */
-	{ XK_KP_Home,       ShiftMask,      "\033[2J",       0,   -1},
+	{ XK_KP_Home,       ControlMask,    "\033[1;5H",     0,    0},
+	{ XK_KP_Home, ControlMask|ShiftMask,"\033[1;6H",     0,    0},
+	{ XK_KP_Home,       ShiftMask,      "\033[1;2H",     0,   -1}, /* original st sequence: "\033[2J" */
 	{ XK_KP_Home,       ShiftMask,      "\033[1;2H",     0,   +1},
 	{ XK_KP_Home,       XK_ANY_MOD,     "\033[H",        0,   -1},
 	{ XK_KP_Home,       XK_ANY_MOD,     "\033[1~",       0,   +1},
@@ -534,9 +536,10 @@ static Key key[] = {
 	{ XK_KP_Prior,      ShiftMask,      "\033[5;2~",     0,    0},
 	{ XK_KP_Prior,      XK_ANY_MOD,     "\033[5~",       0,    0},
 	{ XK_KP_Begin,      XK_ANY_MOD,     "\033[E",        0,    0},
-	{ XK_KP_End,        ControlMask,    "\033[J",       -1,    0},
+	{ XK_KP_End,        ControlMask,    "\033[1;5F",    -1,    0}, /* original st sequence: "\033[J" */
 	{ XK_KP_End,        ControlMask,    "\033[1;5F",    +1,    0},
-	{ XK_KP_End,        ShiftMask,      "\033[K",       -1,    0},
+	{ XK_KP_End,  ControlMask|ShiftMask,"\033[1;6F",     0,    0},
+	{ XK_KP_End,        ShiftMask,      "\033[1;2F",    -1,    0}, /* original st sequence: "\033[K" */
 	{ XK_KP_End,        ShiftMask,      "\033[1;2F",    +1,    0},
 	{ XK_KP_End,        XK_ANY_MOD,     "\033[4~",       0,    0},
 	{ XK_KP_Next,       ShiftMask,      "\033[6;2~",     0,    0},
@@ -623,13 +626,16 @@ static Key key[] = {
 	{ XK_Delete,        XK_ANY_MOD,     "\033[3~",      +1,    0},
 	{ XK_BackSpace,     XK_NO_MOD,      "\177",          0,    0},
 	{ XK_BackSpace,     Mod1Mask,       "\033\177",      0,    0},
-	{ XK_Home,          ShiftMask,      "\033[2J",       0,   -1},
+	{ XK_Home,          ControlMask,    "\033[1;5H",     0,    0},
+	{ XK_Home,    ControlMask|ShiftMask,"\033[1;6H",     0,    0},
+	{ XK_Home,          ShiftMask,      "\033[1;2H",     0,   -1}, /* original st sequence: "\033[2J" */
 	{ XK_Home,          ShiftMask,      "\033[1;2H",     0,   +1},
 	{ XK_Home,          XK_ANY_MOD,     "\033[H",        0,   -1},
 	{ XK_Home,          XK_ANY_MOD,     "\033[1~",       0,   +1},
-	{ XK_End,           ControlMask,    "\033[J",       -1,    0},
+	{ XK_End,           ControlMask,    "\033[1;5F",    -1,    0}, /* original st sequence: "\033[J" */
 	{ XK_End,           ControlMask,    "\033[1;5F",    +1,    0},
-	{ XK_End,           ShiftMask,      "\033[K",       -1,    0},
+	{ XK_End,     ControlMask|ShiftMask,"\033[1;6F",     0,    0},
+	{ XK_End,           ShiftMask,      "\033[1;2F",    -1,    0}, /* original st sequence: "\033[K" */
 	{ XK_End,           ShiftMask,      "\033[1;2F",    +1,    0},
 	{ XK_End,           XK_ANY_MOD,     "\033[4~",       0,    0},
 	{ XK_Prior,         ControlMask,    "\033[5;5~",     0,    0},
