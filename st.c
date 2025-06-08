@@ -3118,12 +3118,13 @@ eschandle(uchar ascii)
 		ttywrite(vtiden, strlen(vtiden), 0);
 		break;
 	case 'c': /* RIS -- Reset to initial state */
+		win.mode ^= kbds_keyboardhandler(XK_Escape, NULL, 0, 1);
 		treset();
 		xsetcursor(0); /* reset cursor style */
 		xfreetitlestack();
 		resettitle();
 		xloadcols();
-		xsetmode(0, MODE_HIDE);
+		xsetmode(0, MODE_APPCURSOR|MODE_APPKEYPAD|MODE_HIDE|MODE_KBDLOCK|MODE_REVERSE);
 		break;
 	case '=': /* DECPAM -- Application keypad */
 		xsetmode(1, MODE_APPKEYPAD);
