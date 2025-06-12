@@ -180,9 +180,10 @@ int ligatures = 0;
  * Font features for ligatures.
  * Populate the array with a list of font features, wrapped in FEATURE macro,
  * e. g.
- * FEATURE('c', 'a', 'l', 't'), FEATURE('d', 'l', 'i', 'g')
+ * hb_feature_t hbfeatures[] = { FEATURE('c', 'a', 'l', 't'), FEATURE('d', 'l', 'i', 'g') };
  */
 #if !DISABLE_LIGATURES
+#include "hb.h"
 hb_feature_t hbfeatures[] = { };
 #endif
 

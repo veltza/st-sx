@@ -47,10 +47,6 @@ char *font2_xresources[FONT2_XRESOURCES_SIZE];
 #include "patch/st_include.h"
 #include "patch/x_include.h"
 
-#if !DISABLE_LIGATURES
-#include "hb.h"
-#endif
-
 /* config.h for applying patches and the configuration. */
 #include "config.h"
 
