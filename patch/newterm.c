@@ -1,4 +1,7 @@
 #include <dirent.h>
+#ifdef __OpenBSD__
+#include <sys/sysctl.h>
+#endif
 
 extern char *argv0;
 static char *getcwd_by_pid(pid_t);
@@ -34,7 +37,11 @@ newterm(const Arg* a)
 				}
 			}
 			setsid();
+			#ifdef __OpenBSD__
+			execlp("st", "./st", NULL);
+			#else
 			execl("/proc/self/exe", argv0, NULL);
+			#endif
 			_exit(1);
 			break;
 		default:
@@ -45,6 +52,28 @@ newterm(const Arg* a)
 	}
 }
 
+#ifdef __OpenBSD__
+char *
+getcwd_by_pid(pid_t pid)
+{
+	static char cwd[PATH_MAX];
+	size_t cwdlen = sizeof cwd;
+	int name[] = { CTL_KERN, KERN_PROC_CWD, pid };
+
+	if (sysctl(name, 3, cwd, &cwdlen, NULL, 0) == -1)
+		cwd[0] = '\0';
+	return cwd;
+}
+
+/* Get the current working directory of the foreground process group */
+char *
+get_foreground_cwd(void)
+{
+	pid_t pgid = tcgetpgrp(cmdfd);
+
+	return getcwd_by_pid(pgid > 0 ? pgid : pid);
+}
+#else
 char *
 getcwd_by_pid(pid_t pid)
 {
@@ -79,3 +108,4 @@ get_foreground_cwd(void)
 	/* Note that if we didn't get the fg process, we fall back to the shell's PID */
 	return getcwd_by_pid(fgpid > 0 ? fgpid : pid);
 }
+#endif
