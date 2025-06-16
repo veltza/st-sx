@@ -52,7 +52,13 @@ Arch:
 sudo pacman -S libx11 libxft imlib2 gd pcre2
 ```
 
-Ubuntu:
+OpenBSD:
+
+```
+doas pkg_add imlib2 gd harfbuzz
+```
+
+Ubuntu/Debian:
 
 ```
 sudo apt install libx11-xcb-dev libxft-dev libimlib2-dev libgd-dev libharfbuzz-dev libpcre2-dev
@@ -63,6 +69,8 @@ You don't have to install `libharfbuzz-dev`, if you don't use ligatures. Edit co
 ## Installation
 
 Clone the repo and run `make`:
+
+*Note: If you are building on OpenBSD, you'll need to edit config.mk before running make.*
 
 ```
 git clone https://github.com/veltza/st-sx
