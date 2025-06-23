@@ -237,7 +237,7 @@ static int cursorblinks;
 static Autoscroller asr;
 
 extern int tinsync(uint);
-extern int ttyread_pending();
+extern int ttyread_pending(void);
 
 #include "patch/x_include.c"
 

@@ -265,8 +265,10 @@ bd_drawhdashes(BDBuffer *buf, int idx, int n, int heavy)
 	int y1 = buf->cy - (heavy ? buf->lw : 0);
 	int y2 = buf->cy + (heavy ? buf->lw : 0) + buf->lw;
 
-	if (cw < 4)
-		return bd_drawrect(buf, idx, 0, y1, buf->cw, y2 - y1, 255);
+	if (cw < 4) {
+		bd_drawrect(buf, idx, 0, y1, buf->cw, y2 - y1, 255);
+		return;
+	}
 
 	if (cw < 7 || (cw < 12 && n >= 3) || (cw <= 16 && n == 4)) {
 		n = (cw < 6) ? 2 : n;

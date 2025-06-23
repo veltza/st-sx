@@ -1324,7 +1324,7 @@ jump_to_label(Rune label) {
 }
 
 void
-clear_flash_cache() {
+clear_flash_cache(void) {
 	reset_char_array(&flash_next_char_record);
 	reset_char_array(&flash_used_label);
 	reset_kcursor_array(&flash_kcursor_record);
@@ -1332,7 +1332,7 @@ clear_flash_cache() {
 }
 
 void
-clear_regex_cache() {
+clear_regex_cache(void) {
 	hit_input_first = 0;
 	reset_regex_kcursor_array(&regex_kcursor_record);
 	reset_char_array(&flash_used_label);
@@ -1340,7 +1340,7 @@ clear_regex_cache() {
 }
 
 void
-clear_url_cache() {
+clear_url_cache(void) {
 	hit_input_first = 0;
 	reset_url_kcursor_array(&url_kcursor_record);
 	reset_char_array(&flash_used_label);

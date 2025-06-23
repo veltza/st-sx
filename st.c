@@ -251,14 +251,14 @@ struct timespec sutv;
 #include "patch/st_include.h"
 
 static void
-tsync_begin()
+tsync_begin(void)
 {
 	clock_gettime(CLOCK_MONOTONIC, &sutv);
 	su = 1;
 }
 
 static void
-tsync_end()
+tsync_end(void)
 {
 	su = 0;
 }
@@ -910,7 +910,7 @@ ttynew(const char *line, char *cmd, const char *out, char **args)
 }
 
 int
-ttyread_pending()
+ttyread_pending(void)
 {
 	return twrite_aborted && !(term.hold & TTYREAD);
 }
