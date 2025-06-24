@@ -49,13 +49,19 @@ Branch drawing symbols are supported with built-in glyphs. (app/plugin: [vim-flo
 Arch:
 
 ```
-sudo pacman -S libx11 libxft imlib2 gd pcre2
+sudo pacman -S libx11 libxft imlib2 gd
+```
+
+FreeBSD:
+
+```
+doas pkg install pkgconf imlib2 libgd
 ```
 
 OpenBSD:
 
 ```
-doas pkg_add imlib2 gd harfbuzz
+doas pkg_add imlib2 gd
 ```
 
 Ubuntu/Debian:
@@ -70,7 +76,7 @@ You don't have to install `libharfbuzz-dev`, if you don't use ligatures. Edit co
 
 Clone the repo and run `make`:
 
-*Note: If you are building on OpenBSD, you'll need to edit config.mk before running make.*
+*Note: If you are building on BSD, you'll need to edit config.mk before running make.*
 
 ```
 git clone https://github.com/veltza/st-sx
