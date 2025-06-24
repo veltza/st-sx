@@ -1,8 +1,3 @@
-#include <dirent.h>
-#ifdef __OpenBSD__
-#include <sys/sysctl.h>
-#endif
-
 extern char *argv0;
 static char *getcwd_by_pid(pid_t);
 static char *get_foreground_cwd(void);
@@ -37,10 +32,10 @@ newterm(const Arg* a)
 				}
 			}
 			setsid();
-			#ifdef __OpenBSD__
-			execlp("st", "./st", NULL);
-			#else
+			#if defined(__linux__)
 			execl("/proc/self/exe", argv0, NULL);
+			#else
+			execlp("st", "./st", NULL);
 			#endif
 			_exit(1);
 			break;
@@ -52,7 +47,75 @@ newterm(const Arg* a)
 	}
 }
 
-#ifdef __OpenBSD__
+#if defined(__FreeBSD__)
+#include <sys/user.h>
+#include <sys/queue.h>
+#include <sys/socket.h>
+#include <sys/sysctl.h>
+#include <libprocstat.h>
+char *
+getcwd_by_pid_and_type(pid_t pid, int type)
+{
+	static char cwd[PATH_MAX];
+	struct procstat *procstat = NULL;
+	struct kinfo_proc *procs = NULL;
+	struct filestat_list *head;
+	struct filestat *fst;
+	unsigned int i, count;
+	pid_t apid;
+
+	cwd[0] = '\0';
+	if (!(procstat = procstat_open_sysctl()))
+		goto fail;
+
+	if (!(procs = procstat_getprocs(procstat, type, pid, &count)) || !count)
+		goto fail;
+
+	/* We take cwd from the process with the highest PID, because we assume
+	 * it is the active process in the group. */
+	for (apid = 0, i = 0; i < count; i++) {
+		if (apid > procs[i].ki_pid)
+			continue;
+		if (!(head = procstat_getfiles(procstat, &procs[i], 0)))
+			continue;
+		STAILQ_FOREACH(fst, head, next) {
+			if ((fst->fs_uflags & PS_FST_UFLAG_CDIR) && fst->fs_path) {
+				snprintf(cwd, sizeof(cwd), "%s", fst->fs_path);
+				apid = procs[i].ki_pid;
+				break;
+			}
+		}
+		procstat_freefiles(procstat, head);
+	}
+
+fail:
+	if (procs)
+		procstat_freeprocs(procstat, procs);
+	if (procstat)
+		procstat_close(procstat);
+	return cwd;
+}
+
+char *
+getcwd_by_pid(pid_t pid)
+{
+	return getcwd_by_pid_and_type(pid, KERN_PROC_PID);
+}
+
+/* Get the current working directory of the foreground process */
+char *
+get_foreground_cwd(void)
+{
+	pid_t pgid = tcgetpgrp(cmdfd);
+
+	if (pgid <= 0)
+		return getcwd_by_pid(pid);
+
+	return getcwd_by_pid_and_type(pgid, KERN_PROC_PGRP);
+}
+
+#elif defined(__OpenBSD__)
+#include <sys/sysctl.h>
 char *
 getcwd_by_pid(pid_t pid)
 {
@@ -73,7 +136,9 @@ get_foreground_cwd(void)
 
 	return getcwd_by_pid(pgid > 0 ? pgid : pid);
 }
+
 #else
+#include <dirent.h>
 char *
 getcwd_by_pid(pid_t pid)
 {
