@@ -106,10 +106,21 @@ getcwd_by_pid(pid_t pid)
 char *
 get_foreground_cwd(void)
 {
+	int randompid;
+	size_t rlen = sizeof(randompid);
 	pid_t pgid = tcgetpgrp(cmdfd);
 
+	/* If we didn't get the fg process group, we return cwd of the shell */
 	if (pgid <= 0)
 		return getcwd_by_pid(pid);
+
+	/* If PID is randomized, we cannot assume that the process with the
+	 * highest PID is the active foreground process in the foreground
+	 * process group. In that case, we return cwd of the group leader. */
+	if (sysctlbyname("kern.randompid", &randompid, &rlen, NULL, 0) == -1 ||
+	    randompid) {
+		return getcwd_by_pid(pgid);
+	}
 
 	return getcwd_by_pid_and_type(pgid, KERN_PROC_PGRP);
 }
