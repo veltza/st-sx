@@ -2062,8 +2062,14 @@ csihandle(void)
 		}
 		break;
 	case 'c': /* DA -- Device Attributes */
-		if (csiescseq.arg[0] == 0)
-			ttywrite(vtiden, strlen(vtiden), 0);
+		if (csiescseq.arg[0] == 0) {
+			n = snprintf(buf, sizeof(buf), "%s", vtiden);
+			if (allowwindowops && n + 3 <= sizeof(buf)) {
+				memcpy(buf + n - 1, ";52c", 4);
+				n += 3;
+			}
+			ttywrite(buf, n, 0);
+		}
 		break;
 	case 'b': /* REP -- if last char is printable print it <n> more times */
 		LIMIT(csiescseq.arg[0], 1, 65535);
