@@ -163,6 +163,7 @@ static inline void readsubargs(char **, int);
 static void csiparse(void);
 static inline void csireset(void);
 static void osc_color_response(int, int, int);
+static void write_da(void);
 static int eschandle(uchar);
 static void strdump(void);
 static void strhandle(void);
@@ -2062,14 +2063,8 @@ csihandle(void)
 		}
 		break;
 	case 'c': /* DA -- Device Attributes */
-		if (csiescseq.arg[0] == 0) {
-			n = snprintf(buf, sizeof(buf), "%s", vtiden);
-			if (allowwindowops && n + 3 <= sizeof(buf)) {
-				memcpy(buf + n - 1, ";52c", 4);
-				n += 3;
-			}
-			ttywrite(buf, n, 0);
-		}
+		if (csiescseq.arg[0] == 0)
+			write_da();
 		break;
 	case 'b': /* REP -- if last char is printable print it <n> more times */
 		LIMIT(csiescseq.arg[0], 1, 65535);
@@ -2431,6 +2426,15 @@ osc_color_response(int num, int index, int is_osc4)
 	} else {
 		ttywrite(buf, n, 1);
 	}
+}
+
+void
+write_da(void)
+{
+	ttywrite(vtiden, strlen(vtiden)-1, 0); /* omit last 'c' */
+	if (allowwindowops)
+		ttywrite(";52", 3, 0);
+	ttywrite("c", 1, 0);
 }
 
 void
@@ -2879,7 +2883,7 @@ tcontrolcode(uchar ascii)
 	case 0x99:   /* TODO: SGCI */
 		break;
 	case 0x9a:   /* DECID -- Identify Terminal */
-		ttywrite(vtiden, strlen(vtiden), 0);
+		write_da();
 		break;
 	case 0x9b:   /* TODO: CSI */
 	case 0x9c:   /* TODO: ST */
@@ -3121,7 +3125,7 @@ eschandle(uchar ascii)
 		}
 		break;
 	case 'Z': /* DECID -- Identify Terminal */
-		ttywrite(vtiden, strlen(vtiden), 0);
+		write_da();
 		break;
 	case 'c': /* RIS -- Reset to initial state */
 		win.mode ^= kbds_keyboardhandler(XK_Escape, NULL, 0, 1);
