@@ -88,8 +88,4 @@ reload_config(int sig)
 	xhints();
 
 	XCloseDisplay(dpy);
-
-	/* from https://st.suckless.org/patches/xresources-with-reload-signal */
-	/* triggers re-render if we're visible */
-	ttywrite("\033[O", 3, 1);
 }
