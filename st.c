@@ -61,7 +61,8 @@ enum term_mode {
 	MODE_SIXEL        = 1 << 7,
 	MODE_SIXEL_CUR_RT = 1 << 8,
 	MODE_SIXEL_SDM    = 1 << 9,
-	MODE_SIXEL_PRIVATE_PALETTE = 1 << 10
+	MODE_SIXEL_PRIVATE_PALETTE = 1 << 10,
+	MODE_RESIZE_NOTIFICATIONS  = 1 << 11
 };
 
 enum scroll_mode {
@@ -221,6 +222,7 @@ static void selmove(int);
 static void selremove(void);
 static inline int regionselected(int, int, int, int);
 static void selsnap(int *, int *, int);
+static void sendresizenotification(void);
 
 static inline char utf8encodebyte(Rune, size_t);
 static inline size_t utf8validate(Rune *, size_t);
@@ -1049,6 +1051,8 @@ ttyresize(int tw, int th)
 	if (term.hold)
 		return;
 
+	sendresizenotification();
+
 	w.ws_row = term.row;
 	w.ws_col = term.col;
 	w.ws_xpixel = tw;
@@ -1062,6 +1066,20 @@ ttyhangup(void)
 {
 	/* Send SIGHUP to shell */
 	kill(pid, SIGHUP);
+}
+
+void
+sendresizenotification(void)
+{
+	int n;
+	char buf[128];
+
+	if (!IS_SET(MODE_RESIZE_NOTIFICATIONS))
+		return;
+
+	n = snprintf(buf, sizeof buf, "\033[48;%d;%d;%d;%dt",
+	             term.row, term.col, win.th, win.tw);
+	ttywrite(buf, n, 0);
 }
 
 int
@@ -1964,6 +1982,10 @@ tsetmode(int priv, int set, const int *args, int narg)
 				else
 					tsync_end();  /* ESU */
 				break;
+			case 2048: /* In-Band Window Resize Notifications */
+				MODBIT(term.mode, set, MODE_RESIZE_NOTIFICATIONS);
+				sendresizenotification();
+				break;
 			/* Not implemented mouse modes. See comments there. */
 			case 1001: /* mouse highlight mode; can hang the
 				      terminal by design when implemented. */
@@ -2272,28 +2294,38 @@ csihandle(void)
 	case '$':
 		/* DECRQM -- DEC Request Mode (private) */
 		if (csiescseq.mode[1] == 'p' && csiescseq.priv) {
-			if (csiescseq.arg[0] == 80) {
+			switch (csiescseq.arg[0]) {
+			case 80:
 				/* Sixel Display Mode  */
 				ttywrite(IS_SET(MODE_SIXEL_SDM) ? "\033[?80;1$y"
-				                                : "\033[?80;2$y", 9, 1);
+				                                : "\033[?80;2$y", 9, 0);
 				break;
-			} else if (csiescseq.arg[0] == 1070) {
+			case 1070:
 				/* Use private color registers for each sixel */
 				/* https://invisible-island.net/xterm/ctlseqs/ctlseqs.html */
 				ttywrite(IS_SET(MODE_SIXEL_PRIVATE_PALETTE) ? "\033[?1070;1$y"
-				                                            : "\033[?1070;2$y", 11, 1);
+				                                            : "\033[?1070;2$y", 11, 0);
 				break;
-			} else if (csiescseq.arg[0] == 2026) {
+			case 2026:
 				/* Synchronized Output */
 				/* https://gist.github.com/christianparpart/d8a62cc1ab659194337d73e399004036 */
-				ttywrite(su ? "\033[?2026;1$y" : "\033[?2026;2$y", 11, 1);
+				ttywrite(su ? "\033[?2026;1$y" : "\033[?2026;2$y", 11, 0);
 				break;
-			} else if (csiescseq.arg[0] == 8452) {
-				/* sixel scrolling leaves cursor to right of graphic */
+			case 2048:
+				/* In-Band Window Resize Notifications */
+				/* https://gist.github.com/rockorager/e695fb2924d36b2bcf1fff4a3704bd83 */
+				ttywrite(IS_SET(MODE_RESIZE_NOTIFICATIONS) ? "\033[?2048;1$y"
+				                                           : "\033[?2048;2$y", 11, 0);
+				break;
+			case 8452:
+				/* Sixel scrolling leaves cursor to right of graphic */
 				ttywrite(IS_SET(MODE_SIXEL_CUR_RT) ? "\033[?8452;1$y"
-				                                   : "\033[?8452;2$y", 11, 1);
+				                                   : "\033[?8452;2$y", 11, 0);
 				break;
+			default:
+				goto unknown;
 			}
+			break;
 		}
 		goto unknown;
 	case 'r': /* DECSTBM -- Set Scrolling Region */
