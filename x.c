@@ -931,8 +931,11 @@ xloadcolor(int i, const char *name, Color *ncolor)
 			}
 			return XftColorAllocValue(xw.dpy, xw.vis,
 			                          xw.cmap, &color, ncolor);
-		} else
+		} else if (i == defaultbg) {
+			name = colorname[bg];
+		} else {
 			name = colorname[i];
+		}
 	}
 
 	return XftColorAllocName(xw.dpy, xw.vis, xw.cmap, name, ncolor);
@@ -1007,7 +1010,7 @@ xsetcolorname(int x, const char *name)
 		XftColorFree(xw.dpy, xw.vis, xw.cmap, &dc.col[bg]);
 		XftColorFree(xw.dpy, xw.vis, xw.cmap, &dc.col[bgUnfocused]);
 		dc.col[bg] = ncolor;
-		xloadcolor(x, name, &dc.col[bgUnfocused]);
+		xloadcolor(bgUnfocused, name, &dc.col[bgUnfocused]);
 		xloadalpha();
 	} else {
 		XftColorFree(xw.dpy, xw.vis, xw.cmap, &dc.col[x]);

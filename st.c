@@ -2573,6 +2573,17 @@ strhandle(void)
 				}
 			}
 			return;
+		case 110:
+		case 111:
+		case 112:
+			if ((j = par - 110) < 0 || j >= LEN(osc_table))
+				break; /* shouldn't be possible */
+			if (xsetcolorname(osc_table[j].idx, NULL)) {
+				fprintf(stderr, "erresc (OSC %d): %s color not found\n", par, osc_table[j].str);
+			} else {
+				tfulldirt();
+			}
+			return;
 		case 133: /* semantic prompts */
 			if (narg < 2)
 				break;
