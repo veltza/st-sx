@@ -957,8 +957,12 @@ void
 xloadcols(void)
 {
 	static int loaded;
+	Color *cp;
 
-	if (!loaded) {
+	if (loaded) {
+		for (cp = dc.col; cp < &dc.col[dc.collen-1]; ++cp)
+			XftColorFree(xw.dpy, xw.vis, xw.cmap, cp);
+	} else {
 		dc.collen = 1 + defaultbg;
 		dc.col = xmalloc((dc.collen) * sizeof(Color));
 	}
