@@ -1839,14 +1839,14 @@ tsetattr(const int *attr, int l)
 			if ((color = tdefcolor(attr, &i, l)) >= 0)
 				term.c.attr.fg = color;
 			break;
-		case 39:
+		case 39: /* set foreground color to default */
 			term.c.attr.fg = defaultfg;
 			break;
 		case 48:
 			if ((color = tdefcolor(attr, &i, l)) >= 0)
 				term.c.attr.bg = color;
 			break;
-		case 49:
+		case 49: /* set background color to default */
 			term.c.attr.bg = defaultbg;
 			break;
 		case 58:
@@ -1856,7 +1856,7 @@ tsetattr(const int *attr, int l)
 					(color & 0xffffff);
 			}
 			break;
-		case 59:
+		case 59: /* reset underline color */
 			term.c.attr.extra &= ~UNDERLINE_COLOR_MASK;
 			break;
 		default:
@@ -1955,7 +1955,7 @@ tsetmode(int priv, int set, const int *args, int narg)
 			case 1006: /* 1006: extended reporting mode */
 				xsetmode(set, MODE_MOUSESGR);
 				break;
-			case 1034:
+			case 1034: /* 1034: enable 8-bit mode for keyboard input */
 				xsetmode(set, MODE_8BIT);
 				break;
 			case 1049: /* swap screen & set/restore cursor as xterm */
@@ -1968,7 +1968,7 @@ tsetmode(int priv, int set, const int *args, int narg)
 				else
 					tloaddefscreen(*args != 47, *args == 1049);
 				break;
-			case 1048:
+			case 1048: /* save/restore cursor (like DECSC/DECRC) */
 				if (!allowaltscreen)
 					break;
 				tcursor((set) ? CURSOR_SAVE : CURSOR_LOAD);
@@ -2487,21 +2487,21 @@ strhandle(void)
 		strparse();
 		par = (narg = strescseq.narg) ? atoi(strescseq.args[0]) : 0;
 		switch (par) {
-		case 0:
+		case 0: /* change window title and icon name */
 			if (narg > 1) {
 				xsettitle(strescseq.args[1], 0);
 				xseticontitle(strescseq.args[1]);
 			}
 			return;
-		case 1:
+		case 1: /* change icon name */
 			if (narg > 1)
 				xseticontitle(strescseq.args[1]);
 			return;
-		case 2:
+		case 2: /* change window title */
 			if (narg > 1)
 				xsettitle(strescseq.args[1], 0);
 			return;
-		case 52:
+		case 52: /* manipulate selection data */
 			if (narg > 2 && allowwindowops) {
 				dec = base64dec(strescseq.args[2]);
 				if (dec) {
@@ -2512,16 +2512,16 @@ strhandle(void)
 				}
 			}
 			return;
-		case 7:
+		case 7: /* set working directory for the new terminal window */
 			osc7parsecwd((const char *)strescseq.args[1]);
 			return;
-		case 8:
+		case 8: /* hyperlink */
 			if (!disablehyperlinks && term.hyperlinks->capacity > 0)
 				parsehyperlink(narg-1, strescseq.args[1], strescseq.args[2]);
 			return;
-		case 10:
-		case 11:
-		case 12:
+		case 10: /* set dynamic VT100 text foreground color */
+		case 11: /* set dynamic VT100 text background color */
+		case 12: /* set dynamic text cursor color */
 			if (narg < 2)
 				break;
 			p = strescseq.args[1];
@@ -2573,9 +2573,9 @@ strhandle(void)
 				}
 			}
 			return;
-		case 110:
-		case 111:
-		case 112:
+		case 110: /* reset dynamic VT100 text foreground color */
+		case 111: /* reset dynamic VT100 text background color */
+		case 112: /* reset dynamic text cursor color */
 			if ((j = par - 110) < 0 || j >= LEN(osc_table))
 				break; /* shouldn't be possible */
 			if (xsetcolorname(osc_table[j].idx, NULL)) {
