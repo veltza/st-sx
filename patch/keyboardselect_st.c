@@ -1515,18 +1515,23 @@ kbds_drawcursor(void)
 int
 kbds_getcursor(int *cx, int *cy)
 {
-	if (kbds_in_use) {
+	if (!kbds_in_use)
+		return 0;
+
+	if (kbds_issearchmode()) {
+		*cx = kbds_searchobj.cx + 1;
+		*cy = term.row - 1;
+	} else {
 		*cx = kbds_c.x;
 		*cy = kbds_c.y;
-		return 1;
 	}
-	return 0;
+	return 1;
 }
 
 int
 kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 {
-	int i, q, dy, ox, oy, eol, islast, prevscr, count;
+	int i, q, dy, ox, oy, eol, islast, prevscr, count, charsize;
 	int alt = IS_SET(MODE_ALTSCREEN);
 	Line line;
 	Rune u;
@@ -1717,8 +1722,10 @@ kbds_keyboardhandler(KeySym ksym, char *buf, int len, int forcequit)
 			kbds_searchobj.cx = kbds_searchobj.len;
 			break;
 		default:
-			if (len > 0) {
-				utf8decode(buf, &u, len);
+			for (i = 0; i < len; i += charsize) {
+				charsize = utf8decode(buf + i, &u, len - i);
+				if (charsize == 0)
+					break;
 				kbds_insertchar(u);
 			}
 			break;

@@ -3788,7 +3788,7 @@ drawregion(int x1, int y1, int x2, int y2)
 void
 draw(void)
 {
-	int cx = term.c.x, ocx = term.ocx, ocy = term.ocy;
+	int cx = term.c.x, cy;
 
 	if (!xstartdraw())
 		return;
@@ -3811,7 +3811,10 @@ draw(void)
 	term.ocx = cx;
 	term.ocy = term.c.y;
 	xfinishdraw();
-	if (ocx != term.ocx || ocy != term.ocy)
+
+	if (kbds_getcursor(&cx, &cy))
+		xximspot(cx, cy);
+	else
 		xximspot(term.ocx, term.ocy);
 }
 

@@ -2627,9 +2627,12 @@ drawscrollbackindicator(void)
 void
 xximspot(int x, int y)
 {
-	if (xw.ime.xic == NULL)
+	static int ox = -1, oy = -1;
+
+	if (xw.ime.xic == NULL || (x == ox && y == oy))
 		return;
 
+	ox = x, oy = y;
 	xw.ime.spot.x = borderpx + x * win.cw;
 	xw.ime.spot.y = borderpx + (y + 1) * win.ch;
 
@@ -2825,11 +2828,16 @@ kpress(XEvent *ev)
 {
 	XKeyEvent *e = &ev->xkey;
 	KeySym ksym = NoSymbol;
-	char buf[64], *customkey;
+	char *customkey;
 	int len, screen;
 	Rune c;
 	Status status;
 	Shortcut *bp;
+	static char *buf;
+	static int bufsize = 128; /* initial buffer size */
+
+	if (!buf)
+		buf = xmalloc(bufsize);
 
 	if (xw.pointerisvisible && hidecursor) {
 		int x = e->x - borderpx;
@@ -2847,11 +2855,16 @@ kpress(XEvent *ev)
 		return;
 
 	if (xw.ime.xic) {
-		len = XmbLookupString(xw.ime.xic, e, buf, sizeof buf, &ksym, &status);
-		if (status == XBufferOverflow)
+		len = XmbLookupString(xw.ime.xic, e, buf, bufsize, &ksym, &status);
+		if (status == XBufferOverflow) {
+			bufsize = len;
+			buf = xrealloc(buf, bufsize);
+			len = XmbLookupString(xw.ime.xic, e, buf, bufsize, &ksym, &status);
+		}
+		if (status == XLookupNone)
 			return;
 	} else {
-		len = XLookupString(e, buf, sizeof buf, &ksym, NULL);
+		len = XLookupString(e, buf, bufsize, &ksym, NULL);
 	}
 
 	screen = tisaltscr() ? S_ALT : S_PRI;
