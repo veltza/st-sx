@@ -49,8 +49,8 @@ typedef struct parser_context {
 	int nparams;
 	int params[DECSIXEL_PARAMS_MAX];
 	int use_private_palette;
-	sixel_color_t shared_palette[DECSIXEL_PALETTE_MAX];
-	sixel_color_t private_palette[DECSIXEL_PALETTE_MAX];
+	sixel_color_t shared_palette[DECSIXEL_PALETTE_MAX + 1];
+	sixel_color_t private_palette[DECSIXEL_PALETTE_MAX + 1];
 	sixel_image_t image;
 } sixel_state_t;
 
