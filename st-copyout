@@ -1,20 +1,29 @@
 #!/bin/sh
 # Using external pipe with st, give a dmenu prompt of recent commands,
 # allowing the user to copy the output of one.
-# xclip required for this script.
-# By Jaywalker and Luke
+# awk, dmenu, tac (or tail -r) and xclip are required for this script.
+# By Ed Morton and veltza
+# https://stackoverflow.com/a/68688237
 
-# We prefer to use GNU tools because they support UTF-8
-AWK=$(command -v gawk); [ -z "$AWK" ] && AWK=awk
-SED=$(command -v gsed); [ -z "$SED" ] && SED=sed
-TAC=$(command -v gtac); [ -z "$TAC" ] && TAC=$(command -v tac)
-[ -z "$TAC" ] && TAC="tail -r" # only works on BSD
+# We prefer to use GNU tools because they're guaranteed to work with this script
+AWK=$(command -v gawk || echo awk)
+TAC=$(command -v gtac || command -v tac || echo "tail -r")
 
-tmpfile=$(mktemp /tmp/st-cmd-output.XXXXXX)
-trap 'rm "$tmpfile"' 0 1 15
-$SED -n "w $tmpfile"
-$SED -i 's/\x0//g' "$tmpfile"
-ps1="$(grep '[^[:space:]]' "$tmpfile" | tail -n 1 | $SED 's/^[[:space:]]*//' | cut -d' ' -f1)"
-chosen="$(grep -F "$ps1" "$tmpfile" | $SED '$ d' | $TAC | dmenu -p "Copy which command's output?" -i -l 10 | $SED 's/[^^]/[&]/g; s/\^/\\^/g')"
-eps1="$(echo "$ps1" | $SED 's/[^^]/[&]/g; s/\^/\\^/g')"
-$AWK "/^$chosen$/{p=1;print;next} p&&/$eps1/{p=0};p" "$tmpfile" | xclip -selection clipboard
+tmpfile=$(mktemp /tmp/st-cmd-output.XXXXXX) || exit
+
+trap 'rm -f "$tmpfile"; exit' 0 1 15
+
+tr -d '\0' > "$tmpfile"
+
+ps1=$($AWK 'NF{line=$1} END{gsub(/\\/, "\\\\", line); print line}' "$tmpfile")
+
+chosen=$($TAC "$tmpfile" \
+    | $AWK -v ps1="$ps1" 'index($0,ps1) && c++' \
+    | dmenu -p "Copy which command's output?" -i -l 10 \
+    | $AWK '{gsub(/\\/, "\\\\"); print}')
+
+[ -z "$chosen" ] && exit
+
+$AWK -v chosen="$chosen" -v ps1="$ps1" \
+    '$0==chosen{p=1;print;next} p&&index($0,ps1){p=0};p' "$tmpfile" \
+    | xclip -selection clipboard
