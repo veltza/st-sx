@@ -75,8 +75,8 @@ enum extra_attribute {
 	EXT_UNDERLINE_COLOR_RGB     = 1 << 24,
 	EXT_UNDERLINE_COLOR_PALETTE = 1 << 25,
 	/* bits 26 to 28 are reserved for underline type */
-	EXT_FTCS_PROMPT_PS1         = 1 << 29, /* OSC "133;A"     - start of initial shell prompt */
-	EXT_FTCS_PROMPT_PS2         = 1 << 30, /* OSC "133;A;k=s" - start of secondary shell prompt */
+	EXT_FTCS_PROMPT1_START      = 1 << 29, /* OSC "133;A" - start of shell prompt PS1 */
+	EXT_FTCS_PROMPT1_INPUT      = 1 << 30, /* OSC "133;B" - start of prompt input PS1 */
 	EXT_SIXEL                   = 1 << 31
 };
 

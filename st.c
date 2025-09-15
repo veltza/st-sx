@@ -79,7 +79,8 @@ enum cursor_movement {
 enum cursor_state {
 	CURSOR_DEFAULT  = 0,
 	CURSOR_WRAPNEXT = 1,
-	CURSOR_ORIGIN   = 2
+	CURSOR_ORIGIN   = 2,
+	CURSOR_PROMPT2  = 4
 };
 
 enum charset {
@@ -1547,6 +1548,7 @@ tsetchar(Rune u, const Glyph *attr, int x, int y)
 		"⎻", "─", "⎼", "⎽", "├", "┤", "┴", "┬", /* p - w */
 		"│", "≤", "≥", "π", "≠", "£", "·", /* x - ~ */
 	};
+	uint32_t ftcs;
 
 	/*
 	 * The table is proudly stolen from rxvt.
@@ -1567,10 +1569,12 @@ tsetchar(Rune u, const Glyph *attr, int x, int y)
 		}
 	}
 
+	ftcs = term.line[y][x].extra & (EXT_FTCS_PROMPT1_START | EXT_FTCS_PROMPT1_INPUT);
 	term.dirty[y] = 1;
 	term.line[y][x] = *attr;
 	term.line[y][x].u = u;
 	term.line[y][x].mode |= ATTR_SET;
+	term.line[y][x].extra |= ftcs;
 
 	if (isboxdraw(u))
 		term.line[y][x].mode |= ATTR_BOXDRAW;
@@ -1781,7 +1785,7 @@ tsetattr(const int *attr, int l)
 				ATTR_STRUCK     );
 			term.c.attr.fg = defaultfg;
 			term.c.attr.bg = defaultbg;
-			term.c.attr.extra &= (EXT_FTCS_PROMPT_PS1 | EXT_FTCS_PROMPT_PS2);
+			term.c.attr.extra = 0;
 			break;
 		case 1:
 			term.c.attr.mode |= ATTR_BOLD;
@@ -2473,7 +2477,7 @@ void
 strhandle(void)
 {
 	char *p = NULL, *dec;
-	int i, j, narg, par, dirty;
+	int i, j, x, narg, par, dirty, prompt;
 	const struct { int idx; char *str; } osc_table[] = {
 		{ defaultfg, "foreground" },
 		{ defaultbg, "background" },
@@ -2587,18 +2591,32 @@ strhandle(void)
 		case 133: /* semantic prompts */
 			if (narg < 2)
 				break;
+			for (prompt = 0, i = 2; i < narg; i++) {
+				p = strescseq.args[i];
+				if (p[0] == 'k' && p[1] == '=')
+					prompt = (p[2] == 'i' && !p[3]) ? 1 : 2;
+			}
 			switch (*strescseq.args[1]) {
 			case 'A':
-				/* start of shell prompt */
-				term.c.attr.extra |= EXT_FTCS_PROMPT_PS1;
-				for (i = 2; i < narg; i++) {
-					p = strescseq.args[i];
-					if (!strcmp(p, "k=s") || !strcmp(p, "k=c")) {
-						term.c.attr.extra &= ~EXT_FTCS_PROMPT_PS1;
-						term.c.attr.extra |= EXT_FTCS_PROMPT_PS2;
-						break;
-					}
+			case 'P':
+				/* start of shell prompt PS1 */
+				if (prompt == 2) {
+					term.c.state |= CURSOR_PROMPT2;
+					break;
 				}
+				term.line[term.c.y][term.c.x].extra |= EXT_FTCS_PROMPT1_START;
+				term.c.state &= ~CURSOR_PROMPT2;
+				break;
+			case 'B':
+				/* start of prompt input PS1 */
+				if (prompt == 2 || (prompt == 0 && (term.c.state & CURSOR_PROMPT2)))
+					break;
+				/* we store the input flag in the previous character
+				 * because otherwise shell might erase it */
+				x = (term.c.state & CURSOR_WRAPNEXT) ? term.c.x : MAX(term.c.x - 1, 0);
+				if (x > 0 && (term.line[term.c.y][x].mode & ATTR_WDUMMY))
+					x--;
+				term.line[term.c.y][x].extra |= EXT_FTCS_PROMPT1_INPUT;
 				break;
 			default:
 				/* fprintf(stderr, "erresc: unknown OSC 133 argument: %c\n", *strescseq.args[1]); */
@@ -3360,7 +3378,6 @@ check_control_code:
 	}
 
 	tsetchar(u, &term.c.attr, term.c.x, term.c.y);
-	term.c.attr.extra &= ~(EXT_FTCS_PROMPT_PS1 | EXT_FTCS_PROMPT_PS2);
 	term.lastc = u;
 
 	if (width == 2) {
