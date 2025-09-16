@@ -1680,8 +1680,10 @@ tinsertblank(int n)
 void
 tinsertblankline(int n)
 {
-	if (BETWEEN(term.c.y, term.top, term.bot))
+	if (BETWEEN(term.c.y, term.top, term.bot)) {
 		tscrolldown(term.c.y, n);
+		tmoveto(0, term.c.y);
+	}
 }
 
 void
@@ -1698,8 +1700,10 @@ tdeleteimages(void)
 void
 tdeleteline(int n)
 {
-	if (BETWEEN(term.c.y, term.top, term.bot))
+	if (BETWEEN(term.c.y, term.top, term.bot)) {
 		tscrollup(term.c.y, term.bot, n, SCROLL_NOSAVEHIST);
+		tmoveto(0, term.c.y);
+	}
 }
 
 int32_t
@@ -2246,7 +2250,6 @@ csihandle(void)
 	case 'L': /* IL -- Insert <n> blank lines */
 		DEFAULT(csiescseq.arg[0], 1);
 		tinsertblankline(csiescseq.arg[0]);
-		tmoveto(0, term.c.y);
 		break;
 	case 'l': /* RM -- Reset Mode */
 		tsetmode(csiescseq.priv, 0, csiescseq.arg, csiescseq.narg);
@@ -2254,7 +2257,6 @@ csihandle(void)
 	case 'M': /* DL -- Delete <n> lines */
 		DEFAULT(csiescseq.arg[0], 1);
 		tdeleteline(csiescseq.arg[0]);
-		tmoveto(0, term.c.y);
 		break;
 	case 'X': /* ECH -- Erase <n> char */
 		if (csiescseq.arg[0] < 0)
