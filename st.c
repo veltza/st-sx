@@ -1167,6 +1167,7 @@ tcursor(int mode)
 	} else if (mode == CURSOR_LOAD) {
 		term.c = c[alt];
 		tmoveto(c[alt].x, c[alt].y);
+		term.c.state = c[alt].state;
 	}
 }
 
