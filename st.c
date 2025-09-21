@@ -1638,9 +1638,13 @@ tdeletechar(int n)
 	                   https://stackoverflow.com/questions/29844298 */
 		memmove(&line[dst], &line[src], size * sizeof(Glyph));
 	}
+	for (dst += size; dst < term.col; dst++)
+		tclearglyph(&line[dst], 1);
+
 	if (regionselected(term.c.x, term.c.y+term.scr, term.col-1, term.c.y+term.scr))
 		selclear();
-	tclearregion(dst + size, term.c.y, term.col - 1, term.c.y, 1);
+
+	term.dirty[term.c.y] = 1;
 	term.c.state &= ~CURSOR_WRAPNEXT;
 }
 
@@ -1669,14 +1673,19 @@ tinsertblank(int n)
 	if (size > 0) { /* otherwise dst would point beyond the array */
 		memmove(&line[dst], &line[src], size * sizeof(Glyph));
 	}
-	if (regionselected(term.c.x, term.c.y+term.scr, term.col-1, term.c.y+term.scr))
-		selclear();
-	tclearregion(src, term.c.y, dst - 1, term.c.y, 1);
+	do {
+		tclearglyph(&line[src], 1);
+	} while (++src < dst);
 
 	if (line[term.col-1].mode & ATTR_WIDE) {
 		line[term.col-1].u = ' ';
 		line[term.col-1].mode &= ~ATTR_WIDE;
 	}
+
+	if (regionselected(term.c.x, term.c.y+term.scr, term.col-1, term.c.y+term.scr))
+		selclear();
+
+	term.dirty[term.c.y] = 1;
 	term.c.state &= ~CURSOR_WRAPNEXT;
 }
 
@@ -3386,10 +3395,8 @@ check_control_code:
 		gp = &term.line[term.c.y][term.c.x];
 	}
 
-	if (IS_SET(MODE_INSERT) && term.c.x+width < term.col) {
-		memmove(gp+width, gp, (term.col - term.c.x - width) * sizeof(Glyph));
-		gp->mode &= ~ATTR_WIDE;
-	}
+	if (IS_SET(MODE_INSERT) && term.c.x+width < term.col)
+		tinsertblank(width);
 
 	if (term.c.x+width > term.col) {
 		if (IS_SET(MODE_WRAP)) {
