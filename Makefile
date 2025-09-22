@@ -7,6 +7,10 @@ include config.mk
 SRC = st.c x.c $(LIGATURES_C) $(SIXEL_C)
 OBJ = $(SRC:.c=.o)
 
+COMMIT = $$(git rev-parse --short HEAD 2>/dev/null)
+PROJECT = st-sx
+DISTNAME = $(PROJECT)-$(VERSION)-$(COMMIT)
+
 STLDFLAGS += -lpcre2-32
 
 all: st
@@ -29,15 +33,17 @@ st: $(OBJ)
 	$(CC) -o $@ $(OBJ) $(STLDFLAGS)
 
 clean:
-	rm -f st $(OBJ) st-$(VERSION).tar.gz
+	rm -f st $(OBJ) $(PROJECT)*.tar.gz
 
 dist: clean
-	mkdir -p st-$(VERSION)
-	cp -R FAQ LEGACY TODO LICENSE Makefile README config.mk\
-		config.def.h st.info st.1 arg.h st.h win.h $(LIGATURES_H) $(SRC)\
-		st-$(VERSION)
-	tar -cf - st-$(VERSION) | gzip > st-$(VERSION).tar.gz
-	rm -rf st-$(VERSION)
+	mkdir -p $(DISTNAME)
+	cp -R FAQ LEGACY TODO LICENSE Makefile README README.md\
+		keyboardselect.txt xresources-example st-copyout st.desktop\
+		config.mk config.def.h st.info st.1 arg.h st.h win.h st.c x.c\
+		hb.* sixel.* sixel_hls.* patch\
+		$(DISTNAME)
+	tar -cf - $(DISTNAME) | gzip > $(DISTNAME).tar.gz
+	rm -rf $(DISTNAME)
 
 install: st
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
