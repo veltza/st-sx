@@ -1625,6 +1625,9 @@ tdeletechar(int n)
 	size = term.col - src;
 	line = term.line[term.c.y];
 
+	line[term.col-1].mode &= ~ATTR_WRAP;
+	line[term.col-2].mode &= ~ATTR_WRAP;
+
 	if (src < term.col && (line[src].mode & ATTR_WDUMMY)) {
 		line[src].u = ' ';
 		line[src].mode &= ~ATTR_WDUMMY;
