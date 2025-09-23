@@ -3045,6 +3045,14 @@ initsixel(void)
 	int bgcolor, transparent;
 	unsigned char r, g, b, a = 255;
 
+	/* If we are already in sixel mode, it means that we have not yet
+	 * finished the current sixel. So we need to do that first before we
+	 * can start the new sixel. */
+	if (IS_SET(MODE_SIXEL)) {
+		createsixel();
+		term.mode &= ~MODE_SIXEL;
+	}
+
 	transparent = (csiescseq.narg >= 2 && csiescseq.arg[1] == 1);
 	if (IS_TRUECOL(term.c.attr.bg)) {
 		r = term.c.attr.bg >> 16 & 255;
