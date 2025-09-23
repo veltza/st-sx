@@ -506,6 +506,13 @@ sixel_parser_parse(sixel_state_t *st, const unsigned char *p, size_t len)
 				st->param = 0;
 				p++;
 				break;
+			case ' ':
+			case '\t':
+			case '\r':
+			case '\n':
+				/* ignore whitespace */
+				p++;
+				break;
 			default:
 				if (st->nparams < DECSIXEL_PARAMS_MAX)
 					st->params[st->nparams++] = st->param;
@@ -568,6 +575,13 @@ sixel_parser_parse(sixel_state_t *st, const unsigned char *p, size_t len)
 				st->param = MIN(st->param, DECSIXEL_PARAMVALUE_MAX);
 				p++;
 				break;
+			case ' ':
+			case '\t':
+			case '\r':
+			case '\n':
+				/* ignore whitespace */
+				p++;
+				break;
 			default:
 				st->repeat_count = MAX(st->param, 1);
 				st->state = PS_DECSIXEL;
@@ -601,6 +615,13 @@ sixel_parser_parse(sixel_state_t *st, const unsigned char *p, size_t len)
 				if (st->nparams < DECSIXEL_PARAMS_MAX)
 					st->params[st->nparams++] = st->param;
 				st->param = 0;
+				p++;
+				break;
+			case ' ':
+			case '\t':
+			case '\r':
+			case '\n':
+				/* ignore whitespace */
 				p++;
 				break;
 			default:
