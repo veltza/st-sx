@@ -1210,7 +1210,7 @@ treset(void)
 	tfulldirt();
 
 	MODBIT(term.mode, 1, MODE_SIXEL_PRIVATE_PALETTE);
-	sixel_parser_set_default_color(&sixel_st, 0);
+	sixel_parser_set_default_colors(&sixel_st);
 }
 
 void
@@ -3065,7 +3065,7 @@ initsixel(void)
 	}
 	bgcolor = a << 24 | r << 16 | g << 8 | b;
 	if (sixel_parser_init(&sixel_st, transparent, bgcolor,
-	                      IS_SET(MODE_SIXEL_PRIVATE_PALETTE), win.cw, win.ch) != 0)
+	                      IS_SET(MODE_SIXEL_PRIVATE_PALETTE)) != 0)
 		perror("sixel_parser_init() failed");
 	term.mode |= MODE_SIXEL;
 }

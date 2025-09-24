@@ -15,8 +15,6 @@ typedef struct sixel_image_buffer {
 	int width;
 	int height;
 	sixel_color_t *palette;
-	sixel_color_no_t ncolors;
-	int palette_modified;
 	int use_private_palette;
 } sixel_image_t;
 
@@ -42,9 +40,6 @@ typedef struct parser_context {
 	int transparent;
 	int repeat_count;
 	int color_index;
-	int bgindex;
-	int grid_width;
-	int grid_height;
 	int param;
 	int nparams;
 	int params[DECSIXEL_PARAMS_MAX];
@@ -56,9 +51,9 @@ typedef struct parser_context {
 
 void scroll_images(int n);
 void delete_image(ImageList *im);
-int sixel_parser_init(sixel_state_t *st, int transparent, sixel_color_t bgcolor, unsigned char use_private_palette, int cell_width, int cell_height);
+int sixel_parser_init(sixel_state_t *st, int transparent, sixel_color_t bgcolor, unsigned char use_private_palette);
 int sixel_parser_parse(sixel_state_t *st, const unsigned char *p, size_t len);
-int sixel_parser_set_default_color(sixel_state_t *st, int private_palette);
+void sixel_parser_set_default_colors(sixel_state_t *st);
 int sixel_parser_finalize(sixel_state_t *st, ImageList **newimages, int cx, int cy, int cw, int ch);
 void sixel_parser_deinit(sixel_state_t *st);
 Pixmap sixel_create_clipmask(char *pixels, int width, int height);
