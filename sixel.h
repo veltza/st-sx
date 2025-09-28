@@ -33,10 +33,11 @@ typedef struct parser_context {
 	int pos_y;
 	int max_x;
 	int max_y;
-	int attributed_pan;
-	int attributed_pad;
-	int attributed_ph;
-	int attributed_pv;
+	int pan;
+	int pad;
+	int ph;
+	int pv;
+	int sixel_height;
 	int transparent;
 	int repeat_count;
 	int color_index;
@@ -51,7 +52,7 @@ typedef struct parser_context {
 
 void scroll_images(int n);
 void delete_image(ImageList *im);
-int sixel_parser_init(sixel_state_t *st, int transparent, sixel_color_t bgcolor, unsigned char use_private_palette);
+int sixel_parser_init(sixel_state_t *st, int par, int transparent, sixel_color_t bgcolor, unsigned char use_private_palette);
 int sixel_parser_parse(sixel_state_t *st, const unsigned char *p, size_t len);
 void sixel_parser_set_default_colors(sixel_state_t *st);
 int sixel_parser_finalize(sixel_state_t *st, ImageList **newimages, int cx, int cy, int cw, int ch);
