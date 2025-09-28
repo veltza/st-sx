@@ -3304,8 +3304,10 @@ tputc(Rune u)
 			goto check_control_code;
 		}
 
-		if (term.esc & ESC_DCS)
+		if (term.esc & ESC_DCS) {
+			control = 0;
 			goto check_control_code;
+		}
 
 		if (strescseq.len+UTF_SIZ >= strescseq.siz) {
 			/*
