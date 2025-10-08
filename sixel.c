@@ -286,6 +286,240 @@ draw_scaled_sixel(sixel_color_no_t *data,
 	return (n + 1) * pan - 1;
 }
 
+static inline void
+draw_sixel(sixel_state_t *st, int bits)
+{
+	sixel_image_t *image = &st->image;
+	sixel_color_no_t *data;
+	int n, sx, sy;
+	int max_x = st->pos_x + st->repeat_count;
+	int max_y = st->pos_y + st->sixel_height;
+
+	if (image->width < max_x || image->height < max_y) {
+		sx = MAX(image->width, 64);
+		sy = MAX(image->height, 60);
+		while (sx < max_x)
+			sx *= 2;
+		while (sy < max_y)
+			sy *= 2;
+		if (image_buffer_resize(image, sx, sy) < 0) {
+			perror("sixel: draw_sixel() failed");
+			st->state = PS_ERROR;
+			return;
+		}
+		if (image->height < max_y) {
+			st->pos_x += st->repeat_count;
+			st->pos_x = MIN(st->pos_x, image->width);
+			return;
+		}
+	}
+
+	if (st->pos_x + st->repeat_count > image->width)
+		st->repeat_count = image->width - st->pos_x;
+
+	if (bits && st->repeat_count > 0) {
+		data = image->data + image->width * st->pos_y + st->pos_x;
+		if (st->pan == 1) {
+			n = draw_unscaled_sixel(data, image->width, bits,
+			                        st->repeat_count, st->color_index);
+		} else {
+			n = draw_scaled_sixel(data, image->width, bits,
+			                      st->repeat_count, st->color_index, st->pan);
+		}
+		if (st->max_x < (st->pos_x + st->repeat_count - 1))
+			st->max_x = st->pos_x + st->repeat_count - 1;
+		if (st->max_y < (st->pos_y + n))
+			st->max_y = st->pos_y + n;
+	}
+	st->pos_x += st->repeat_count;
+	st->repeat_count = st->pad;
+}
+
+static inline void
+decgra(sixel_state_t *st,
+       const unsigned char **p,
+       const unsigned char *p2)
+{
+	sixel_image_t *image = &st->image;
+	int sx, sy, max_height;
+
+	do {
+		switch (**p) {
+		case '\x1b':
+			st->state = PS_ESC;
+			return;
+		case '0':
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '6':
+		case '7':
+		case '8':
+		case '9':
+			parse_number(&st->param, **p);
+			break;
+		case ';':
+			save_param(st, &st->param);
+			break;
+		case ' ':
+		case '\t':
+		case '\r':
+		case '\n':
+			/* ignore whitespace */
+			break;
+		default:
+			save_param(st, &st->param);
+			if (st->nparams > 0 && st->params[0] > 0)
+				st->pan = st->params[0];
+			if (st->nparams > 1 && st->params[1] > 0)
+				st->pad = st->params[1];
+			if (st->nparams > 2 && st->params[2] > 0)
+				st->ph = MAX(st->ph, st->params[2]);
+			if (st->nparams > 3 && st->params[3] > 0)
+				st->pv = MAX(st->pv, st->pos_y + st->params[3]);
+
+			/* round pixel aspect ratio up to nearest integer */
+			if (st->pan > st->pad && st->pad > 0) {
+				st->pan = (st->pan + st->pad - 1) / st->pad;
+				st->pan = MAX(st->pan, 1);
+				st->pad = 1;
+			} else if (st->pad > st->pan && st->pan > 0) {
+				st->pad = (st->pad + st->pan - 1) / st->pan;
+				st->pad = MAX(st->pad, 1);
+				st->pan = 1;
+			} else {
+				st->pan = st->pad = 1;
+			}
+
+			st->repeat_count = st->pad;
+			st->sixel_height = st->pan * 6;
+			max_height = MAX(st->pv, st->sixel_height);
+
+			if (image->width < st->ph || image->height < max_height) {
+				sx = MAX(image->width, st->ph);
+				sy = MAX(image->height, max_height);
+
+				/* the height of the image buffer must be divisible by
+				 * sixel height to avoid unnecessary resizing of the
+				 * buffer when rendering the last sixel line */
+				sy = sy + st->sixel_height - 1;
+				sy = sy / st->sixel_height * st->sixel_height;
+
+				if (image_buffer_resize(image, sx, sy) < 0) {
+					perror("sixel: decgra() failed");
+					st->state = PS_ERROR;
+					return;
+				}
+			}
+			st->nparams = 0;
+			st->state = PS_DECSIXEL;
+			return;
+		}
+	} while (++(*p) < p2);
+}
+
+static inline void
+decgri(sixel_state_t *st,
+       const unsigned char **p,
+       const unsigned char *p2)
+{
+	do {
+		switch (**p) {
+		case '\x1b':
+			st->state = PS_ESC;
+			return;
+		case '0':
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '6':
+		case '7':
+		case '8':
+		case '9':
+			parse_number(&st->param, **p);
+			break;
+		case ' ':
+		case '\t':
+		case '\r':
+		case '\n':
+			/* ignore whitespace */
+			break;
+		default:
+			st->repeat_count = st->pad * MAX(st->param, 1);
+			st->param = 0;
+			st->nparams = 0;
+			st->state = PS_DECSIXEL;
+			return;
+		}
+	} while (++(*p) < p2);
+}
+
+static inline void
+decgci(sixel_state_t *st,
+       const unsigned char **p,
+       const unsigned char *p2)
+{
+	sixel_image_t *image = &st->image;
+
+	do {
+		switch (**p) {
+		case '\x1b':
+			st->state = PS_ESC;
+			return;
+		case '0':
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '6':
+		case '7':
+		case '8':
+		case '9':
+			parse_number(&st->param, **p);
+			break;
+		case ';':
+			save_param(st, &st->param);
+			break;
+		case ' ':
+		case '\t':
+		case '\r':
+		case '\n':
+			/* ignore whitespace */
+			break;
+		default:
+			save_param(st, &st->param);
+			if (st->nparams > 0) {
+				st->color_index = st->params[0] + 1; /* offset by 1 (background) */
+				LIMIT(st->color_index, 1, DECSIXEL_PALETTE_MAX);
+			}
+			if (st->nparams > 4) {
+				if (st->params[1] == 1) {
+					/* HLS */
+					st->params[2] = MIN(st->params[2], 360);
+					st->params[3] = MIN(st->params[3], 100);
+					st->params[4] = MIN(st->params[4], 100);
+					image->palette[st->color_index]
+					    = hls_to_rgb(st->params[2], st->params[3], st->params[4]);
+				} else if (st->params[1] == 2) {
+					/* RGB */
+					st->params[2] = MIN(st->params[2], 100);
+					st->params[3] = MIN(st->params[3], 100);
+					st->params[4] = MIN(st->params[4], 100);
+					image->palette[st->color_index]
+					    = SIXEL_XRGB(st->params[2], st->params[3], st->params[4]);
+				}
+			}
+			st->state = PS_DECSIXEL;
+			return;
+		}
+	} while (++(*p) < p2);
+}
+
 int
 sixel_parser_init(sixel_state_t *st,
                   int par,
@@ -293,7 +527,8 @@ sixel_parser_init(sixel_state_t *st,
                   sixel_color_t bgcolor,
                   unsigned char use_private_palette)
 {
-	st->state = PS_DECSIXEL;
+	int status;
+
 	st->pos_x = 0;
 	st->pos_y = 0;
 	st->max_x = 0;
@@ -333,9 +568,11 @@ sixel_parser_init(sixel_state_t *st,
 	st->sixel_height = st->pan * 6;
 
 	/* buffer initialization */
-	return sixel_image_init(&st->image, 0, 0, transparent ? 0 : bgcolor,
-	                        st->use_private_palette,
-	                        st->use_private_palette ? st->private_palette : st->shared_palette);
+	status = sixel_image_init(&st->image, 0, 0, transparent ? 0 : bgcolor,
+	                          st->use_private_palette,
+	                          st->use_private_palette ? st->private_palette : st->shared_palette);
+	st->state = (status < 0) ? PS_ERROR : PS_DECSIXEL;
+	return status;
 }
 
 void
@@ -356,7 +593,7 @@ sixel_parser_finalize(sixel_state_t *st, ImageList **newimages, int cx, int cy, 
 	char trans;
 	ImageList *im, *next, *tail;
 
-	if (!image->data)
+	if (st->state == PS_ERROR || !image->data)
 		return -1;
 
 	if (++st->max_x < st->ph)
@@ -425,10 +662,6 @@ sixel_parser_finalize(sixel_state_t *st, ImageList **newimages, int cx, int cy, 
 int
 sixel_parser_parse(sixel_state_t *st, const unsigned char *p, size_t len)
 {
-	int n, sx, sy;
-	int bits, max_x, max_y, max_height;
-	sixel_image_t *image = &st->image;
-	sixel_color_no_t *data;
 	const unsigned char *p0 = p, *p2 = p + len;
 
 	while (p < p2) {
@@ -471,55 +704,8 @@ sixel_parser_parse(sixel_state_t *st, const unsigned char *p, size_t len)
 				p++;
 				break;
 			default:
-				if (*p < '?' || *p > '~') {
-					p++;
-					break;
-				}
-
-				/* sixel characters: '?' to '~' */
-				bits = *p - '?';
-				max_x = st->pos_x + st->repeat_count;
-				max_y = st->pos_y + st->sixel_height;
-				if (image->width < max_x || image->height < max_y) {
-					sx = MAX(image->width, 64);
-					sy = MAX(image->height, 60);
-					while (sx < max_x)
-						sx *= 2;
-					while (sy < max_y)
-						sy *= 2;
-					if (image_buffer_resize(image, sx, sy) < 0) {
-						perror("sixel_parser_parse() failed");
-						st->state = PS_ERROR;
-						p++;
-						break;
-					}
-					if (image->height < max_y) {
-						st->pos_x += st->repeat_count;
-						st->pos_x = MIN(st->pos_x, image->width);
-						p++;
-						break;
-					}
-				}
-
-				if (st->pos_x + st->repeat_count > image->width)
-					st->repeat_count = image->width - st->pos_x;
-
-				if (bits && st->repeat_count > 0) {
-					data = image->data + image->width * st->pos_y + st->pos_x;
-					if (st->pan == 1) {
-						n = draw_unscaled_sixel(data, image->width, bits,
-						                        st->repeat_count, st->color_index);
-					} else {
-						n = draw_scaled_sixel(data, image->width, bits,
-						                      st->repeat_count, st->color_index, st->pan);
-					}
-					if (st->max_x < (st->pos_x + st->repeat_count - 1))
-						st->max_x = st->pos_x + st->repeat_count - 1;
-					if (st->max_y < (st->pos_y + n))
-						st->max_y = st->pos_y + n;
-				}
-				st->pos_x += st->repeat_count;
-				st->repeat_count = st->pad;
+				if (*p >= '?' && *p <= '~')
+					draw_sixel(st, *p - '?');
 				p++;
 				break;
 			}
@@ -527,174 +713,17 @@ sixel_parser_parse(sixel_state_t *st, const unsigned char *p, size_t len)
 
 		case PS_DECGRA:
 			/* DECGRA Set Raster Attributes " Pan; Pad; Ph; Pv */
-			switch (*p) {
-			case '\x1b':
-				st->state = PS_ESC;
-				break;
-			case '0':
-			case '1':
-			case '2':
-			case '3':
-			case '4':
-			case '5':
-			case '6':
-			case '7':
-			case '8':
-			case '9':
-				parse_number(&st->param, *p);
-				p++;
-				break;
-			case ';':
-				save_param(st, &st->param);
-				p++;
-				break;
-			case ' ':
-			case '\t':
-			case '\r':
-			case '\n':
-				/* ignore whitespace */
-				p++;
-				break;
-			default:
-				save_param(st, &st->param);
-				if (st->nparams > 0 && st->params[0] > 0)
-					st->pan = st->params[0];
-				if (st->nparams > 1 && st->params[1] > 0)
-					st->pad = st->params[1];
-				if (st->nparams > 2 && st->params[2] > 0)
-					st->ph = MAX(st->ph, st->params[2]);
-				if (st->nparams > 3 && st->params[3] > 0)
-					st->pv = MAX(st->pv, st->pos_y + st->params[3]);
-
-				/* round pixel aspect ratio up to nearest integer */
-				if (st->pan > st->pad && st->pad > 0) {
-					st->pan = (st->pan + st->pad - 1) / st->pad;
-					st->pan = MAX(st->pan, 1);
-					st->pad = 1;
-				} else if (st->pad > st->pan && st->pan > 0) {
-					st->pad = (st->pad + st->pan - 1) / st->pan;
-					st->pad = MAX(st->pad, 1);
-					st->pan = 1;
-				} else {
-					st->pan = st->pad = 1;
-				}
-
-				st->repeat_count = st->pad;
-				st->sixel_height = st->pan * 6;
-				max_height = MAX(st->pv, st->sixel_height);
-
-				if (image->width < st->ph || image->height < max_height) {
-					sx = MAX(image->width, st->ph);
-					sy = MAX(image->height, max_height);
-
-					/* the height of the image buffer must be divisible by
-					 * sixel height to avoid unnecessary resizing of the
-					 * buffer when rendering the last sixel line */
-					sy = sy + st->sixel_height - 1;
-					sy = sy / st->sixel_height * st->sixel_height;
-
-					if (image_buffer_resize(image, sx, sy) < 0) {
-						perror("sixel_parser_parse() failed");
-						st->state = PS_ERROR;
-						break;
-					}
-				}
-				st->nparams = 0;
-				st->state = PS_DECSIXEL;
-			}
+			decgra(st, &p, p2);
 			break;
 
 		case PS_DECGRI:
 			/* DECGRI Graphics Repeat Introducer ! Pn Ch */
-			switch (*p) {
-			case '\x1b':
-				st->state = PS_ESC;
-				break;
-			case '0':
-			case '1':
-			case '2':
-			case '3':
-			case '4':
-			case '5':
-			case '6':
-			case '7':
-			case '8':
-			case '9':
-				parse_number(&st->param, *p);
-				p++;
-				break;
-			case ' ':
-			case '\t':
-			case '\r':
-			case '\n':
-				/* ignore whitespace */
-				p++;
-				break;
-			default:
-				st->repeat_count = st->pad * MAX(st->param, 1);
-				st->param = 0;
-				st->nparams = 0;
-				st->state = PS_DECSIXEL;
-				break;
-			}
+			decgri(st, &p, p2);
 			break;
 
 		case PS_DECGCI:
 			/* DECGCI Graphics Color Introducer # Pc; Pu; Px; Py; Pz */
-			switch (*p) {
-			case '\x1b':
-				st->state = PS_ESC;
-				break;
-			case '0':
-			case '1':
-			case '2':
-			case '3':
-			case '4':
-			case '5':
-			case '6':
-			case '7':
-			case '8':
-			case '9':
-				parse_number(&st->param, *p);
-				p++;
-				break;
-			case ';':
-				save_param(st, &st->param);
-				p++;
-				break;
-			case ' ':
-			case '\t':
-			case '\r':
-			case '\n':
-				/* ignore whitespace */
-				p++;
-				break;
-			default:
-				save_param(st, &st->param);
-				if (st->nparams > 0) {
-					st->color_index = st->params[0] + 1; /* offset by 1 (background) */
-					LIMIT(st->color_index, 1, DECSIXEL_PALETTE_MAX);
-				}
-				if (st->nparams > 4) {
-					if (st->params[1] == 1) {
-						/* HLS */
-						st->params[2] = MIN(st->params[2], 360);
-						st->params[3] = MIN(st->params[3], 100);
-						st->params[4] = MIN(st->params[4], 100);
-						image->palette[st->color_index]
-						    = hls_to_rgb(st->params[2], st->params[3], st->params[4]);
-					} else if (st->params[1] == 2) {
-						/* RGB */
-						st->params[2] = MIN(st->params[2], 100);
-						st->params[3] = MIN(st->params[3], 100);
-						st->params[4] = MIN(st->params[4], 100);
-						image->palette[st->color_index]
-						    = SIXEL_XRGB(st->params[2], st->params[3], st->params[4]);
-					}
-				}
-				st->state = PS_DECSIXEL;
-				break;
-			}
+			decgci(st, &p, p2);
 			break;
 
 		case PS_ERROR:
@@ -705,6 +734,7 @@ sixel_parser_parse(sixel_state_t *st, const unsigned char *p, size_t len)
 			p++;
 			break;
 		default:
+			st->state = PS_ERROR;
 			break;
 		}
 	}
