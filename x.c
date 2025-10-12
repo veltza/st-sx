@@ -1561,7 +1561,7 @@ xmakeglyphfontspecs_ligatures(XftGlyphFontSpec *specs, const Glyph *glyphs, int 
 
 		/* Advance the drawing cursor if we've moved to a new cluster */
 		if (code_idx > 0 && idx != shaped.glyphs[code_idx - 1].cluster) {
-			xp += runewidth;
+			xp += runewidth * (idx - shaped.glyphs[code_idx - 1].cluster);
 			cluster_xp = xp;
 			cluster_yp = yp;
 		}
