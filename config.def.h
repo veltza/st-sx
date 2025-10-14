@@ -395,6 +395,9 @@ unsigned int hyperlinkcache_alt = 1024;
  * you have scrolled. 0: off, 1: on, 2: only when keyboard selection mode is on */
 unsigned int scrollbackindicator = 1;
 
+/* Maximum number of lines in the scrollback buffer. Limited to 100000. */
+unsigned int scrollbacklines = 2000;
+
 /*
  * Default colour and shape of the mouse cursor
  */
@@ -883,4 +886,5 @@ ResourcePref resources[] = {
 		{ "autoscrolltimeout",             INTEGER, &autoscrolltimeout },
 		{ "autoscrollacceleration",        FLOAT,   &autoscrollacceleration },
 		{ "scrollbackindicator",           INTEGER, &scrollbackindicator },
+		{ "scrollbacklines",               INTEGER, &scrollbacklines },
 };

@@ -104,7 +104,6 @@ static void visibility(XEvent *);
 static void unmap(XEvent *);
 static void kpress(XEvent *);
 static void cmessage(XEvent *);
-static void resize(XEvent *);
 static void focus(XEvent *);
 static uint buttonmask(uint);
 static void brelease(XEvent *);
@@ -128,7 +127,6 @@ static void usage(void);
 static void (*handler[LASTEvent])(XEvent *) = {
 	[KeyPress] = kpress,
 	[ClientMessage] = cmessage,
-	[ConfigureNotify] = resize,
 	[VisibilityNotify] = visibility,
 	[UnmapNotify] = unmap,
 	[Expose] = expose,
@@ -2940,16 +2938,6 @@ cmessage(XEvent *e)
 }
 
 void
-resize(XEvent *e)
-{
-
-	if (e->xconfigure.width == win.w && e->xconfigure.height == win.h)
-		return;
-
-	cresize(e->xconfigure.width, e->xconfigure.height);
-}
-
-void
 run(void)
 {
 	XEvent ev;
@@ -3015,16 +3003,22 @@ run(void)
 		if (ttyin)
 			ttyread();
 
-		xev = 0;
+		xev = 0, w = win.w, h = win.h;
 		while (XPending(xw.dpy)) {
 			XNextEvent(xw.dpy, &ev);
 			if (!xev || xev == SelectionRequest)
 				xev = ev.type;
 			if (XFilterEvent(&ev, None))
 				continue;
-			if (handler[ev.type])
+			if (ev.type == ConfigureNotify) {
+				w = ev.xconfigure.width;
+				h = ev.xconfigure.height;
+			} else if (handler[ev.type]) {
 				(handler[ev.type])(&ev);
+			}
 		}
+		if (w != win.w || h != win.h)
+			cresize(w, h);
 
 		/*
 		 * To reduce flicker and tearing, when new content or event
@@ -3235,6 +3229,7 @@ run:
 	hbcreatebuffer();
 	#endif
 	config_init(xw.dpy);
+	sethistorylimit(scrollbacklines);
 	cols = MAX(cols, 1);
 	rows = MAX(rows, 1);
 	defaultbg = MAX(LEN(colorname), 256);

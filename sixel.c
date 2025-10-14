@@ -36,7 +36,7 @@ static sixel_color_t const sixel_default_color_table[] = {
 void
 scroll_images(int n) {
 	ImageList *im, *next;
-	int top = tisaltscr() ? 0 : term.scr - HISTSIZE;
+	int top = tisaltscr() ? 0 : term.scr - term.histsize;
 
 	for (im = term.images; im; im = next) {
 		next = im->next;

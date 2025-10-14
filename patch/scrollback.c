@@ -53,3 +53,25 @@ kscrollup(const Arg* a)
 	if (n > 0)
 		restoremousecursor();
 }
+
+void increasehistorysize(int newsize, int col)
+{
+	int i, oldsize = term.histsize;
+
+	if (newsize <= term.histsize || term.histsize >= term.histlimit || col <= 0)
+		return;
+
+	while (newsize > term.histsize)
+		term.histsize += MIN_HISTSIZE;
+	term.histsize = MIN(term.histsize, term.histlimit);
+	term.hist = xrealloc(term.hist, term.histsize * sizeof(*term.hist));
+
+	for (i = oldsize; i < term.histsize; i++)
+		term.hist[i] = xmalloc(col * sizeof(Glyph));
+}
+
+void sethistorylimit(int limit)
+{
+	LIMIT(limit, 0, MAX_HISTSIZE);
+	term.histlimit = limit;
+}

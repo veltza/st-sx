@@ -154,4 +154,5 @@ St.showhyperlinkhint:       1
 St.disablehyperlinks:       0
 St.autoscrolltimeout:       200
 St.autoscrollacceleration:  1.0
+St.scrollbacklines:         2000
 St.scrollbackindicator:     1

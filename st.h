@@ -33,8 +33,6 @@
 /* linear interpolation for integers */
 #define ILERP(a, b, t, s) ((a) + ((b) - (a)) * (t) / (s))
 
-#define HISTSIZE      2048
-
 #define UNDERLINE_COLOR_BITS     (2 + 24)
 #define UNDERLINE_COLOR_MASK     ((1 << UNDERLINE_COLOR_BITS) - 1)
 #define UNDERLINE_TYPE_BITS      3
@@ -188,9 +186,11 @@ typedef struct {
 	int row;      /* nb row */
 	int col;      /* nb col */
 	Line *line;   /* screen */
-	Line hist[HISTSIZE]; /* history buffer */
-	int histi;           /* history index */
+	Line *hist;          /* history buffer */
+	int histlimit;       /* max history size */
+	int histsize;        /* current history size */
 	int histf;           /* nb history available */
+	int histi;           /* history index */
 	int scr;             /* scroll back */
 	int wrapcwidth[2];   /* used in updating WRAPNEXT when resizing */
 	int *dirty;     /* dirtyness of lines */
