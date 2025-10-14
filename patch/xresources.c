@@ -45,12 +45,11 @@ config_init(Display *dpy)
 
 	XrmInitialize();
 	resm = XResourceManagerString(dpy);
-	if (!resm)
-		return;
-
-	db = XrmGetStringDatabase(resm);
-	for (p = resources; p < resources + LEN(resources); p++)
-		resource_load(db, p->name, p->type, p->dst);
+	if (resm) {
+		db = XrmGetStringDatabase(resm);
+		for (p = resources; p < resources + LEN(resources); p++)
+			resource_load(db, p->name, p->type, p->dst);
+	}
 
 	LIMIT(cursorstyle, 1, 8);
 	xsetcursor(cursorstyle);
