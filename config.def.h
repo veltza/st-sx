@@ -3,9 +3,19 @@
 /*
  * appearance
  *
- * font: see http://freedesktop.org/software/fontconfig/fontconfig-user.html
+ * Normal font. See http://freedesktop.org/software/fontconfig/fontconfig-user.html
  */
 static char *font = "Liberation Mono:pixelsize=12:antialias=true:autohint=true";
+
+/* Bold font. Optional. Note: The font size is set automatically for this font. */
+static char *font_bold;
+
+/* Italic font. Optional. Note: The font size is set automatically for this font. */
+static char *font_italic;
+
+/* Bold italic font. Optional. Note: The font size is set automatically for this font. */
+static char *font_bolditalic;
+
 /* Spare fonts */
 static char *font2[] = {
 /*	"Inconsolata for Powerline:pixelsize=12:antialias=true:autohint=true", */
@@ -53,10 +63,6 @@ unsigned int enable_url_same_label = 0;
 
 /* use for regex search when regex is a same value*/
 unsigned int enable_regex_same_label = 1;
-
-/* Disable bold and italic fonts globally */
-unsigned int disable_bold = 0;
-unsigned int disable_italic = 0;
 
 /* Borders in pixels */
 static int borderpx = 2;
@@ -793,6 +799,9 @@ float undercurl_height_scale = 1.0;
  */
 ResourcePref resources[] = {
 		{ "font",                STRING,  &font },
+		{ "font_bold",           STRING,  &font_bold },
+		{ "font_italic",         STRING,  &font_italic },
+		{ "font_bolditalic",     STRING,  &font_bolditalic },
 		{ "font_fallback1",      STRING,  &font2_xresources[0] },
 		{ "font_fallback2",      STRING,  &font2_xresources[1] },
 		{ "font_fallback3",      STRING,  &font2_xresources[2] },
@@ -801,8 +810,6 @@ ResourcePref resources[] = {
 		{ "font_fallback6",      STRING,  &font2_xresources[5] },
 		{ "font_fallback7",      STRING,  &font2_xresources[6] },
 		{ "font_fallback8",      STRING,  &font2_xresources[7] },
-		{ "disable_bold",        INTEGER, &disable_bold },
-		{ "disable_italic",      INTEGER, &disable_italic },
 		{ "color0",              STRING,  &colorname[0] },
 		{ "color1",              STRING,  &colorname[1] },
 		{ "color2",              STRING,  &colorname[2] },

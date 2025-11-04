@@ -65,6 +65,7 @@ config_init(Display *dpy)
 		borderpx = opt_borderpx;
 		borderperc = 0;
 	}
+	usedfont = (opt_font == NULL) ? font : opt_font;
 }
 
 void
@@ -80,7 +81,7 @@ reload_config(int sig)
 
 	/* nearly like zoomabs() */
 	xunloadfonts();
-	xloadfonts(font, 0); /* font <- config_init() */
+	xloadfonts(usedfont, 0);
 	xloadsparefonts();
 	cresize(0, 0);
 	redraw();

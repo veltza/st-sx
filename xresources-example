@@ -6,8 +6,17 @@
 !   xrdb merge .Xresources && killall -USR1 st
 ! - See config.def.h for more information about these options
 
-! Font
+! Normal font
 St.font:            JetBrainsMono Nerd Font:style=Medium:size=10:antialias=true:autohint=true
+
+! Bold font (optional)
+St.font_bold:       JetBrainsMono Nerd Font:style=Bold:antialias=true:autohint=true
+
+! Italic font (optional)
+St.font_italic:     JetBrainsMono Nerd Font:style=Medium Italic:antialias=true:autohint=true
+
+! Bold italic font (optional)
+St.font_bolditalic: JetBrainsMono Nerd Font:style=Bold Italic:antialias=true:autohint=true
 
 ! Fallback fonts (max 8)
 St.font_fallback1:  JoyPixels:size=10.0:antialias=true:autohint=true
@@ -146,8 +155,6 @@ St.visualbellduration:      100
 St.visualbellanimfps:       60
 St.tabspaces:               8
 St.cursorthickness:         2
-St.disable_bold:            0
-St.disable_italic:          0
 St.bold_is_not_bright:      1
 St.hyperlinkstyle:          1
 St.showhyperlinkhint:       1
