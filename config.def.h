@@ -390,11 +390,11 @@ unsigned int showhyperlinkhint = 1;
 
 /* Specifies how many hyperlinks can be cached on the primary screen and the
  * scrollback. When the cache is full, the oldest hyperlinks will be thrown
- * away. Default value is 8192, maximum value is 65536. */
+ * away. Default value is 8192, maximum value is 65535. */
 unsigned int hyperlinkcache_pri = 8192;
 
 /* Specifies how many hyperlinks can be cached on the alternate screen.
- * Default value is 1024, maximum value is 65536. */
+ * Default value is 1024, maximum value is 65535. */
 unsigned int hyperlinkcache_alt = 1024;
 
 /* Show a scrollback indicator on the right edge of the screen to indicate how far

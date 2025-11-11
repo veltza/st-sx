@@ -174,8 +174,19 @@ typedef struct {
 } TCursor;
 
 typedef struct {
-	char **urls;
-	char lastid[256];
+	ushort *buckets;
+	int capacity;
+} HyperlinkHT;
+
+typedef struct {
+	char *id;
+	char *url;
+	ushort next;
+} HyperlinkItem;
+
+typedef struct {
+	HyperlinkHT hashtable;
+	HyperlinkItem *items;
 	int head;
 	int count;
 	int capacity;

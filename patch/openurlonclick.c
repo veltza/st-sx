@@ -22,6 +22,7 @@ static char validurlchars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	"0123456789-._~:/?#@!$&'*+,;=%()[]";
 
 #define ISVALIDURLCHAR(c)    ((c) < 128 && strchr(validurlchars, (int)(c)) != NULL)
+#define MAX_URL   2085       /* maximum url length including NUL */
 
 /* find the end of the wrapped line */
 static int
@@ -112,33 +113,26 @@ char *
 detecthyperlink(int col, int row, int draw)
 {
 	Line line;
-	int i, x, y, y1 = row, y2 = row;
+	int x, y, y1 = row, y2 = row;
 	Hyperlinks *links = term.hyperlinks;
 	int hlink = TLINE(row)[col].hlink;
-	char *url = (hlink < links->capacity) ? links->urls[hlink] : NULL;
+	char *url = (hlink < links->capacity) ? links->items[hlink].url : NULL;
 
 	if (!draw || !url)
 		return url;
 
-	/* If the url spans more than one line, find the first and last lines.
-	 * For performance reasons, only consecutive lines are checked. But if
-	 * this becomes an issue, then the algorithm needs to be changed so
-	 * that it checks the entire screen buffer. */
-	for (i = 0; i < 2; i++) {
-		y = i ? y1 - 1 : y2 + 1;
-		for (; y >= 0 && y < term.row; y += i ? -1 : 1) {
+	/* If the url spans multiple lines, search the first and last lines */
+	for (y = 0; y < term.row; y++) {
+		if (y != row) {
 			line = TLINE(y);
 			for (x = 0; x < term.col; x++) {
-				if (line[x].mode & ATTR_HYPERLINK && line[x].hlink == hlink)
+				if (line[x].mode & ATTR_HYPERLINK && line[x].hlink == hlink) {
+					y1 = (y < y1) ? y : y1;
+					y2 = (y > y2) ? y : y2;
+					term.dirty[y] = 1;
 					break;
+				}
 			}
-			if (x == term.col)
-				break;
-			if (i)
-				y1 = y;
-			else
-				y2 = y;
-			term.dirty[y] = 1;
 		}
 	}
 	term.dirty[row] = 1;
@@ -156,7 +150,7 @@ detecthyperlink(int col, int row, int draw)
 char *
 detecturl(int col, int row, int draw)
 {
-	static char url[2048];
+	static char url[MAX_URL * 2];
 	Line line;
 	int b, e, x1, y1, x2, y2;
 	int i = sizeof(url)/2+1, j = sizeof(url)/2;
@@ -230,6 +224,11 @@ detecturl(int col, int row, int draw)
 	while (strchr(",.;:?!'([", (int)(url[e-1])) != NULL)
 		url[--e] = 0;
 
+	if (e > b + MAX_URL - 1) {
+		e = b + MAX_URL - 1;
+		url[e] = 0;
+	}
+
 	if (e <= sizeof(url)/2)
 		return NULL;
 
@@ -258,6 +257,9 @@ drawurl(Color *fg, Mode basemode, int x, int y, int charlen, int yoff, int thick
 {
 	Line line;
 	int i, j, x1, x2, xu, yu, wu, hlink;
+
+	if (basemode & ATTR_INVISIBLE)
+		fg = &dc.col[defaultfg];
 
 	/* underline hyperlink */
 	if (activeurl.hlink >= 0) {
@@ -305,7 +307,7 @@ drawhyperlinkhint(void)
 	int bot = term.row - 1;
 
 	if (!showhyperlinkhint || !activeurl.draw || activeurl.hlink < 0 ||
-	    !(url = term.hyperlinks->urls[activeurl.hlink]))
+	    !(url = term.hyperlinks->items[activeurl.hlink].url))
 		return;
 
 	y = (activeurl.mousey == bot || activeurl.cursory == bot) ? bot - 1 : bot;
@@ -347,7 +349,7 @@ openUrlOnClick(int col, int row, char* url_opener)
 {
 	char *url = detecturl(col, row, 1);
 	char *argv[] = { url_opener, url, NULL };
-	char fileurl[2048];
+	char fileurl[MAX_URL];
 	char thishost[_POSIX_HOST_NAME_MAX];
 	int hostlen;
 

@@ -26,6 +26,7 @@ Branch drawing symbols are supported with built-in glyphs. (app/plugin: [vim-flo
 - Font2
 - Fullscreen
 - Hidecursor
+- Hyperlink (OSC 8)
 - Keyboard select
 - Ligatures
 - Nano shortcuts support
