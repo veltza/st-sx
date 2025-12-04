@@ -10,7 +10,7 @@
 #include "sixel.h"
 #include "sixel_hls.h"
 
-#define SIXEL_RGB(r, g, b) ((255 << 24) + ((r) << 16) + ((g) << 8) +  (b))
+#define SIXEL_RGB(r, g, b) (((uint)255 << 24) + ((uint)(r) << 16) + ((uint)(g) << 8) + (uint)(b))
 #define SIXEL_PALVAL(n,a,m) (((n) * (a) + ((m) / 2)) / (m))
 #define SIXEL_XRGB(r,g,b) SIXEL_RGB(SIXEL_PALVAL(r, 255, 100), SIXEL_PALVAL(g, 255, 100), SIXEL_PALVAL(b, 255, 100))
 
@@ -754,7 +754,8 @@ Pixmap
 sixel_create_clipmask(char *pixels, int width, int height)
 {
 	char c, *clipdata, *dst;
-	int b, i, n, y, w;
+	uint b;
+	int i, n, y, w;
 	int msb = (XBitmapBitOrder(xw.dpy) == MSBFirst);
 	sixel_color_t *src = (sixel_color_t *)pixels;
 	Pixmap clipmask;

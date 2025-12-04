@@ -945,11 +945,11 @@ xloadalpha(void)
 {
 	float usedAlpha = (opt_alpha) ? strtof(opt_alpha, NULL)
 	                              : focused || alphaUnfocused == -1 ? alpha : alphaUnfocused;
-
+	LIMIT(usedAlpha, 0.0, 1.0);
 	dc.col[defaultbg] = focused ? dc.col[bg] : dc.col[bgUnfocused];
 	dc.col[defaultbg].color.alpha = (unsigned short)(0xffff * usedAlpha);
 	dc.col[defaultbg].pixel &= 0x00FFFFFF;
-	dc.col[defaultbg].pixel |= (unsigned char)(0xff * usedAlpha) << 24;
+	dc.col[defaultbg].pixel |= (unsigned int)(0xff * usedAlpha) << 24;
 	dc.col[defaultbg].color.red   *= usedAlpha;
 	dc.col[defaultbg].color.green *= usedAlpha;
 	dc.col[defaultbg].color.blue  *= usedAlpha;
