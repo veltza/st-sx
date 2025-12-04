@@ -3337,11 +3337,9 @@ tputc(Rune u)
 			strescseq.buf = xrealloc(strescseq.buf, strescseq.siz);
 		}
 
-		#if defined(__x86_64__) || defined(__i386__) || defined(__i486__) || defined(__i586__) || defined(__i686__)
-		*((int32_t *)&strescseq.buf[strescseq.len]) = *((int32_t *)c);
-		#else
-		memcpy(&strescseq.buf[strescseq.len], c, len);
-		#endif
+		/* Prefer UTF_SIZ to len because the constant size lets the
+		 * compiler optimize memcpy. */
+		memcpy(&strescseq.buf[strescseq.len], c, UTF_SIZ);
 		strescseq.len += len;
 		return;
 	}
