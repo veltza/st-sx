@@ -156,6 +156,7 @@ DC dc;
 XWindow xw;
 XSelection xsel;
 TermWindow win;
+const char *env_exe_path;
 
 static int tstki; /* title stack index */
 static char *titlestack[TITLESTACKSIZE]; /* title stack */
@@ -2291,9 +2292,18 @@ void
 xsetenv(void)
 {
 	char buf[sizeof(long) * 8 + 1];
+	static char exe_path[PATH_MAX];
 
 	snprintf(buf, sizeof(buf), "%lu", xw.win);
 	setenv("WINDOWID", buf, 1);
+
+	if ((env_exe_path = getenv("ST_SX_EXE_PATH")) != NULL) {
+		snprintf(exe_path, sizeof exe_path, "%s", env_exe_path);
+		env_exe_path = exe_path;
+	} else {
+		env_exe_path = (strchr(argv0, '/') && realpath(argv0, exe_path)) ? exe_path : argv0;
+	}
+	unsetenv("ST_SX_EXE_PATH");
 }
 
 void
