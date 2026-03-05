@@ -45,7 +45,12 @@ STCPPFLAGS = -DVERSION=\"$(VERSION)\" -DICON=\"$(ICONPREFIX)/$(ICONNAME)\" -D_XO
 STCFLAGS = $(INCS) $(STCPPFLAGS) $(CPPFLAGS) $(CFLAGS)
 STLDFLAGS = $(LIBS) $(LDFLAGS)
 
-# FreeBSD:
+# DragonFly BSD:
+#CPPFLAGS = -D__BSD_VISIBLE
+#X11INC = /usr/local/include
+#X11LIB = /usr/local/lib
+
+# FreeBSD and GhostBSD:
 #CPPFLAGS = -D_FREEBSD_SOURCE -D__BSD_VISIBLE
 #X11INC = /usr/local/include
 #X11LIB = /usr/local/lib
