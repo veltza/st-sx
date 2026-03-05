@@ -50,22 +50,29 @@ Branch drawing symbols are supported with built-in glyphs. (app/plugin: [vim-flo
 Arch:
 
 ```
-sudo pacman -S libx11 libxft imlib2 gd
+sudo pacman -S libx11 libxft imlib2 gd harfbuzz
 ```
 
-FreeBSD:
+FreeBSD / DragonFly BSD:
 
 ```
-doas pkg install pkgconf imlib2 libgd
+sudo pkg install pkgconf imlib2 libgd harfbuzz
+```
+
+GhostBSD:
+
+```
+sudo pkg install pkgconf imlib2 libgd harfbuzz
+sudo pkg install -g 'GhostBSD*-dev'
 ```
 
 OpenBSD:
 
 ```
-doas pkg_add imlib2 gd
+doas pkg_add imlib2 gd harfbuzz
 ```
 
-Ubuntu/Debian:
+Ubuntu / Debian:
 
 ```
 sudo apt install libx11-xcb-dev libxft-dev libimlib2-dev libgd-dev libharfbuzz-dev libpcre2-dev
