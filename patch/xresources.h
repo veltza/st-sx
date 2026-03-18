@@ -13,5 +13,5 @@ typedef struct {
 	void *dst;
 } ResourcePref;
 
-int resource_load(XrmDatabase, char *, enum resource_type, void *);
 void config_init(Display *dpy);
+void config_reload(int sig);

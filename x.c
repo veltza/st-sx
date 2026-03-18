@@ -792,7 +792,7 @@ setsel(char *str, Time t)
 void
 sigusr1_reload(int sig)
 {
-	reload_config(sig);
+	config_reload(sig);
 	signal(SIGUSR1, sigusr1_reload);
 }
 

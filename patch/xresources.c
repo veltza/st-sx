@@ -1,5 +1,53 @@
+struct {
+	char **allocated;
+	int count;
+	int capacity;
+} config_strings;
+
+void
+config_replace_string(char **field, const char *new_value)
+{
+	int i;
+	char *old_value = *field;
+
+	if (new_value && old_value && strcmp(new_value, old_value) == 0)
+		return;
+
+	if (old_value) {
+		for (i = 0; i < config_strings.count; i++) {
+			if (config_strings.allocated[i] == old_value) {
+				free(old_value);
+				if (!new_value) {
+					while (++i < config_strings.count)
+						config_strings.allocated[i - 1] = config_strings.allocated[i];
+					config_strings.count--;
+				}
+				break;
+			}
+		}
+	} else {
+		i = config_strings.count;
+	}
+
+	if (!new_value) {
+		*field = NULL;
+		return;
+	}
+
+	if (i == config_strings.count) {
+		if (++config_strings.count > config_strings.capacity) {
+			config_strings.capacity = MAX(config_strings.capacity * 2, 32);
+			config_strings.allocated = realloc(config_strings.allocated,
+				config_strings.capacity * sizeof(config_strings.allocated[0]));
+		}
+	}
+
+	*field = config_strings.allocated[i] = strdup(new_value);
+	return;
+}
+
 int
-resource_load(XrmDatabase db, char *name, enum resource_type rtype, void *dst)
+config_load_resource(XrmDatabase db, char *name, enum resource_type rtype, void *dst)
 {
 	char **sdst = dst;
 	int *idst = dst;
@@ -22,7 +70,7 @@ resource_load(XrmDatabase db, char *name, enum resource_type rtype, void *dst)
 
 	switch (rtype) {
 	case STRING:
-		*sdst = ret.addr;
+		config_replace_string(sdst, ret.addr);
 		break;
 	case INTEGER:
 		*idst = strtoul(ret.addr, NULL, 10);
@@ -40,15 +88,18 @@ config_init(Display *dpy)
 	char *resm;
 	XrmDatabase db;
 	ResourcePref *p;
-
-	memset(font2_xresources, 0, sizeof(font2_xresources));
+	int i;
 
 	XrmInitialize();
 	resm = XResourceManagerString(dpy);
 	if (resm) {
-		db = XrmGetStringDatabase(resm);
-		for (p = resources; p < resources + LEN(resources); p++)
-			resource_load(db, p->name, p->type, p->dst);
+		if ((db = XrmGetStringDatabase(resm)) != NULL) {
+			for (i = 0; i < FONT2_XRESOURCES_SIZE; i++)
+				config_replace_string(&font2_xresources[i], NULL);
+			for (p = resources; p < resources + LEN(resources); p++)
+				config_load_resource(db, p->name, p->type, p->dst);
+			XrmDestroyDatabase(db);
+		}
 	}
 
 	LIMIT(cursorstyle, 1, 8);
@@ -69,7 +120,7 @@ config_init(Display *dpy)
 }
 
 void
-reload_config(int sig)
+config_reload(int sig)
 {
 	/* Recreate a Display object to have up to date Xresources entries */
 	Display *dpy;
