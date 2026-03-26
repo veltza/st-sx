@@ -202,7 +202,7 @@ st-mono| simpleterm monocolor,
 # tmux extensions, see TERMINFO EXTENSIONS in tmux(1)
 	Tc,
 	Ms=\E]52;%p1%s;%p2%s\007,
-	Se=\E[2 q,
+	Se=\E[0 q,
 	Ss=\E[%p1%d q,
 # sync patch / SYNC_PATCH
 	Sync=\EP=%p1%ds\E\\,
