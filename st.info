@@ -201,6 +201,7 @@ st-mono| simpleterm monocolor,
 #	rep=%p1%c\E[%p2%{1}%-%db,
 # tmux extensions, see TERMINFO EXTENSIONS in tmux(1)
 	Tc,
+	Cr=\E]112\007, Cs=\E]12;%p1%s\007,
 	Ms=\E]52;%p1%s;%p2%s\007,
 	Se=\E[0 q,
 	Ss=\E[%p1%d q,
