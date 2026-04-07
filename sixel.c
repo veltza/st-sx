@@ -221,7 +221,7 @@ draw_unscaled_sixel(sixel_color_no_t *data,
                     int count,
                     int color)
 {
-	int n, x;
+	int n = 0, x;
 
 	if (count == 1) {
 		if (bits & 0x01) { *data = color; n = 0; }; data += width;
