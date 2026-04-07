@@ -104,6 +104,14 @@ enum escape_state {
 	ESC_DCS        =128,
 };
 
+enum decrpm_state {
+	DECRPM_NOT_RECOGNIZED    = 0,
+	DECRPM_SET               = 1,
+	DECRPM_RESET             = 2,
+	DECRPM_PERMANENTLY_SET   = 3,
+	DECRPM_PERMANENTLY_RESET = 4
+};
+
 typedef struct {
 	int mode;
 	int type;
@@ -166,6 +174,7 @@ static void csiparse(void);
 static inline void csireset(void);
 static void osc_color_response(int, int, int);
 static void write_da1(void);
+static void decrpm(int, int, int);
 static int eschandle(uchar);
 static void strdump(void);
 static void strhandle(void);
@@ -2076,7 +2085,7 @@ void
 csihandle(void)
 {
 	char buf[40];
-	int n, x;
+	int n, x, mode;
 	int pi, pa;
 	ImageList *im, *next;
 
@@ -2343,35 +2352,72 @@ csihandle(void)
 	case '$':
 		/* DECRQM -- DEC Request Mode (private) */
 		if (csiescseq.mode[1] == 'p' && csiescseq.priv) {
-			switch (csiescseq.arg[0]) {
-			case 80:
-				/* Sixel Display Mode  */
-				ttywrite(IS_SET(MODE_SIXEL_SDM) ? "\033[?80;1$y"
-				                                : "\033[?80;2$y", 9, 0);
+			switch ((mode = csiescseq.arg[0])) {
+			case 1: /* DECCKM -- Cursor key */
+				decrpm(mode, win.mode & MODE_APPCURSOR, 0);
 				break;
-			case 1070:
-				/* Use private color registers for each sixel */
+			case 5: /* DECSCNM -- Reverse video */
+				decrpm(mode, win.mode & MODE_REVERSE, 0);
+				break;
+			case 6: /* DECOM -- Origin */
+				decrpm(mode, term.c.state & CURSOR_ORIGIN, 0);
+				break;
+			case 7: /* DECAWM -- Auto wrap */
+				decrpm(mode, term.mode & MODE_WRAP, 0);
+				break;
+			case 9: /* X10 mouse compatibility mode */
+				decrpm(mode, win.mode & MODE_MOUSEX10, 0);
+				break;
+			case 25: /* DECTCEM -- Text Cursor Enable Mode */
+				decrpm(mode, !(win.mode & MODE_HIDE), 0);
+				break;
+			case 1000: /* 1000: report button press */
+				decrpm(mode, win.mode & MODE_MOUSEBTN, 0);
+				break;
+			case 1002: /* 1002: report motion on button press */
+				decrpm(mode, win.mode & MODE_MOUSEMOTION, 0);
+				break;
+			case 1003: /* 1003: enable all mouse motions */
+				decrpm(mode, win.mode & MODE_MOUSEMANY, 0);
+				break;
+			case 1004: /* 1004: send focus events to tty */
+				decrpm(mode, win.mode & MODE_FOCUS, 0);
+				break;
+			case 1006: /* 1006: extended reporting mode */
+				decrpm(mode, win.mode & MODE_MOUSESGR, 0);
+				break;
+			case 1034: /* 1034: enable 8-bit mode for keyboard input */
+				decrpm(mode, win.mode & MODE_8BIT, 0);
+				break;
+			case 47:
+			case 1047:
+			case 1049: /* Alternate screen */
+				decrpm(mode, term.mode & MODE_ALTSCREEN, 0);
+				break;
+			case 2004: /* 2004: bracketed paste mode */
+				decrpm(mode, win.mode & MODE_BRCKTPASTE, 0);
+				break;
+			case 80: /* DECSDM -- Sixel Display Mode */
+				decrpm(mode, term.mode & MODE_SIXEL_SDM, 0);
+				break;
+			case 1070: /* Use private color registers for each sixel */
 				/* https://invisible-island.net/xterm/ctlseqs/ctlseqs.html */
-				ttywrite(IS_SET(MODE_SIXEL_PRIVATE_PALETTE) ? "\033[?1070;1$y"
-				                                            : "\033[?1070;2$y", 11, 0);
+				decrpm(mode, term.mode & MODE_SIXEL_PRIVATE_PALETTE, 0);
 				break;
-			case 2026:
-				/* Synchronized Output */
+			case 2026: /* Synchronized Output */
 				/* https://gist.github.com/christianparpart/d8a62cc1ab659194337d73e399004036 */
-				ttywrite(su ? "\033[?2026;1$y" : "\033[?2026;2$y", 11, 0);
+				decrpm(mode, su, 0);
 				break;
-			case 2048:
-				/* In-Band Window Resize Notifications */
+			case 2048: /* In-Band Window Resize Notifications */
 				/* https://gist.github.com/rockorager/e695fb2924d36b2bcf1fff4a3704bd83 */
-				ttywrite(IS_SET(MODE_RESIZE_NOTIFICATIONS) ? "\033[?2048;1$y"
-				                                           : "\033[?2048;2$y", 11, 0);
+				decrpm(mode, term.mode & MODE_RESIZE_NOTIFICATIONS, 0);
 				break;
-			case 8452:
-				/* Sixel scrolling leaves cursor to right of graphic */
-				ttywrite(IS_SET(MODE_SIXEL_CUR_RT) ? "\033[?8452;1$y"
-				                                   : "\033[?8452;2$y", 11, 0);
+			case 8452: /* Sixel scrolling leaves cursor to right of graphic */
+				decrpm(mode, term.mode & MODE_SIXEL_CUR_RT, 0);
 				break;
 			default:
+				/* Mode not recognized */
+				decrpm(mode, 0, 1);
 				goto unknown;
 			}
 			break;
@@ -2518,6 +2564,17 @@ write_da1(void)
 	if (allowwindowops)
 		ttywrite(";52", 3, 0);
 	ttywrite("c", 1, 0);
+}
+
+void
+decrpm(int mode, int enabled, int unknown)
+{
+	int n, state;
+	char reply[32];
+
+	state = unknown ? DECRPM_NOT_RECOGNIZED : enabled ? DECRPM_SET : DECRPM_RESET;
+	n = snprintf(reply, sizeof reply, "\033[?%d;%d$y", mode, state);
+	ttywrite(reply, n, 0);
 }
 
 void
