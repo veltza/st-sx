@@ -174,7 +174,7 @@ static void csiparse(void);
 static inline void csireset(void);
 static void osc_color_response(int, int, int);
 static void write_da1(void);
-static void decrpm(int, int, int);
+static void decrpm(int, int, int, int);
 static int eschandle(uchar);
 static void strdump(void);
 static void strhandle(void);
@@ -2059,7 +2059,7 @@ tsetmode(int priv, int set, const int *args, int narg)
 			switch (*args) {
 			case 0:  /* Error (IGNORED) */
 				break;
-			case 2:
+			case 2:  /* KAM -- Keyboard Action Mode */
 				xsetmode(set, MODE_KBDLOCK);
 				break;
 			case 4:  /* IRM -- Insertion-replacement */
@@ -2085,8 +2085,9 @@ void
 csihandle(void)
 {
 	char buf[40];
-	int n, x, mode;
+	int n, x;
 	int pi, pa;
+	int mode, priv;
 	ImageList *im, *next;
 
 	switch (csiescseq.mode[0]) {
@@ -2349,75 +2350,95 @@ csihandle(void)
 			goto unknown;
 		}
 		break;
-	case '$':
-		/* DECRQM -- DEC Request Mode (private) */
-		if (csiescseq.mode[1] == 'p' && csiescseq.priv) {
+	case '$': /* DECRQM -- DEC Request Mode */
+		priv = csiescseq.priv;
+		if (priv && csiescseq.mode[1] == 'p') { /* DECRQM (private) */
 			switch ((mode = csiescseq.arg[0])) {
 			case 1: /* DECCKM -- Cursor key */
-				decrpm(mode, win.mode & MODE_APPCURSOR, 0);
+				decrpm(mode, priv, win.mode & MODE_APPCURSOR, 0);
 				break;
 			case 5: /* DECSCNM -- Reverse video */
-				decrpm(mode, win.mode & MODE_REVERSE, 0);
+				decrpm(mode, priv, win.mode & MODE_REVERSE, 0);
 				break;
 			case 6: /* DECOM -- Origin */
-				decrpm(mode, term.c.state & CURSOR_ORIGIN, 0);
+				decrpm(mode, priv, term.c.state & CURSOR_ORIGIN, 0);
 				break;
 			case 7: /* DECAWM -- Auto wrap */
-				decrpm(mode, term.mode & MODE_WRAP, 0);
+				decrpm(mode, priv, term.mode & MODE_WRAP, 0);
 				break;
 			case 9: /* X10 mouse compatibility mode */
-				decrpm(mode, win.mode & MODE_MOUSEX10, 0);
+				decrpm(mode, priv, win.mode & MODE_MOUSEX10, 0);
 				break;
 			case 25: /* DECTCEM -- Text Cursor Enable Mode */
-				decrpm(mode, !(win.mode & MODE_HIDE), 0);
+				decrpm(mode, priv, !(win.mode & MODE_HIDE), 0);
 				break;
 			case 1000: /* 1000: report button press */
-				decrpm(mode, win.mode & MODE_MOUSEBTN, 0);
+				decrpm(mode, priv, win.mode & MODE_MOUSEBTN, 0);
 				break;
 			case 1002: /* 1002: report motion on button press */
-				decrpm(mode, win.mode & MODE_MOUSEMOTION, 0);
+				decrpm(mode, priv, win.mode & MODE_MOUSEMOTION, 0);
 				break;
 			case 1003: /* 1003: enable all mouse motions */
-				decrpm(mode, win.mode & MODE_MOUSEMANY, 0);
+				decrpm(mode, priv, win.mode & MODE_MOUSEMANY, 0);
 				break;
 			case 1004: /* 1004: send focus events to tty */
-				decrpm(mode, win.mode & MODE_FOCUS, 0);
+				decrpm(mode, priv, win.mode & MODE_FOCUS, 0);
 				break;
 			case 1006: /* 1006: extended reporting mode */
-				decrpm(mode, win.mode & MODE_MOUSESGR, 0);
+				decrpm(mode, priv, win.mode & MODE_MOUSESGR, 0);
 				break;
 			case 1034: /* 1034: enable 8-bit mode for keyboard input */
-				decrpm(mode, win.mode & MODE_8BIT, 0);
+				decrpm(mode, priv, win.mode & MODE_8BIT, 0);
 				break;
 			case 47:
 			case 1047:
 			case 1049: /* Alternate screen */
-				decrpm(mode, term.mode & MODE_ALTSCREEN, 0);
+				decrpm(mode, priv, term.mode & MODE_ALTSCREEN, 0);
 				break;
 			case 2004: /* 2004: bracketed paste mode */
-				decrpm(mode, win.mode & MODE_BRCKTPASTE, 0);
+				decrpm(mode, priv, win.mode & MODE_BRCKTPASTE, 0);
 				break;
 			case 80: /* DECSDM -- Sixel Display Mode */
-				decrpm(mode, term.mode & MODE_SIXEL_SDM, 0);
+				decrpm(mode, priv, term.mode & MODE_SIXEL_SDM, 0);
 				break;
 			case 1070: /* Use private color registers for each sixel */
 				/* https://invisible-island.net/xterm/ctlseqs/ctlseqs.html */
-				decrpm(mode, term.mode & MODE_SIXEL_PRIVATE_PALETTE, 0);
+				decrpm(mode, priv, term.mode & MODE_SIXEL_PRIVATE_PALETTE, 0);
 				break;
 			case 2026: /* Synchronized Output */
 				/* https://gist.github.com/christianparpart/d8a62cc1ab659194337d73e399004036 */
-				decrpm(mode, su, 0);
+				decrpm(mode, priv, su, 0);
 				break;
 			case 2048: /* In-Band Window Resize Notifications */
 				/* https://gist.github.com/rockorager/e695fb2924d36b2bcf1fff4a3704bd83 */
-				decrpm(mode, term.mode & MODE_RESIZE_NOTIFICATIONS, 0);
+				decrpm(mode, priv, term.mode & MODE_RESIZE_NOTIFICATIONS, 0);
 				break;
 			case 8452: /* Sixel scrolling leaves cursor to right of graphic */
-				decrpm(mode, term.mode & MODE_SIXEL_CUR_RT, 0);
+				decrpm(mode, priv, term.mode & MODE_SIXEL_CUR_RT, 0);
 				break;
 			default:
 				/* Mode not recognized */
-				decrpm(mode, 0, 1);
+				decrpm(mode, priv, 0, 1);
+				goto unknown;
+			}
+			break;
+		} else if (csiescseq.mode[1] == 'p') { /* DECRQM (ansi) */
+			switch ((mode = csiescseq.arg[0])) {
+			case 2:  /* KAM -- Keyboard Action Mode */
+				decrpm(mode, priv, win.mode & MODE_KBDLOCK, 0);
+				break;
+			case 4:  /* IRM -- Insertion-replacement */
+				decrpm(mode, priv, term.mode & MODE_INSERT, 0);
+				break;
+			case 12: /* SRM -- Send/Receive */
+				decrpm(mode, priv, !(term.mode & MODE_ECHO), 0);
+				break;
+			case 20: /* LNM -- Linefeed/new line */
+				decrpm(mode, priv, term.mode & MODE_CRLF, 0);
+				break;
+			default:
+				/* Mode not recognized */
+				decrpm(mode, priv, 0, 1);
 				goto unknown;
 			}
 			break;
@@ -2567,13 +2588,19 @@ write_da1(void)
 }
 
 void
-decrpm(int mode, int enabled, int unknown)
+decrpm(int mode, int priv, int enabled, int unknown)
 {
 	int n, state;
 	char reply[32];
+	const char *prefix = priv ? "?" : "";
 
 	state = unknown ? DECRPM_NOT_RECOGNIZED : enabled ? DECRPM_SET : DECRPM_RESET;
-	n = snprintf(reply, sizeof reply, "\033[?%d;%d$y", mode, state);
+	n = snprintf(reply, sizeof reply, "\033[%s%d;%d$y", prefix, mode, state);
+	if (n < 0 || n >= sizeof(reply)) {
+		fprintf(stderr, "error: %s while printing DECRPM response\n",
+		        n < 0 ? "snprintf failed" : "truncation occurred");
+		return;
+	}
 	ttywrite(reply, n, 0);
 }
 
