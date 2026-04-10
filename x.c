@@ -2629,8 +2629,10 @@ xfinishdraw(void)
 			XSetClipMask(xw.dpy, gc, None);
 
 		/* if all the parts are erased, we can delete the entire image */
-		if (del && im->x + im->cols <= term.col)
+		if (del && im->x + im->cols <= term.col) {
 			delete_image(im);
+			continue;
+		}
 
 		/* Redraw the cursor if it is behind the image */
 		if (cy == im->y && (line[cx-xend+1].extra & EXT_SIXEL)) {
