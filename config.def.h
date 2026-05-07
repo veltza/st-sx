@@ -183,15 +183,20 @@ int ligatures = 0;
 #define DISABLE_LIGATURES 0
 
 /*
- * Font features for ligatures.
- * Populate the array with a list of font features, wrapped in FEATURE macro,
- * e. g.
- * hb_feature_t hbfeatures[] = { FEATURE('c', 'a', 'l', 't'), FEATURE('d', 'l', 'i', 'g') };
+ * Comma-separated OpenType font features (active when ligatures = 1).
+ * If NULL, HarfBuzz uses the font's default OpenType features.
+ *
+ * Format:
+ *   "feature_tag=value"
+ *
+ * Common values:
+ *   1 = enable feature
+ *   0 = disable feature
+ *
+ * Example usage:
+ *   static char *font_features = "calt=1,dlig=1";
  */
-#if !DISABLE_LIGATURES
-#include "hb.h"
-hb_feature_t hbfeatures[] = { };
-#endif
+static char *font_features = NULL;
 
 /*
  * 1: render most of the lines/blocks characters without using the font for
@@ -810,6 +815,7 @@ ResourcePref resources[] = {
 		{ "font_fallback6",      STRING,  &font2_xresources[5] },
 		{ "font_fallback7",      STRING,  &font2_xresources[6] },
 		{ "font_fallback8",      STRING,  &font2_xresources[7] },
+		{ "font_features",       STRING,  &font_features },
 		{ "color0",              STRING,  &colorname[0] },
 		{ "color1",              STRING,  &colorname[1] },
 		{ "color2",              STRING,  &colorname[2] },

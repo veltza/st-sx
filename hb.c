@@ -1,6 +1,7 @@
+#include <ctype.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <math.h>
 #include <time.h>
 #include <X11/Xft/Xft.h>
 #include <X11/cursorfont.h>
@@ -33,8 +34,8 @@ typedef struct {
 
 static RuneBuffer hbrunebuffer = { 0, NULL };
 static hb_buffer_t *hbbuffer;
-extern hb_feature_t hbfeatures[];
-extern unsigned int hbfeaturecount;
+static hb_feature_t *hbfeatures;
+static unsigned int hbfeaturecount;
 
 void
 hbcreatebuffer(void)
@@ -130,4 +131,66 @@ hbtransform(HbTransformData *data, XftFont *xfont, const Glyph *glyphs, int star
 	data->glyphs = info;
 	data->positions = pos;
 	data->count = glyph_count;
+}
+
+void
+hbparsefontfeatures(const char *font_features)
+{
+	int i, n;
+	hb_tag_t tag;
+	long value;
+	char *end;
+	unsigned char c;
+	const char *p = font_features;
+
+	free(hbfeatures);
+	hbfeatures = NULL;
+	hbfeaturecount = 0;
+
+	if (!p || !*p)
+		return;
+
+	for (n = 1, i = 0; p[i]; i++)
+		n += (p[i] == ',') ? 1 : 0;
+
+	hbfeatures = xmalloc(n * sizeof(*hbfeatures));
+
+	while (*p) {
+		while (isspace((uchar)*p) || *p == ',') p++;
+		if (!*p)
+			break;
+		for (tag = 0, i = 0; i < 4; i++) {
+			if (*p && *p != ',' && *p != '=') c = *p++; else c = ' ';
+			if (!isprint(c))
+				goto error;
+			tag = (tag << 8) | c;
+		}
+		while (isspace((uchar)*p)) p++;
+		if (*p == '=') {
+			for (p++; isspace((uchar)*p);) p++;
+			errno = 0;
+			value = strtol(p, &end, 10);
+			if (errno == ERANGE || value < 0 || value > UINT32_MAX || p == end)
+				goto error;
+			for (p = end; isspace((uchar)*p);) p++;
+		} else {
+			value = 1;
+		}
+		if (*p && *p != ',')
+			goto error;
+		if (hbfeaturecount == n) /* this should never happen */
+			hbfeatures = xrealloc(hbfeatures, ++n * sizeof(*hbfeatures));
+		hbfeatures[hbfeaturecount].tag = tag;
+		hbfeatures[hbfeaturecount].value = (uint32_t)value;
+		hbfeatures[hbfeaturecount].start = HB_FEATURE_GLOBAL_START;
+		hbfeatures[hbfeaturecount].end = HB_FEATURE_GLOBAL_END;
+		hbfeaturecount++;
+	}
+	return;
+
+error:
+	fprintf(stderr, "Invalid font features near: %.10s\n", *p ? p : (p > font_features ? p - 1 : p));
+	free(hbfeatures);
+	hbfeatures = NULL;
+	hbfeaturecount = 0;
 }

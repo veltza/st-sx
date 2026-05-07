@@ -51,7 +51,7 @@ char *font2_xresources[FONT2_XRESOURCES_SIZE];
 #include "config.h"
 
 #if !DISABLE_LIGATURES
-uint hbfeaturecount = sizeof(hbfeatures) / sizeof(hb_feature_t);
+#include "hb.h"
 #endif
 
 /* size of title stack */

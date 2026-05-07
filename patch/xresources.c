@@ -105,6 +105,9 @@ config_init(Display *dpy)
 	LIMIT(cursorstyle, 1, 8);
 	xsetcursor(cursorstyle);
 	parseurlprotocols();
+	#if !DISABLE_LIGATURES
+	hbparsefontfeatures(font_features);
+	#endif
 
 	/* command line arguments override xresources and config.h */
 	cols = (opt_geometry_cols > 0) ? opt_geometry_cols : cols;

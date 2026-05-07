@@ -22,6 +22,9 @@ St.font_bolditalic: JetBrainsMono Nerd Font:style=Bold Italic:antialias=true:aut
 St.font_fallback1:  JoyPixels:size=10.0:antialias=true:autohint=true
 St.font_fallback2:  Symbola:size=13.5:antialias=true:autohint=true
 
+! Comma-separated OpenType font features (optional)
+St.font_features:   calt=1,dlig=1
+
 ! Default columns and rows numbers
 St.cols:            80
 St.rows:            24
