@@ -2548,6 +2548,7 @@ void
 csireset(void)
 {
 	csiescseq.len = 0;
+	csiescseq.mode[0] = 0;
 	memset(&csiescseq.arg, 0, sizeof(csiescseq.arg));
 }
 
@@ -3467,9 +3468,10 @@ check_control_code:
 			if (strescseq.len < STR_BUF_SIZ-1 && strescseq.len < sizeof(csiescseq.buf)-1) {
 				strescseq.buf[strescseq.len++] = u;
 				csiescseq.buf[csiescseq.len++] = u;
-				if (u == 'q') {
-					/* DCS sequences are processed after the ST arrives, but the sixel
-					 * mode must be turned on as soon as the sixel header is detected. */
+				/* Unlike other DCS sequences, sixels are not buffered,
+				 * so we must start parsing sixel data immediately
+				 * after a sixel header is detected. */
+				if (u == 'q' && !csiescseq.mode[0]) {
 					csiparse();
 					if (csiescseq.mode[0] == 'q')
 						initsixel();
