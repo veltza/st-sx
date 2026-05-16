@@ -3132,6 +3132,11 @@ dcshandle(void)
 		}
 	}
 
+	/* Ignore sixel image comment */
+	/* https://github.com/hackerb9/vt340test/blob/main/sixeltests/sixelcomments.md */
+	if (strescseq.buf[0] == '/' && strescseq.buf[1] == '/' &&strescseq.buf[2] == '~')
+		return;
+
 	fprintf(stderr, "erresc: unknown dcs ");
 	strdump();
 }
