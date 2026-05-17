@@ -3148,16 +3148,9 @@ initsixel(void)
 	uint bgcolor;
 	uchar r, g, b, a = 255;
 
-	/* If we are already in sixel mode, it means that we have not yet
-	 * finished the current sixel. So we need to do that first before we
-	 * can start the new sixel. */
-	if (IS_SET(MODE_SIXEL)) {
-		createsixel();
-		term.mode &= ~MODE_SIXEL;
-	}
-
 	par = csiescseq.narg >= 1 ? csiescseq.arg[0] : 0;
 	transparent = (csiescseq.narg >= 2 && csiescseq.arg[1] == 1);
+
 	if (IS_TRUECOL(term.c.attr.bg)) {
 		r = term.c.attr.bg >> 16 & 255;
 		g = term.c.attr.bg >> 8 & 255;
@@ -3168,9 +3161,11 @@ initsixel(void)
 			a = dc.col[defaultbg].pixel >> 24 & 255;
 	}
 	bgcolor = (uint)a << 24 | (uint)r << 16 | (uint)g << 8 | (uint)b;
+
 	if (sixel_parser_init(&sixel_st, par, transparent, bgcolor,
 	                      IS_SET(MODE_SIXEL_PRIVATE_PALETTE)) != 0)
 		perror("sixel_parser_init() failed");
+
 	term.mode |= MODE_SIXEL;
 }
 
@@ -3283,6 +3278,11 @@ createsixel(void)
 int
 eschandle(uchar ascii)
 {
+	/* If a sixel sequence does not end with the String Terminator,
+	 * render the sixel before processing the next escape sequence. */
+	if (IS_SET(MODE_SIXEL) && ascii != '\\')
+		strhandle();
+
 	switch (ascii) {
 	case '[':
 		term.esc |= ESC_CSI;
