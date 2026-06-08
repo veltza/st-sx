@@ -3345,7 +3345,8 @@ eschandle(uchar ascii)
 		resettitle();
 		xloadcols();
 		xsetmode(0, MODE_APPCURSOR | MODE_APPKEYPAD | MODE_BRCKTPASTE);
-		xsetmode(0, MODE_HIDE | MODE_KBDLOCK | MODE_REVERSE);
+		xsetmode(0, MODE_HIDE | MODE_MOUSE | MODE_MOUSESGR);
+		xsetmode(0, MODE_KBDLOCK | MODE_REVERSE);
 		break;
 	case '=': /* DECPAM -- Application keypad */
 		xsetmode(1, MODE_APPKEYPAD);
