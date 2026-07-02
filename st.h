@@ -134,6 +134,17 @@ enum hold_state {
 	TTYWRITE = 1 << 1
 };
 
+/*
+ * Mouse shortcut flags
+ *
+ * MS_PASSTHROUGH:
+ *   Forward mouse event to the application instead of invoking the shortcut
+ *   when forcemousemod is held and mouse reporting is active.
+ */
+enum ms_flags {
+	MS_PASSTHROUGH = 1 << 0,
+};
+
 typedef unsigned char uchar;
 typedef unsigned int uint;
 typedef unsigned long ulong;
@@ -301,6 +312,7 @@ typedef struct {
 	const Arg arg;
 	uint release;
 	int screen;
+	int flags;
 } MouseShortcut;
 
 typedef struct {

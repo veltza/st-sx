@@ -106,6 +106,7 @@ static void kpress(XEvent *);
 static void cmessage(XEvent *);
 static void focus(XEvent *);
 static uint buttonmask(uint);
+static int is_mousemode_event(XEvent *e);
 static void brelease(XEvent *);
 static void bpress(XEvent *);
 static void bmotion(XEvent *);
@@ -405,6 +406,49 @@ buttonmask(uint button)
 		: 0;
 }
 
+int is_mousemode_event(XEvent *e)
+{
+	int btn, screen;
+	uint state;
+	MouseShortcut *ms;
+
+	if (!IS_SET(MODE_MOUSE))
+		return 0;
+
+	if (!(e->xbutton.state & forcemousemod))
+		return 1;
+
+	if (e->type == MotionNotify) {
+		/* Set btn to lowest-numbered pressed button, or 12 if no
+		 * buttons are pressed. */
+		for (btn = 1; btn <= 11 && !(buttons & (1<<(btn-1))); btn++)
+			;
+	} else {
+		btn = e->xbutton.button;
+	}
+
+	/* When forcemousemod is held, button 1 must be passed to the
+	 * terminal, as it is used for text selection and links. */
+	if (btn == Button1)
+		return 0;
+
+	state = e->xbutton.state & ~buttonmask(btn);
+	screen = tisaltscr() ? S_ALT : S_PRI;
+
+	/* Try to find a mouse shortcut that can be executed with forcemousemod.
+	 * If none is found, the mouse event is passed to the application. */
+	for (ms = mshortcuts; ms < mshortcuts + LEN(mshortcuts); ms++) {
+		if (ms->button == btn &&
+		    (!ms->screen || (ms->screen == screen)) &&
+		    !(ms->flags & MS_PASSTHROUGH) &&
+		    (match(ms->mod, state) ||  /* exact or forced */
+		     match(ms->mod, state & ~forcemousemod))) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
 int
 mouseaction(XEvent *e, uint release)
 {
@@ -562,7 +606,7 @@ bpress(XEvent *e)
 		}
 	}
 
-	if (IS_SET(MODE_MOUSE) && !(e->xbutton.state & forcemousemod)) {
+	if (is_mousemode_event(e)) {
 		mousereport(e);
 		return;
 	}
@@ -821,7 +865,7 @@ brelease(XEvent *e)
 			detecturl(evcol(e), evrow(e), 0)) {
 			openUrlOnClick(evcol(e), evrow(e), url_opener);
 			return;
-		} else if (!(e->xbutton.state & forcemousemod)) {
+		} else if (is_mousemode_event(e)) {
 			mousereport(e);
 			return;
 		}
@@ -857,7 +901,7 @@ bmotion(XEvent *e)
 		XDefineCursor(xw.dpy, xw.win, xw.vpointer);
 	activeurl.click = 0;
 
-	if (IS_SET(MODE_MOUSE) && !(e->xbutton.state & forcemousemod)) {
+	if (is_mousemode_event(e)) {
 		mousereport(e);
 		return;
 	}

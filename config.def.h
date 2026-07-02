@@ -434,15 +434,13 @@ static uint forcemousemod = ShiftMask;
  * Beware that overloading Button1 will disable the selection.
  */
 static MouseShortcut mshortcuts[] = {
-	/* mask                 button   function        argument       release  screen */
-	{ XK_ANY_MOD,           Button2, clippaste,      {.i = 0},      1 },
-	{ ShiftMask,            Button4, kscrollup,      {.i = 1},      0, S_PRI},
-	{ ShiftMask,            Button5, kscrolldown,    {.i = 1},      0, S_PRI},
-	{ XK_NO_MOD,            Button4, kscrollup,      {.i = 1},      0, S_PRI },
-	{ XK_NO_MOD,            Button5, kscrolldown,    {.i = 1},      0, S_PRI },
-	{ XK_ANY_MOD,           Button4, ttysend,        {.s = "\031"}, 0, S_ALT },
-	{ XK_ANY_MOD,           Button5, ttysend,        {.s = "\005"}, 0, S_ALT },
-	{ XK_ANY_MOD,           Button3, copylinktoclipboard, {0},      1 },
+	/* mask                 button   function             argument       release  screen  flags */
+	{ XK_ANY_MOD,           Button2, clippaste,           {.i = 0},      1 },
+	{ XK_ANY_MOD,           Button3, copylinktoclipboard, {.i = 0},      1 },
+	{ XK_ANY_MOD,           Button4, kscrollup,           {.i = 1},      0,       S_PRI,  MS_PASSTHROUGH },
+	{ XK_ANY_MOD,           Button5, kscrolldown,         {.i = 1},      0,       S_PRI,  MS_PASSTHROUGH },
+	{ XK_ANY_MOD,           Button4, ttysend,             {.s = "\031"}, 0,       S_ALT,  MS_PASSTHROUGH },
+	{ XK_ANY_MOD,           Button5, ttysend,             {.s = "\005"}, 0,       S_ALT,  MS_PASSTHROUGH },
 };
 
 /* Internal keyboard shortcuts. */
