@@ -808,26 +808,23 @@ execsh(char *cmd, char **args)
 void
 sigchld(int a)
 {
-	int stat, exitcode = 0;
+	int stat, olderrno = errno;
 	pid_t p;
 
-	while ((p = waitpid(-1, &stat, WNOHANG)) > 0) {
+	while ((p = waitpid(-1, &stat, WNOHANG)) > 0 || (p < 0 && errno == EINTR)) {
 		if (p == pid) {
-			if (WIFEXITED(stat) && WEXITSTATUS(stat)) {
-				fprintf(stderr, "child exited with status %d\n", WEXITSTATUS(stat));
-				exitcode = 1;
-			} else if (WIFSIGNALED(stat)) {
-				fprintf(stderr, "child terminated due to signal %d\n", WTERMSIG(stat));
-				exitcode = 1;
-			}
 			if (term.hold_at_exit) {
 				tsethold(TTYWRITE);
-				return;
+				continue;
 			}
 			close(csdfd);
-			_exit(exitcode);
+			if ((WIFEXITED(stat) && WEXITSTATUS(stat)) || WIFSIGNALED(stat))
+				_exit(1);
+			_exit(0);
 		}
 	}
+
+	errno = olderrno;
 }
 
 void
