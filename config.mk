@@ -33,7 +33,7 @@ INCS = -I$(X11INC) \
        `$(PKG_CONFIG) --cflags freetype2` \
        `$(PKG_CONFIG) --cflags imlib2` \
        $(LIGATURES_INC)
-LIBS = -L$(X11LIB) -lm -lX11 -lutil -lXft -lgd $(LIBRT) ${XRENDER} ${XCURSOR} ${PROCSTAT}\
+LIBS = -L$(X11LIB) -lm -lX11 -lutil -lXft $(LIBRT) ${XRENDER} ${XCURSOR} ${PROCSTAT}\
        `$(PKG_CONFIG) --libs fontconfig` \
        `$(PKG_CONFIG) --libs freetype2` \
        `$(PKG_CONFIG) --libs imlib2` \

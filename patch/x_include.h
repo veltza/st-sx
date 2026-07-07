@@ -8,4 +8,5 @@
 #include "fullscreen_x.h"
 #include "keyboardselect_st.h"
 #include "keyboardselect_x.h"
+#include "netwmicon.h"
 #include "xresources.h"

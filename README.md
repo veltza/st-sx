@@ -50,32 +50,32 @@ Branch drawing symbols are supported with built-in glyphs. (app/plugin: [vim-flo
 Arch:
 
 ```
-sudo pacman -S libx11 libxft imlib2 gd harfbuzz
+sudo pacman -S libx11 libxft imlib2 harfbuzz
 ```
 
 FreeBSD / DragonFly BSD:
 
 ```
-sudo pkg install pkgconf imlib2 libgd harfbuzz
+sudo pkg install pkgconf imlib2 harfbuzz
 ```
 
 GhostBSD:
 
 ```
-sudo pkg install pkgconf imlib2 libgd harfbuzz
+sudo pkg install pkgconf imlib2 harfbuzz
 sudo pkg install -g 'GhostBSD*-dev'
 ```
 
 OpenBSD:
 
 ```
-doas pkg_add imlib2 gd harfbuzz
+doas pkg_add imlib2 harfbuzz
 ```
 
 Ubuntu / Debian:
 
 ```
-sudo apt install libx11-xcb-dev libxft-dev libimlib2-dev libgd-dev libharfbuzz-dev libpcre2-dev
+sudo apt install libx11-xcb-dev libxft-dev libimlib2-dev libharfbuzz-dev libpcre2-dev
 ```
 
 You don't have to install `libharfbuzz-dev`, if you don't use ligatures. Edit config.h and config.mk to disable ligatures.
