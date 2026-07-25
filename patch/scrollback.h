@@ -21,12 +21,3 @@ void kscrolldown(const Arg *);
 void kscrollup(const Arg *);
 void increasehistorysize(int, int);
 void sethistorylimit(int);
-
-typedef struct {
-	 uint b;
-	 uint mask;
-	 void (*func)(const Arg *);
-	 const Arg arg;
-} MouseKey;
-
-extern MouseKey mkeys[];
