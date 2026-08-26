@@ -195,6 +195,7 @@ struct {
 	int reverse;
 	int frame;
 	int frames;
+	int frameratio;
 	double frametime;
 	double timeout;
 	struct timespec firstbell;
@@ -370,12 +371,12 @@ lerpvisualbellcolor(Color *col, Color *result)
 {
 	XRenderColor tmp;
 	Color *bell = &dc.col[visualbellcolor];
-	int frame = visualbell.frame, frames = visualbell.frames;
+	int t = visualbell.frameratio;
 
-	tmp.red =   ILERP(bell->color.red,   col->color.red,   frame, frames);
-	tmp.green = ILERP(bell->color.green, col->color.green, frame, frames);
-	tmp.blue =  ILERP(bell->color.blue,  col->color.blue,  frame, frames);
-	tmp.alpha = ILERP(bell->color.alpha, col->color.alpha, frame, frames);
+	tmp.red =   LERP16(bell->color.red,   col->color.red,   t);
+	tmp.green = LERP16(bell->color.green, col->color.green, t);
+	tmp.blue =  LERP16(bell->color.blue,  col->color.blue,  t);
+	tmp.alpha = LERP16(bell->color.alpha, col->color.alpha, t);
 	XftColorAllocValue(xw.dpy, xw.vis, xw.cmap, &tmp, result);
 }
 
@@ -2786,8 +2787,8 @@ xbell(void)
 		visualbell.lastbell = visualbell.firstbell;
 		visualbell.timeout = 0;
 		if (visualbellstyle == VISUALBELL_COLOR && visualbellanimfps) {
-			visualbell.frames = MAX((visualbellduration * visualbellanimfps + 500) / 1000, 1);
-			visualbell.frametime = 1000.0 / visualbellanimfps;
+			visualbell.frames = (visualbellduration * visualbellanimfps + 500) / 1000;
+			visualbell.frametime = MIN(1000.0 / visualbellanimfps, visualbellduration);
 			visualbell.active = 1;
 		} else {
 			visualbell.frames = 1;
@@ -2800,6 +2801,8 @@ xbell(void)
 				tfulldirt();
 			}
 		}
+		visualbell.frameratio = 0;
+		LIMIT(visualbell.frames, 1, 1000);
 	}
 }
 
@@ -3155,6 +3158,7 @@ run(void)
 
 		if (visualbell.active && visualbell.timeout <= TIMEDIFF(now, visualbell.lastbell)) {
 			visualbell.frame = TIMEDIFF(now, visualbell.firstbell) / visualbell.frametime;
+			visualbell.frameratio = (visualbell.frame << 14) / visualbell.frames;
 			if (visualbell.frame >= visualbell.frames)
 				visualbell.active = 0;
 			if (visualbellstyle == VISUALBELL_INVERT) {

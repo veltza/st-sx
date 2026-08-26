@@ -29,8 +29,8 @@
 #define TRUECOLOR(r,g,b)	(1 << 24 | (r) << 16 | (g) << 8 | (b))
 #define IS_TRUECOL(x)		(1 << 24 & (x))
 
-/* linear interpolation for integers */
-#define ILERP(a, b, t, s) ((a) + ((b) - (a)) * (t) / (s))
+/* linear interpolation for short integers where t is between 0 and 16384 */
+#define LERP16(a, b, t) ((a) + ((((b) - (a)) * (t)) >> 14))
 
 #define UNDERLINE_COLOR_BITS     (2 + 24)
 #define UNDERLINE_COLOR_MASK     ((1 << UNDERLINE_COLOR_BITS) - 1)
