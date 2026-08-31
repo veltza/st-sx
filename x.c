@@ -2168,8 +2168,8 @@ void
 xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Line oline)
 {
 	Color drawcol;
-	XRenderColor colbg;
-	uint32_t tmpcol;
+	XRenderColor colfg;
+	uint32_t drawfg;
 	static int oldcursor;
 	int blink = IS_SET(MODE_CURSORBLINK);
 	int hidden = IS_SET(MODE_HIDE) && !IS_SET(MODE_KBDSELECT);
@@ -2197,11 +2197,11 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Line oline)
 	/*
 	 * Select the right color for the right mode.
 	 */
-	g.mode &= ATTR_BOLD|ATTR_ITALIC|ATTR_UNDERLINE|ATTR_STRUCK|ATTR_WIDE|ATTR_BOXDRAW|ATTR_HIGHLIGHT|ATTR_REVERSE;
+	g.mode &= ATTR_BOLD|ATTR_FAINT|ATTR_ITALIC|ATTR_UNDERLINE|ATTR_STRUCK|ATTR_WIDE|ATTR_BOXDRAW|ATTR_HIGHLIGHT|ATTR_REVERSE;
 
 	if (IS_SET(MODE_REVERSE)) {
 		g.mode |= ATTR_REVERSE;
-		g.mode &= ~ATTR_HIGHLIGHT;
+		g.mode &= ~(ATTR_FAINT | ATTR_HIGHLIGHT);
 		g.bg = defaultfg;
 		if (selected(cx, cy)) {
 			drawcol = dc.col[defaultcs];
@@ -2213,30 +2213,37 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Line oline)
 	} else {
 		if (dynamic_cursor_color) {
 			if (selected(cx, cy)) {
-				g.mode &= ~(ATTR_REVERSE | ATTR_HIGHLIGHT);
+				g.mode &= ~(ATTR_FAINT | ATTR_REVERSE | ATTR_HIGHLIGHT);
 				g.fg = defaultfg;
 				g.bg = defaultrcs;
 				drawcol = dc.col[g.bg];
 			} else {
-				g.mode ^= (g.mode & ATTR_HIGHLIGHT) ? ATTR_REVERSE : 0;
-				tmpcol = g.bg;
-				g.bg = g.fg;
-				g.fg = tmpcol;
-				if (g.mode & ATTR_HIGHLIGHT)
-					tmpcol = (g.mode & ATTR_REVERSE) ? highlightfg : highlightbg;
-				else
-					tmpcol = (g.mode & ATTR_REVERSE) ? g.fg : g.bg;
-				if (IS_TRUECOL(tmpcol)) {
-					colbg.alpha = 0xffff;
-					colbg.red = TRUERED(tmpcol);
-					colbg.green = TRUEGREEN(tmpcol);
-					colbg.blue = TRUEBLUE(tmpcol);
-					XftColorAllocValue(xw.dpy, xw.vis, xw.cmap, &colbg, &drawcol);
-				} else
-					drawcol = dc.col[tmpcol];
+				if (g.mode & ATTR_HIGHLIGHT) {
+					g.mode &= ~ATTR_FAINT;
+					drawfg = (g.mode & ATTR_REVERSE) ? highlightbg : highlightfg;
+				} else {
+					drawfg = (g.mode & ATTR_REVERSE) ? g.bg : g.fg;
+				}
+				if (IS_TRUECOL(drawfg)) {
+					colfg.alpha = 0xffff;
+					colfg.red = TRUERED(drawfg);
+					colfg.green = TRUEGREEN(drawfg);
+					colfg.blue = TRUEBLUE(drawfg);
+					XftColorAllocValue(xw.dpy, xw.vis, xw.cmap, &colfg, &drawcol);
+				} else {
+					drawcol = dc.col[drawfg];
+				}
+				if ((g.mode & (ATTR_BOLD_FAINT | ATTR_REVERSE)) == ATTR_FAINT) {
+					colfg.alpha = drawcol.color.alpha;
+					colfg.red = drawcol.color.red / 2;
+					colfg.green = drawcol.color.green / 2;
+					colfg.blue = drawcol.color.blue / 2;
+					XftColorAllocValue(xw.dpy, xw.vis, xw.cmap, &colfg, &drawcol);
+				}
+				g.mode ^= ATTR_REVERSE;
 			}
 		} else {
-			g.mode &= ~(ATTR_REVERSE | ATTR_HIGHLIGHT);
+			g.mode &= ~(ATTR_FAINT | ATTR_REVERSE | ATTR_HIGHLIGHT);
 			if (selected(cx, cy)) {
 				g.fg = defaultfg;
 				g.bg = defaultrcs;
