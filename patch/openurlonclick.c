@@ -114,9 +114,9 @@ detecthyperlink(int col, int row, int draw)
 {
 	Line line;
 	int x, y, y1 = row, y2 = row;
-	Hyperlinks *links = term.hyperlinks;
 	int hlink = TLINE(row)[col].hlink;
-	char *url = (hlink < links->capacity) ? links->items[hlink].url : NULL;
+	Hyperlinks *links = term.hyperlinks;
+	char *url = links ? links->items[hlink].url : NULL;
 
 	if (!draw || !url)
 		return url;

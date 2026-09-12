@@ -9,6 +9,5 @@
 #include "keyboardselect_x.c"
 #include "netwmicon.c"
 #include "openurlonclick.c"
-#include "osc8_x.c"
 #include "undercurl.c"
 #include "xresources.c"

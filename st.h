@@ -418,6 +418,9 @@ extern unsigned int defaultbg;
 extern unsigned int defaultcs;
 extern unsigned int kbselectfg;
 extern unsigned int kbselectbg;
+extern unsigned int disablehyperlinks;
+extern unsigned int hyperlinkcache_pri;
+extern unsigned int hyperlinkcache_alt;
 
 extern int boxdraw, boxdraw_bold, boxdraw_braille;
 extern float alpha;
@@ -428,5 +431,4 @@ extern XWindow xw;
 extern XSelection xsel;
 extern TermWindow win;
 extern Term term;
-extern unsigned int disablehyperlinks;
 extern int undercurl_style;

@@ -2649,7 +2649,7 @@ strhandle(void)
 			osc7parsecwd((const char *)strescseq.args[1]);
 			return;
 		case 8: /* hyperlink */
-			if (!disablehyperlinks && term.hyperlinks->capacity > 0)
+			if (!disablehyperlinks)
 				parsehyperlink(narg-1, strescseq.args[1], strescseq.args[2]);
 			return;
 		case 10: /* set dynamic VT100 text foreground color */

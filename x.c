@@ -3311,7 +3311,6 @@ run:
 		fprintf(stderr, "Can't change to working directory %s\n", opt_dir);
 	if (opt_fullscreen)
 		fullscreen(&((Arg) { .i = 0 }));
-	inithyperlinks();
 	run();
 
 	return 0;

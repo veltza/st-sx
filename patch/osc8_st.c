@@ -1,5 +1,43 @@
 #define EMPTY 65535
 
+static void
+allocatehyperlinkcaches(void)
+{
+	int i, alt, size;
+	Hyperlinks *tmp;
+	HyperlinkHT *hashtable;
+
+	if (term.hyperlinks)
+		return;
+
+	alt = IS_SET(MODE_ALTSCREEN);
+
+	for (i = 0; i < 2; i++, alt = !alt) {
+		term.hyperlinks = xmalloc(sizeof(Hyperlinks));
+		memset(term.hyperlinks, 0, sizeof(Hyperlinks));
+
+		term.hyperlinks->capacity = alt ? hyperlinkcache_alt : hyperlinkcache_pri;
+		LIMIT(term.hyperlinks->capacity, 0, 65535);
+
+		if (term.hyperlinks->capacity > 0) {
+			/* items */
+			size = term.hyperlinks->capacity * sizeof(*term.hyperlinks->items);
+			term.hyperlinks->items = xmalloc(size);
+			memset(term.hyperlinks->items, 0, size);
+			/* hashtable */
+			hashtable = &term.hyperlinks->hashtable;
+			hashtable->capacity = term.hyperlinks->capacity;
+			size = hashtable->capacity * sizeof(*hashtable->buckets);
+			hashtable->buckets = xmalloc(size);
+			memset(hashtable->buckets, -1, size);
+		}
+
+		tmp = term.hyperlinks;
+		term.hyperlinks = term.hyperlinks_alt;
+		term.hyperlinks_alt = tmp;
+	}
+}
+
 /* djb2 hash function */
 static ushort
 hash(const char *str)
@@ -59,6 +97,7 @@ deletehyperlink(ushort hlink)
 		}
 	}
 
+	/* Deallocate both id and url with the same free() call */
 	free(links->items[hlink].id);
 	links->items[hlink].id = NULL;
 	links->items[hlink].url = NULL;
@@ -156,6 +195,9 @@ deletehyperlinks(int checkscreen)
 	int x, y;
 	Line line;
 
+	if (!term.hyperlinks || term.hyperlinks->count <= 0)
+		return;
+
 	if (checkscreen) {
 		for (y = (IS_SET(MODE_ALTSCREEN) ? 0 : -term.histf); y < term.row; y++) {
 			line = TLINEABS(y);
@@ -178,7 +220,7 @@ parsehyperlink(int narg, char *param, char *url)
 	char *id;
 	int i, dist, len;
 	ushort hlink;
-	Hyperlinks *links = term.hyperlinks;
+	Hyperlinks *links;
 	const size_t max_id = 255;
 	const size_t max_url = 2084;
 
@@ -187,6 +229,12 @@ parsehyperlink(int narg, char *param, char *url)
 
 	/* Exit if this is the closing sequence */
 	if (narg < 2 || url[0] == '\0')
+		return;
+
+	allocatehyperlinkcaches();
+
+	links = term.hyperlinks;
+	if (links->capacity == 0)
 		return;
 
 	if (strlen(url) > max_url) {
