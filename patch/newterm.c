@@ -15,6 +15,7 @@ newterm(const Arg* a)
 		die("fork failed: %s\n", strerror(errno));
 		break;
 	case 0:
+		setsid();
 		switch (fork()) {
 		case -1:
 			fprintf(stderr, "fork failed: %s\n", strerror(errno));
@@ -41,7 +42,6 @@ newterm(const Arg* a)
 			#endif
 			}
 			/* Try to re-execute the current st binary, or st from the PATH */
-			setsid();
 			exec_current_exe();
 			execlp("st", "st", NULL);
 			_exit(1);

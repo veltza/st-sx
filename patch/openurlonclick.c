@@ -382,13 +382,13 @@ openUrlOnClick(int col, int row, char* url_opener)
 		fprintf(stderr, "fork failed: %s\n", strerror(errno));
 		break;
 	case 0:
+		setsid();
 		switch (fork()) {
 		case -1:
 			fprintf(stderr, "fork failed: %s\n", strerror(errno));
 			_exit(1);
 			break;
 		case 0:
-			setsid();
 			execvp(argv[0], argv);
 			_exit(1);
 			break;
