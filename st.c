@@ -907,6 +907,7 @@ ttynew(const char *line, char *cmd, const char *out, char **args)
 			die("pledge\n");
 #endif
 		fcntl(m, F_SETFD, FD_CLOEXEC);
+		fcntl(s, F_SETFD, FD_CLOEXEC);
 		csdfd = s;
 		cmdfd = m;
 		memset(&sa, 0, sizeof(sa));
