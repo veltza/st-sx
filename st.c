@@ -3975,9 +3975,9 @@ draw(void)
 	/* adjust cursor position */
 	LIMIT(term.ocx, 0, term.col-1);
 	LIMIT(term.ocy, 0, term.row-1);
-	if (term.line[term.ocy][term.ocx].mode & ATTR_WDUMMY)
+	if (term.ocx > 0 && (term.line[term.ocy][term.ocx].mode & ATTR_WDUMMY))
 		term.ocx--;
-	if (term.line[term.c.y][cx].mode & ATTR_WDUMMY)
+	if (cx > 0 && (term.line[term.c.y][cx].mode & ATTR_WDUMMY))
 		cx--;
 
 	if (!kbds_drawcursor()) {
